@@ -680,6 +680,51 @@
   window.addEventListener("hashchange", applyRoute);
   applyRoute();
 
+  /** Smooth scroll-linked background: eases --bg-scroll / --scroll-progress for parallax + vignette (CSS). */
+  (function initScrollBackground() {
+    const root = document.documentElement;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let smooth = window.scrollY || 0;
+    let rafId = 0;
+
+    function applyY(y) {
+      const max = Math.max(1, root.scrollHeight - window.innerHeight);
+      const p = Math.min(1, Math.max(0, y / max));
+      root.style.setProperty("--bg-scroll", `${y}px`);
+      root.style.setProperty("--scroll-progress", String(p));
+    }
+
+    function step() {
+      const target = window.scrollY || 0;
+      if (reduced.matches) {
+        smooth = target;
+        applyY(smooth);
+        rafId = 0;
+        return;
+      }
+      smooth += (target - smooth) * 0.14;
+      applyY(smooth);
+      if (Math.abs(target - smooth) > 0.4) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        smooth = target;
+        applyY(smooth);
+        rafId = 0;
+      }
+    }
+
+    function onScroll() {
+      if (reduced.matches) {
+        applyY(window.scrollY || 0);
+        return;
+      }
+      if (!rafId) rafId = requestAnimationFrame(step);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    applyY(window.scrollY || 0);
+  })();
+
   load().catch((e) => {
     const errEl = document.getElementById("load-error");
     if (errEl) {

@@ -26,6 +26,10 @@
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--navy-deep);
+  /* Smoothed scroll-driven background (updated in app.js) */
+  --bg-scroll: 0px;
+  --scroll-progress: 0;
 }
 
 body {
@@ -34,8 +38,55 @@ body {
   font-size: 1rem;
   line-height: 1.55;
   color: var(--text);
-  background: var(--navy-deep);
+  background-color: transparent;
   min-height: 100vh;
+  position: relative;
+}
+
+/* Soft parallax atmosphere — shifts gently while scrolling */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -30vh -12%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 110% 85% at 50% 12%, rgba(139, 30, 30, 0.32) 0%, transparent 58%),
+    radial-gradient(ellipse 75% 65% at 88% 48%, rgba(255, 159, 28, 0.09) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 60% at 8% 72%, rgba(36, 48, 56, 0.45) 0%, transparent 48%),
+    linear-gradient(172deg, var(--navy-deep) 0%, #0b1013 38%, var(--navy) 72%, #080b0d 100%);
+  transform: translate3d(0, calc(var(--bg-scroll) * -0.1), 0) scale(1.06);
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+
+/* Vignette tightens slightly as you move down the page */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 130% 120% at 50% 45%,
+    transparent 32%,
+    rgba(5, 7, 9, calc(0.42 + var(--scroll-progress) * 0.38)) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  body::before {
+    transform: none;
+    will-change: auto;
+  }
+
+  body::after {
+    background: radial-gradient(ellipse 130% 120% at 50% 45%, transparent 32%, rgba(5, 7, 9, 0.55) 100%);
+  }
 }
 
 /* Film grain / print texture */
@@ -317,7 +368,11 @@ a:hover {
 }
 
 .section-alt {
-  background: linear-gradient(180deg, rgba(36, 48, 56, 0.5) 0%, rgba(15, 20, 24, 0.9) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(36, 48, 56, calc(0.42 + var(--scroll-progress) * 0.08)) 0%,
+    rgba(15, 20, 24, calc(0.82 + var(--scroll-progress) * 0.1)) 100%
+  );
   border-block: 1px solid var(--panel-edge);
 }
 
