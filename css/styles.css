@@ -468,6 +468,25 @@ a:hover {
   max-width: 26rem;
 }
 
+.event-unlock-panel {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.event-form-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.event-form-fieldset:disabled .event-add-label,
+.event-form-fieldset:disabled .event-add-submit {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 @media (max-width: 520px) {
   .cal-cell {
     min-height: 4.25rem;

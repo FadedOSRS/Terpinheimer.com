@@ -542,6 +542,23 @@
     document.title = "Terpinheimer | OSRS Clan";
   }
 
+  function applyEventFormUnlocked(unlocked) {
+    const fs = document.getElementById("event-form-fieldset");
+    const panel = document.getElementById("event-unlock-panel");
+    if (fs) fs.disabled = !unlocked;
+    if (panel) panel.hidden = !!unlocked;
+  }
+
+  async function refreshEventUnlockState() {
+    try {
+      const r = await fetch("/api/event-session", { credentials: "same-origin" });
+      const j = await r.json().catch(() => ({}));
+      applyEventFormUnlocked(!!j.unlocked);
+    } catch {
+      applyEventFormUnlocked(false);
+    }
+  }
+
   function showEventsCalendarView() {
     closeMobileNav();
     const hv = document.getElementById("home-view");
@@ -555,6 +572,7 @@
     window.scrollTo(0, 0);
     document.title = "Events | Terpinheimer";
     renderCalendarIfVisible();
+    void refreshEventUnlockState();
   }
 
   function memberLetterBucket(displayName) {
@@ -1161,6 +1179,55 @@
     renderCalendarIfVisible();
   });
 
+  document.getElementById("event-unlock-btn")?.addEventListener("click", async () => {
+    const inp = document.getElementById("event-unlock-code");
+    const st = document.getElementById("event-unlock-status");
+    const code = String(inp?.value || "").trim();
+    if (!code) {
+      if (st) {
+        st.textContent = "Enter the code.";
+        st.classList.add("load-error");
+        st.classList.remove("muted");
+      }
+      return;
+    }
+    if (st) {
+      st.textContent = "";
+      st.classList.remove("load-error");
+      st.classList.add("muted");
+    }
+    try {
+      const r = await fetch("/api/event-session", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: code }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (st) {
+          st.textContent = j.error || "Invalid code.";
+          st.classList.add("load-error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (inp) inp.value = "";
+      if (st) {
+        st.textContent = "Unlocked — you can add events for this browser session.";
+        st.classList.remove("load-error");
+        st.classList.add("muted");
+      }
+      applyEventFormUnlocked(true);
+    } catch {
+      if (st) {
+        st.textContent = "Could not reach the server.";
+        st.classList.add("load-error");
+        st.classList.remove("muted");
+      }
+    }
+  });
+
   document.getElementById("event-add-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -1190,7 +1257,6 @@
     }
 
     const payload = {
-      secret: String(fd.get("secret") || ""),
       title,
       startsAt: new Date(startMs).toISOString(),
       endsAt: new Date(endMs).toISOString(),
@@ -1201,6 +1267,7 @@
     try {
       const r = await fetch("/api/custom-events", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });

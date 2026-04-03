@@ -35,6 +35,121 @@ loadDotEnv();
 
 const CUSTOM_EVENTS_PATH = path.join(__dirname, "_data", "custom-events.json");
 const MAX_BODY = 32768;
+const EVENT_SESSION_COOKIE = "th_ev";
+const EVENT_SESSION_DAYS = 7;
+
+function getCookieHeader(req, name) {
+  const raw = req.headers.cookie;
+  if (!raw || typeof raw !== "string") return "";
+  const parts = raw.split(";").map((s) => s.trim());
+  const prefix = `${name}=`;
+  const hit = parts.find((x) => x.startsWith(prefix));
+  if (!hit) return "";
+  try {
+    return decodeURIComponent(hit.slice(prefix.length));
+  } catch {
+    return hit.slice(prefix.length);
+  }
+}
+
+function buildEventSessionToken(masterSecret) {
+  const exp = Date.now() + EVENT_SESSION_DAYS * 86400000;
+  const payload = String(exp);
+  const sig = crypto.createHmac("sha256", masterSecret).update(payload).digest("hex");
+  return `${payload}.${sig}`;
+}
+
+function verifyEventSessionToken(token, masterSecret) {
+  if (!token || typeof token !== "string") return false;
+  const i = token.indexOf(".");
+  if (i <= 0) return false;
+  const exp = token.slice(0, i);
+  const sig = token.slice(i + 1);
+  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{64}$/i.test(sig)) return false;
+  if (Date.now() > Number(exp)) return false;
+  const expected = crypto.createHmac("sha256", masterSecret).update(exp).digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+function cookieSecureDirective(req) {
+  const x = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  return x === "https" ? "; Secure" : "";
+}
+
+async function readRequestBody(req, maxLen) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxLen) return { error: "too_large" };
+    chunks.push(chunk);
+  }
+  return { buf: Buffer.concat(chunks) };
+}
+
+async function handleEventSessionApi(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204).end();
+    return;
+  }
+
+  const secret = process.env.CLAN_EVENTS_SECRET;
+  if (!secret || secret.length < 6) {
+    res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "CLAN_EVENTS_SECRET not configured (min 6 characters)." }));
+    return;
+  }
+
+  if (req.method === "GET") {
+    const tok = getCookieHeader(req, EVENT_SESSION_COOKIE);
+    const unlocked = verifyEventSessionToken(tok, secret);
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ unlocked }));
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  const read = await readRequestBody(req, 4096);
+  if (read.error) {
+    res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Body too large" }));
+    return;
+  }
+
+  const body = parseJsonBody(read.buf);
+  const submitted = typeof body?.secret === "string" ? body.secret : "";
+  if (!timingSafeEqualString(submitted, secret)) {
+    res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid code" }));
+    return;
+  }
+
+  const token = buildEventSessionToken(secret);
+  const maxAge = EVENT_SESSION_DAYS * 86400;
+  const secure = cookieSecureDirective(req);
+  const cookieLine = `${EVENT_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+
+  res.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Set-Cookie": cookieLine,
+  });
+  res.end(JSON.stringify({ ok: true, unlocked: true }));
+}
 
 function isPrivateDataPath(urlPathname) {
   const rel = decodeURIComponent(urlPathname.split("?")[0])
@@ -176,39 +291,41 @@ async function handleCustomEventsApi(req, res) {
   }
 
   const secret = process.env.CLAN_EVENTS_SECRET;
-  if (!secret || secret.length < 12) {
+  if (!secret || secret.length < 6) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
       JSON.stringify({
-        error: "Event submissions are not configured (set CLAN_EVENTS_SECRET on the server).",
+        error: "Event submissions are not configured (set CLAN_EVENTS_SECRET on the server, min 6 characters).",
       })
     );
     return;
   }
 
-  const chunks = [];
-  let total = 0;
-  for await (const chunk of req) {
-    total += chunk.length;
-    if (total > MAX_BODY) {
-      res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: "Body too large" }));
-      return;
-    }
-    chunks.push(chunk);
+  const read = await readRequestBody(req, MAX_BODY);
+  if (read.error) {
+    res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Body too large" }));
+    return;
   }
 
-  const body = parseJsonBody(Buffer.concat(chunks));
+  const body = parseJsonBody(read.buf);
   if (!body || typeof body !== "object") {
     res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "Invalid JSON" }));
     return;
   }
 
+  const cookieTok = getCookieHeader(req, EVENT_SESSION_COOKIE);
+  const sessionOk = verifyEventSessionToken(cookieTok, secret);
   const submitted = typeof body.secret === "string" ? body.secret : "";
-  if (!timingSafeEqualString(submitted, secret)) {
+  const secretBodyOk = timingSafeEqualString(submitted, secret);
+  if (!sessionOk && !secretBodyOk) {
     res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: "Invalid code" }));
+    res.end(
+      JSON.stringify({
+        error: "Not authorized — unlock with organizer code on the Events page or send secret in JSON (e.g. bot).",
+      })
+    );
     return;
   }
 
@@ -428,6 +545,11 @@ http
   .createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://127.0.0.1:${PORT}`);
 
+    if (url.pathname === "/api/event-session") {
+      await handleEventSessionApi(req, res);
+      return;
+    }
+
     if (url.pathname === "/api/custom-events") {
       await handleCustomEventsApi(req, res);
       return;
@@ -496,8 +618,9 @@ http
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
+    console.log("GET/POST /api/event-session — browser unlock cookie for adding events");
     console.log(
-      "GET/POST /api/custom-events — clan calendar (POST needs CLAN_EVENTS_SECRET in .env or environment)"
+      "GET/POST /api/custom-events — clan calendar (POST: session cookie or JSON secret for bots)"
     );
     if (process.env.DISCORD_EVENTS_WEBHOOK_URL) {
       console.log("Discord: new clan events will be posted to DISCORD_EVENTS_WEBHOOK_URL");

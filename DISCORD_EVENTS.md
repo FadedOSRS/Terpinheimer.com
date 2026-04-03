@@ -52,6 +52,8 @@ Your bot runs **separate** from the Terpinheimer site. To add a calendar event f
 | `TERPINHEIMER_SITE_URL` | Public origin only, e.g. `https://terpinheimer.com` (no `/api`, no trailing slash) |
 | `TERPINHEIMER_EVENTS_SECRET` | Same value as **`CLAN_EVENTS_SECRET`** on the site server (never commit this; use `.env` + `dotenv`) |
 
+The **website** unlock flow uses an **HttpOnly cookie** after `POST /api/event-session`, so the browser does not need to send `secret` on `POST /api/custom-events`. **Bots and scripts** should keep sending JSON `{ "secret": "<CLAN_EVENTS_SECRET>", ... }` on `POST /api/custom-events` (no cookie required).
+
 ### Behavior choice
 
 - **A — Webhook announces everything:** Keep `DISCORD_EVENTS_WEBHOOK_URL` on the **site** server. When the bot `POST`s to `/api/custom-events`, the site saves the event **and** sends the webhook. Your bot command can reply with “Added” only — **do not** also `channel.send()` a full duplicate unless you want two messages.

@@ -120,7 +120,7 @@
           <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Events</span>
         </nav>
         <h1 class="section-title events-cal-heading">Clan calendar</h1>
-        <p class="muted events-cal-lead">Wise Old Man competitions and clan events you add with the organizer code.</p>
+        <p class="muted events-cal-lead">Wise Old Man competitions and clan events. Organizers unlock once with the leadership code (not stored in this page).</p>
 
         <div class="calendar-toolbar">
           <button type="button" class="btn btn-ghost cal-nav-btn" id="cal-prev" aria-label="Previous month">←</button>
@@ -140,33 +140,39 @@
 
         <details class="event-add-panel event-add-panel--page">
           <summary class="event-add-summary">Add clan event</summary>
-          <p class="muted event-add-lead">Requires the organizer code from leadership. Random visitors cannot post.</p>
+          <p class="muted event-add-lead">Enter the leadership code once to unlock. It is not kept in the page source; the site uses a private browser cookie.</p>
+          <div class="event-unlock-panel" id="event-unlock-panel">
+            <label class="event-add-label">
+              <span>Leadership code</span>
+              <input id="event-unlock-code" type="password" class="event-add-input" autocomplete="off" />
+            </label>
+            <button type="button" class="btn btn-primary" id="event-unlock-btn">Unlock</button>
+            <p id="event-unlock-status" class="event-add-status muted" role="status"></p>
+          </div>
           <form id="event-add-form" class="event-add-form">
-            <label class="event-add-label">
-              <span>Title</span>
-              <input name="title" type="text" required maxlength="180" class="event-add-input" autocomplete="off" />
-            </label>
-            <label class="event-add-label">
-              <span>Starts</span>
-              <input name="startsAt" type="datetime-local" required class="event-add-input" />
-            </label>
-            <label class="event-add-label">
-              <span>Ends</span>
-              <input name="endsAt" type="datetime-local" required class="event-add-input" />
-            </label>
-            <label class="event-add-label">
-              <span>Link <span class="muted">(optional)</span></span>
-              <input name="link" type="url" class="event-add-input" placeholder="https://…" />
-            </label>
-            <label class="event-add-label">
-              <span>Notes <span class="muted">(optional)</span></span>
-              <textarea name="notes" class="event-add-textarea" maxlength="800" rows="2"></textarea>
-            </label>
-            <label class="event-add-label">
-              <span>Organizer code</span>
-              <input name="secret" type="password" required class="event-add-input" autocomplete="off" />
-            </label>
-            <button type="submit" class="btn btn-primary event-add-submit">Add to calendar</button>
+            <fieldset class="event-form-fieldset" id="event-form-fieldset" disabled>
+              <label class="event-add-label">
+                <span>Title</span>
+                <input name="title" type="text" required maxlength="180" class="event-add-input" autocomplete="off" />
+              </label>
+              <label class="event-add-label">
+                <span>Starts</span>
+                <input name="startsAt" type="datetime-local" required class="event-add-input" />
+              </label>
+              <label class="event-add-label">
+                <span>Ends</span>
+                <input name="endsAt" type="datetime-local" required class="event-add-input" />
+              </label>
+              <label class="event-add-label">
+                <span>Link <span class="muted">(optional)</span></span>
+                <input name="link" type="url" class="event-add-input" placeholder="https://…" />
+              </label>
+              <label class="event-add-label">
+                <span>Notes <span class="muted">(optional)</span></span>
+                <textarea name="notes" class="event-add-textarea" maxlength="800" rows="2"></textarea>
+              </label>
+              <button type="submit" class="btn btn-primary event-add-submit">Add to calendar</button>
+            </fieldset>
             <p id="event-add-status" class="event-add-status muted" role="status" aria-live="polite"></p>
           </form>
         </details>
