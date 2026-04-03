@@ -16,6 +16,10 @@
   --font-body: "Source Sans 3", system-ui, sans-serif;
   --radius: 4px;
   --shadow-hard: 4px 4px 0 rgba(0, 0, 0, 0.35);
+  /* Page canvas — a touch lighter than pure black/navy-deep for less harsh contrast */
+  --bg-canvas: #151c24;
+  --bg-canvas-mid: #121920;
+  --bg-canvas-deep: #0f151c;
 }
 
 *,
@@ -26,7 +30,7 @@
 
 html {
   scroll-behavior: smooth;
-  background-color: var(--navy-deep);
+  background-color: var(--bg-canvas);
   /* Smoothed scroll-driven background (updated in app.js) */
   --bg-scroll: 0px;
   --scroll-progress: 0;
@@ -51,10 +55,10 @@ body::before {
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 110% 85% at 50% 12%, rgba(139, 30, 30, 0.32) 0%, transparent 58%),
-    radial-gradient(ellipse 75% 65% at 88% 48%, rgba(255, 159, 28, 0.09) 0%, transparent 52%),
-    radial-gradient(ellipse 70% 60% at 8% 72%, rgba(36, 48, 56, 0.45) 0%, transparent 48%),
-    linear-gradient(172deg, var(--navy-deep) 0%, #0b1013 38%, var(--navy) 72%, #080b0d 100%);
+    radial-gradient(ellipse 110% 85% at 50% 12%, rgba(139, 30, 30, 0.18) 0%, transparent 58%),
+    radial-gradient(ellipse 75% 65% at 88% 48%, rgba(255, 159, 28, 0.07) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 60% at 8% 72%, rgba(36, 48, 56, 0.28) 0%, transparent 48%),
+    linear-gradient(172deg, var(--bg-canvas) 0%, var(--bg-canvas-mid) 38%, var(--navy) 72%, var(--bg-canvas-deep) 100%);
   transform: translate3d(0, calc(var(--bg-scroll) * -0.1), 0) scale(1.06);
   transform-origin: 50% 0%;
   will-change: transform;
@@ -69,8 +73,8 @@ body::after {
   pointer-events: none;
   background: radial-gradient(
     ellipse 130% 120% at 50% 45%,
-    transparent 32%,
-    rgba(5, 7, 9, calc(0.42 + var(--scroll-progress) * 0.38)) 100%
+    transparent 38%,
+    rgba(16, 22, 28, calc(0.22 + var(--scroll-progress) * 0.2)) 100%
   );
 }
 
@@ -85,7 +89,7 @@ body::after {
   }
 
   body::after {
-    background: radial-gradient(ellipse 130% 120% at 50% 45%, transparent 32%, rgba(5, 7, 9, 0.55) 100%);
+    background: radial-gradient(ellipse 130% 120% at 50% 45%, transparent 38%, rgba(16, 22, 28, 0.38) 100%);
   }
 }
 
@@ -95,7 +99,7 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  opacity: 0.07;
+  opacity: 0.045;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -265,9 +269,9 @@ a:hover {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.35) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.12) 0%, transparent 45%),
-    linear-gradient(180deg, var(--navy-deep) 0%, var(--navy) 50%, #0a0e11 100%);
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.2) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.1) 0%, transparent 45%),
+    linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
 }
 
 .hero-bg::after {
@@ -281,7 +285,7 @@ a:hover {
     rgba(27, 38, 44, 0.25) 12px,
     rgba(27, 38, 44, 0.25) 13px
   );
-  opacity: 0.4;
+  opacity: 0.28;
 }
 
 .hero-content {
@@ -370,8 +374,8 @@ a:hover {
 .section-alt {
   background: linear-gradient(
     180deg,
-    rgba(36, 48, 56, calc(0.42 + var(--scroll-progress) * 0.08)) 0%,
-    rgba(15, 20, 24, calc(0.82 + var(--scroll-progress) * 0.1)) 100%
+    rgba(36, 48, 56, calc(0.38 + var(--scroll-progress) * 0.06)) 0%,
+    rgba(18, 24, 30, calc(0.62 + var(--scroll-progress) * 0.08)) 100%
   );
   border-block: 1px solid var(--panel-edge);
 }
