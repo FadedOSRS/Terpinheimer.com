@@ -1,0 +1,13 @@
+{
+  "name": "terpinheimer-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Terpinheimer OSRS clan site (Wise Old Man + RuneProfile)",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node dev-server.mjs"
+  }
+}

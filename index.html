@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terpinheimer | OSRS Clan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#/" class="brand">
+        <img src="assets/terpinheimer-logo.png" alt="Terpinheimer" class="brand-logo" width="48" height="48" />
+        <span class="brand-text">Terpinheimer</span>
+      </a>
+      <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false"></button>
+      <nav class="nav" aria-label="Main">
+        <a href="#/">Home</a>
+        <a href="#/hiscores">Hiscores</a>
+        <a href="#/events">Events</a>
+        <a href="https://discord.gg/" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app">
+    <p id="load-error" class="load-error" hidden></p>
+
+    <div id="member-view" class="member-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span id="member-crumb-name">Member</span>
+        </nav>
+        <p id="member-error" class="load-error member-error" hidden></p>
+
+        <header class="member-header">
+          <div class="member-title-block">
+            <h1 class="member-name" id="member-name">…</h1>
+            <p class="member-meta muted" id="member-meta"></p>
+          </div>
+          <div class="member-actions">
+            <a id="member-rp-link" href="https://www.runeprofile.com/" class="btn btn-primary" target="_blank" rel="noopener">RuneProfile</a>
+            <a href="#/hiscores" class="btn btn-ghost">Clan hiscores</a>
+          </div>
+        </header>
+
+        <div class="member-clan-panel" id="member-clan-panel" hidden>
+          <h2 class="member-section-title">Clan</h2>
+          <p id="member-clan-body" class="member-clan-body"></p>
+        </div>
+
+        <div class="member-grid">
+          <section class="member-panel member-skills-panel">
+            <h2 class="member-section-title">Skills</h2>
+            <div class="member-skills" id="member-skills"></div>
+            <p class="muted member-total" id="member-total-level"></p>
+          </section>
+          <section class="member-panel">
+            <h2 class="member-section-title">Quests</h2>
+            <p class="member-qp" id="member-qp"></p>
+            <h2 class="member-section-title member-mt">Achievement diaries</h2>
+            <div class="table-wrap member-mini-table">
+              <table class="hiscore-table member-diary-table" id="member-diaries"></table>
+            </div>
+            <h2 class="member-section-title member-mt">Combat achievements</h2>
+            <ul class="member-ca-list" id="member-combat"></ul>
+          </section>
+        </div>
+
+        <section class="member-panel member-wide">
+          <h2 class="member-section-title">Latest activity</h2>
+          <ul class="activity-log" id="member-recent"></ul>
+        </section>
+
+        <section class="member-panel member-wide">
+          <h2 class="member-section-title">Collection log (recent)</h2>
+          <ul class="activity-log" id="member-items"></ul>
+        </section>
+
+        <p class="muted member-source">Profile data from <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a> (RuneLite plugin). Player must sync their profile for data to appear.</p>
+      </div>
+    </div>
+
+    <div id="home-view">
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-content">
+        <img src="assets/terpinheimer-logo.png" alt="" class="hero-logo" width="180" height="180" />
+        <h1 class="hero-title">Terpinheimer</h1>
+        <p class="hero-tagline" id="hero-tagline">Loading clan info…</p>
+        <a href="https://discord.gg/" class="btn btn-primary" data-discord-link target="_blank" rel="noopener">Join Now</a>
+      </div>
+    </section>
+
+    <section class="section section-welcome">
+      <div class="container">
+        <h2 class="section-title">Welcome to Terpinheimer</h2>
+        <hr class="rule" />
+        <p class="lead" id="welcome-lead">Loading…</p>
+      </div>
+    </section>
+
+    <section class="section section-stats">
+      <div class="container stats-grid">
+        <article class="stat-card">
+          <span class="stat-label">Members</span>
+          <span class="stat-value" data-stat="members">—</span>
+        </article>
+        <article class="stat-card" title="Players with a Wise Old Man update in the last 7 days">
+          <span class="stat-label">Active on WOM (7d)</span>
+          <span class="stat-value" data-stat="online">—</span>
+        </article>
+        <article class="stat-card" title="Sum of overall XP gained by group members this month (Wise Old Man)">
+          <span class="stat-label">Clan XP (30d)</span>
+          <span class="stat-value" data-stat="xp">—</span>
+        </article>
+        <article class="stat-card" title="Sum of EHB gained this month (bossing pace, Wise Old Man)">
+          <span class="stat-label">EHB gained (30d)</span>
+          <span class="stat-value" data-stat="bosses">—</span>
+        </article>
+        <article class="stat-card" title="Sum of all clue completions gained this month">
+          <span class="stat-label">Clues (30d)</span>
+          <span class="stat-value" data-stat="clues">—</span>
+        </article>
+        <article class="stat-card" title="Sum of collection log slots gained this month">
+          <span class="stat-label">Collections (30d)</span>
+          <span class="stat-value" data-stat="collections">—</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="leaderboards">
+      <div class="container two-col">
+        <div id="month">
+          <h2 class="section-title">Top Players This Month</h2>
+          <p class="section-note muted">Overall XP gained · Wise Old Man</p>
+          <hr class="rule" />
+          <ol class="player-list" id="top-month"></ol>
+        </div>
+        <div id="hiscores">
+          <h2 class="section-title">Top Players Overall</h2>
+          <p class="section-note muted">Total level & XP · Wise Old Man</p>
+          <hr class="rule" />
+          <div class="table-wrap">
+            <table class="hiscore-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player Name</th>
+                  <th>Type</th>
+                  <th>Level</th>
+                  <th>XP</th>
+                </tr>
+              </thead>
+              <tbody id="top-overall"></tbody>
+            </table>
+          </div>
+          <a href="https://wiseoldman.net/groups/23745" class="link-more" target="_blank" rel="noopener">View on Wise Old Man</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="events">
+      <div class="container three-col">
+        <div>
+          <h2 class="section-title">Upcoming Events</h2>
+          <hr class="rule" />
+          <ul class="event-list" id="event-items"></ul>
+        </div>
+        <div>
+          <h2 class="section-title">Live Activity Log</h2>
+          <hr class="rule" />
+          <ul class="activity-log" id="activity"></ul>
+        </div>
+        <div>
+          <h2 class="section-title">Recent Achievements</h2>
+          <hr class="rule" />
+          <ul class="achievement-list" id="achievements"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container two-col">
+        <div>
+          <h2 class="section-title">Our Members</h2>
+          <hr class="rule" />
+          <p class="muted">Roster from <a href="https://wiseoldman.net/groups/23745" class="wom-link" target="_blank" rel="noopener">Wise Old Man</a> (group members).</p>
+          <ul class="tag-cloud" id="members"></ul>
+        </div>
+        <div>
+          <h2 class="section-title">Recently updated</h2>
+          <p class="section-note muted">Last WOM snapshot / hiscore update</p>
+          <hr class="rule" />
+          <ul class="online-list" id="online-members"></ul>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Terpinheimer</span>
+      <span class="muted">Player data from <a href="https://wiseoldman.net/groups/23745" class="wom-link" target="_blank" rel="noopener">Wise Old Man</a>. Not affiliated with Jagex.</span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

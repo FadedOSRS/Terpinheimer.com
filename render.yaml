@@ -1,0 +1,8 @@
+# Optional: Render Blueprint — New Blueprint → connect this repo
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: terpinheimer-site
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start

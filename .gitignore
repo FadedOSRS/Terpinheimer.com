@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Local env (if you add secrets later)
+.env
+.env.*
+!.env.example
+
+# Logs & debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OneDrive / sync noise
+~$*
