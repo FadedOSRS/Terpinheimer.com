@@ -634,21 +634,6 @@
       ach.innerHTML = rows.length ? rows.join("") : "<li>No recent achievements logged.</li>";
     }
 
-    const mem = document.getElementById("members");
-    if (mem) {
-      const sorted = [...memberships].sort((a, b) =>
-        (a.player?.displayName || "").localeCompare(b.player?.displayName || "", undefined, { sensitivity: "base" })
-      );
-      mem.innerHTML = sorted
-        .map((m) => {
-          const p = m.player;
-          const name = p?.displayName || p?.username || "?";
-          const u = p?.username ? memberProfileHref(p.username) : "#/";
-          return `<li><a href="${u}">${escHtml(name)}</a></li>`;
-        })
-        .join("");
-    }
-
     const onl = document.getElementById("online-members");
     if (onl) {
       const sorted = [...memberships]
