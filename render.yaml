@@ -1,5 +1,11 @@
 # Optional: Render Blueprint — New Blueprint → connect this repo
 # https://render.com/docs/blueprint-spec
+#
+# For “Add clan event” on the site, set CLAN_EVENTS_SECRET in the Render dashboard
+# (Environment) to a long random string (12+ chars). Same value is the code you give organizers.
+#
+# Optional: DISCORD_EVENTS_WEBHOOK_URL (Incoming Webhook URL) posts new events to Discord.
+# Optional: PUBLIC_SITE_URL for calendar link in the embed. See DISCORD_EVENTS.md.
 services:
   - type: web
     name: terpinheimer-site

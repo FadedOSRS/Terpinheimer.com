@@ -1,10 +1,281 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 5173;
+
+/** Load `.env` if present (no extra dependency). Does not override existing `process.env`. */
+function loadDotEnv() {
+  const p = path.join(__dirname, ".env");
+  try {
+    const raw = fs.readFileSync(p, "utf8");
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const eq = t.indexOf("=");
+      if (eq <= 0) continue;
+      const key = t.slice(0, eq).trim();
+      let val = t.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (!process.env[key]) process.env[key] = val;
+    }
+  } catch {
+    /* optional */
+  }
+}
+loadDotEnv();
+
+const CUSTOM_EVENTS_PATH = path.join(__dirname, "_data", "custom-events.json");
+const MAX_BODY = 32768;
+
+function isPrivateDataPath(urlPathname) {
+  const rel = decodeURIComponent(urlPathname.split("?")[0])
+    .replace(/^[/\\]+/, "")
+    .replace(/\\/g, "/");
+  return rel === "_data" || rel.startsWith("_data/");
+}
+
+function timingSafeEqualString(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const ba = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+async function readCustomEvents() {
+  try {
+    const raw = await fs.promises.readFile(CUSTOM_EVENTS_PATH, "utf8");
+    const j = JSON.parse(raw);
+    return Array.isArray(j) ? j : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeCustomEvents(events) {
+  await fs.promises.mkdir(path.dirname(CUSTOM_EVENTS_PATH), { recursive: true });
+  const tmp = `${CUSTOM_EVENTS_PATH}.${process.pid}.${Date.now()}.tmp`;
+  const payload = `${JSON.stringify(events, null, 2)}\n`;
+  await fs.promises.writeFile(tmp, payload, "utf8");
+  await fs.promises.rename(tmp, CUSTOM_EVENTS_PATH);
+}
+
+/** Optional: post to a channel via Discord Incoming Webhook when a clan event is created on the site. */
+async function notifyDiscordNewClanEvent(entry) {
+  const webhook = process.env.DISCORD_EVENTS_WEBHOOK_URL?.trim();
+  if (!webhook) return;
+
+  if (!/^https:\/\/discord(app)?\.com\/api\/webhooks\//i.test(webhook)) {
+    console.warn("DISCORD_EVENTS_WEBHOOK_URL ignored (must be a https://discord.com/api/webhooks/... URL).");
+    return;
+  }
+
+  const fmt = (iso) => {
+    try {
+      return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+    } catch {
+      return String(iso);
+    }
+  };
+
+  const siteBase = process.env.PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  const calLink = siteBase ? `${siteBase}/#/events` : null;
+
+  const fields = [
+    {
+      name: "Starts",
+      value: fmt(entry.startsAt).slice(0, 1024),
+      inline: true,
+    },
+    {
+      name: "Ends",
+      value: fmt(entry.endsAt).slice(0, 1024),
+      inline: true,
+    },
+  ];
+  if (entry.link) fields.push({ name: "Link", value: String(entry.link).slice(0, 1024), inline: false });
+  if (entry.notes) fields.push({ name: "Notes", value: String(entry.notes).slice(0, 1024), inline: false });
+
+  let description = "A new event was added on the Terpinheimer site.";
+  if (calLink) description += `\n\n[Open clan calendar](${calLink})`;
+
+  const embed = {
+    title: String(entry.title).slice(0, 256),
+    url: calLink || undefined,
+    description: description.slice(0, 4096),
+    color: 0xff9f1c,
+    fields,
+    footer: { text: "Terpinheimer · clan calendar" },
+    timestamp: entry.startsAt,
+  };
+
+  const payload = {
+    username: process.env.DISCORD_WEBHOOK_USERNAME?.trim() || "Terpinheimer",
+    embeds: [embed],
+  };
+  const avatar = process.env.DISCORD_WEBHOOK_AVATAR_URL?.trim();
+  if (avatar && /^https:\/\//i.test(avatar)) payload.avatar_url = avatar;
+
+  const r = await fetch(webhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    console.warn("Discord webhook failed:", r.status, t.slice(0, 300));
+  }
+}
+
+function parseJsonBody(buf) {
+  try {
+    return JSON.parse(Buffer.from(buf).toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function isHttpsUrl(s) {
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+async function handleCustomEventsApi(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204).end();
+    return;
+  }
+
+  if (req.method === "GET") {
+    const list = await readCustomEvents();
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(list));
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  const secret = process.env.CLAN_EVENTS_SECRET;
+  if (!secret || secret.length < 12) {
+    res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(
+      JSON.stringify({
+        error: "Event submissions are not configured (set CLAN_EVENTS_SECRET on the server).",
+      })
+    );
+    return;
+  }
+
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > MAX_BODY) {
+      res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Body too large" }));
+      return;
+    }
+    chunks.push(chunk);
+  }
+
+  const body = parseJsonBody(Buffer.concat(chunks));
+  if (!body || typeof body !== "object") {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid JSON" }));
+    return;
+  }
+
+  const submitted = typeof body.secret === "string" ? body.secret : "";
+  if (!timingSafeEqualString(submitted, secret)) {
+    res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid code" }));
+    return;
+  }
+
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (title.length < 1 || title.length > 180) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Title must be 1–180 characters." }));
+    return;
+  }
+
+  const startsAt = typeof body.startsAt === "string" ? body.startsAt.trim() : "";
+  const endsAt = typeof body.endsAt === "string" ? body.endsAt.trim() : "";
+  const startMs = Date.parse(startsAt);
+  const endMs = Date.parse(endsAt);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid start or end date." }));
+    return;
+  }
+  if (endMs < startMs) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "End must be on or after start." }));
+    return;
+  }
+
+  let link = "";
+  if (body.link != null && String(body.link).trim()) {
+    link = String(body.link).trim();
+    if (link.length > 500 || !isHttpsUrl(link)) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Link must be a valid http(s) URL (max 500 chars)." }));
+      return;
+    }
+  }
+
+  let notes = "";
+  if (body.notes != null && String(body.notes).trim()) {
+    notes = String(body.notes).trim().slice(0, 800);
+  }
+
+  const entry = {
+    id: crypto.randomUUID(),
+    title,
+    startsAt: new Date(startMs).toISOString(),
+    endsAt: new Date(endMs).toISOString(),
+    link: link || undefined,
+    notes: notes || undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const list = await readCustomEvents();
+    list.push(entry);
+    await writeCustomEvents(list);
+  } catch (e) {
+    res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Could not save event." }));
+    return;
+  }
+
+  void notifyDiscordNewClanEvent(entry).catch((err) => {
+    console.warn("Discord notify error:", err?.message || err);
+  });
+
+  res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({ ok: true, event: entry }));
+}
 const WIKI_UA = "TerpinheimerLocalDev/1.0 (item name lookup; contact: local)";
 const itemDetailCache = new Map();
 const itemDetailInflight = new Map();
@@ -157,6 +428,17 @@ http
   .createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://127.0.0.1:${PORT}`);
 
+    if (url.pathname === "/api/custom-events") {
+      await handleCustomEventsApi(req, res);
+      return;
+    }
+
+    if (isPrivateDataPath(url.pathname)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Forbidden");
+      return;
+    }
+
     const rsItem = url.pathname.match(/^\/rs-item\/(\d+)$/);
     if (rsItem) {
       try {
@@ -214,4 +496,10 @@ http
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
+    console.log(
+      "GET/POST /api/custom-events — clan calendar (POST needs CLAN_EVENTS_SECRET in .env or environment)"
+    );
+    if (process.env.DISCORD_EVENTS_WEBHOOK_URL) {
+      console.log("Discord: new clan events will be posted to DISCORD_EVENTS_WEBHOOK_URL");
+    }
   });

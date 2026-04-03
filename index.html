@@ -21,7 +21,7 @@
       <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false"></button>
       <nav class="nav" aria-label="Main">
         <a href="#/">Home</a>
-        <a href="#/hiscores">Hiscores</a>
+        <a href="#/members">Members</a>
         <a href="#/events">Events</a>
         <a href="https://discord.gg/" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
@@ -34,7 +34,8 @@
     <div id="member-view" class="member-view" hidden>
       <div class="container member-wrap">
         <nav class="member-crumb" aria-label="Breadcrumb">
-          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span id="member-crumb-name">Member</span>
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <a href="#/members">Members</a> <span class="crumb-sep">/</span>
+          <span id="member-crumb-name">Member</span>
         </nav>
         <p id="member-error" class="load-error member-error" hidden></p>
 
@@ -45,7 +46,7 @@
           </div>
           <div class="member-actions">
             <a id="member-rp-link" href="https://www.runeprofile.com/" class="btn btn-primary" target="_blank" rel="noopener">RuneProfile</a>
-            <a href="#/hiscores" class="btn btn-ghost">Clan hiscores</a>
+            <a href="#/members" class="btn btn-ghost">All members</a>
           </div>
         </header>
 
@@ -64,11 +65,9 @@
             <h2 class="member-section-title">Quests</h2>
             <p class="member-qp" id="member-qp"></p>
             <h2 class="member-section-title member-mt">Achievement diaries</h2>
-            <div class="table-wrap member-mini-table">
-              <table class="hiscore-table member-diary-table" id="member-diaries"></table>
-            </div>
+            <div class="member-diary-grouped" id="member-diaries"></div>
             <h2 class="member-section-title member-mt">Combat achievements</h2>
-            <ul class="member-ca-list" id="member-combat"></ul>
+            <div class="member-diary-grouped" id="member-combat"></div>
           </section>
         </div>
 
@@ -83,6 +82,94 @@
         </section>
 
         <p class="muted member-source">Profile data from <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a> (RuneLite plugin). Player must sync their profile for data to appear.</p>
+      </div>
+    </div>
+
+    <div id="members-list-view" class="members-list-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Members</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Clan members</h1>
+          <hr class="rule" />
+          <p class="lead muted" id="members-list-meta">Loading roster…</p>
+        </header>
+        <div class="members-toolbar">
+          <label class="sr-only" for="members-filter">Search members by name</label>
+          <input
+            type="search"
+            id="members-filter"
+            class="members-filter"
+            placeholder="Search members…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <nav class="members-alpha-nav" id="members-alpha-nav" aria-label="Jump to letter" hidden></nav>
+        <div id="members-directory" class="members-directory" aria-label="Members by name"></div>
+        <p class="muted members-list-foot">
+          Roster from <a href="https://wiseoldman.net/groups/23745" class="wom-link" target="_blank" rel="noopener">Wise Old Man</a>.
+        </p>
+      </div>
+    </div>
+
+    <div id="events-view" class="events-view" hidden>
+      <div class="container events-calendar-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Events</span>
+        </nav>
+        <h1 class="section-title events-cal-heading">Clan calendar</h1>
+        <p class="muted events-cal-lead">Wise Old Man competitions and clan events you add with the organizer code.</p>
+
+        <div class="calendar-toolbar">
+          <button type="button" class="btn btn-ghost cal-nav-btn" id="cal-prev" aria-label="Previous month">←</button>
+          <h2 class="cal-month-label" id="cal-month-label">—</h2>
+          <button type="button" class="btn btn-ghost cal-nav-btn" id="cal-next" aria-label="Next month">→</button>
+          <button type="button" class="btn btn-ghost cal-today-btn" id="cal-today">Today</button>
+        </div>
+
+        <div class="calendar-grid-wrap">
+          <div id="calendar-grid" class="calendar-grid" role="grid" aria-labelledby="cal-month-label"></div>
+        </div>
+
+        <p class="calendar-legend muted">
+          <span class="cal-leg"><span class="cal-leg-swatch cal-leg-swatch--wom"></span> Wise Old Man</span>
+          <span class="cal-leg"><span class="cal-leg-swatch cal-leg-swatch--clan"></span> Clan event</span>
+        </p>
+
+        <details class="event-add-panel event-add-panel--page">
+          <summary class="event-add-summary">Add clan event</summary>
+          <p class="muted event-add-lead">Requires the organizer code from leadership. Random visitors cannot post.</p>
+          <form id="event-add-form" class="event-add-form">
+            <label class="event-add-label">
+              <span>Title</span>
+              <input name="title" type="text" required maxlength="180" class="event-add-input" autocomplete="off" />
+            </label>
+            <label class="event-add-label">
+              <span>Starts</span>
+              <input name="startsAt" type="datetime-local" required class="event-add-input" />
+            </label>
+            <label class="event-add-label">
+              <span>Ends</span>
+              <input name="endsAt" type="datetime-local" required class="event-add-input" />
+            </label>
+            <label class="event-add-label">
+              <span>Link <span class="muted">(optional)</span></span>
+              <input name="link" type="url" class="event-add-input" placeholder="https://…" />
+            </label>
+            <label class="event-add-label">
+              <span>Notes <span class="muted">(optional)</span></span>
+              <textarea name="notes" class="event-add-textarea" maxlength="800" rows="2"></textarea>
+            </label>
+            <label class="event-add-label">
+              <span>Organizer code</span>
+              <input name="secret" type="password" required class="event-add-input" autocomplete="off" />
+            </label>
+            <button type="submit" class="btn btn-primary event-add-submit">Add to calendar</button>
+            <p id="event-add-status" class="event-add-status muted" role="status" aria-live="polite"></p>
+          </form>
+        </details>
       </div>
     </div>
 
@@ -102,6 +189,7 @@
         <h2 class="section-title">Welcome to Terpinheimer</h2>
         <hr class="rule" />
         <p class="lead" id="welcome-lead">Loading…</p>
+        <p class="welcome-cal-link muted"><a href="#/events" class="wom-link">Clan calendar & competitions</a></p>
       </div>
     </section>
 
@@ -165,13 +253,8 @@
       </div>
     </section>
 
-    <section class="section section-alt" id="events">
-      <div class="container three-col">
-        <div>
-          <h2 class="section-title">Upcoming Events</h2>
-          <hr class="rule" />
-          <ul class="event-list" id="event-items"></ul>
-        </div>
+    <section class="section section-alt" id="clan-activity">
+      <div class="container two-col">
         <div>
           <h2 class="section-title">Live Activity Log</h2>
           <hr class="rule" />
