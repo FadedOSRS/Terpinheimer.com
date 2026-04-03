@@ -1206,7 +1206,15 @@
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (st) {
-          st.textContent = j.error || "Invalid code.";
+          let msg = j.error || "Invalid code.";
+          if (
+            r.status === 503 &&
+            String(msg).includes("CLAN_EVENTS_SECRET")
+          ) {
+            msg +=
+              " The live server needs this variable in its environment (e.g. Render → Environment → CLAN_EVENTS_SECRET).";
+          }
+          st.textContent = msg;
           st.classList.add("load-error");
           st.classList.remove("muted");
         }

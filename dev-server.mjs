@@ -11,7 +11,8 @@ const PORT = Number(process.env.PORT) || 5173;
 function loadDotEnv() {
   const p = path.join(__dirname, ".env");
   try {
-    const raw = fs.readFileSync(p, "utf8");
+    let raw = fs.readFileSync(p, "utf8");
+    if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
     for (const line of raw.split("\n")) {
       const t = line.trim();
       if (!t || t.startsWith("#")) continue;

@@ -1,8 +1,8 @@
 # Optional: Render Blueprint — New Blueprint → connect this repo
 # https://render.com/docs/blueprint-spec
 #
-# For “Add clan event” on the site, set CLAN_EVENTS_SECRET in the Render dashboard
-# (Environment) to a long random string (12+ chars). Same value is the code you give organizers.
+# CLAN_EVENTS_SECRET is required for Events unlock + POST /api/custom-events.
+# Declared below with sync: false — set the value in the Render dashboard (never commit it).
 #
 # Optional: DISCORD_EVENTS_WEBHOOK_URL (Incoming Webhook URL) posts new events to Discord.
 # Optional: PUBLIC_SITE_URL for calendar link in the embed. See DISCORD_EVENTS.md.
@@ -12,3 +12,6 @@ services:
     runtime: node
     buildCommand: npm install
     startCommand: npm start
+    envVars:
+      - key: CLAN_EVENTS_SECRET
+        sync: false
