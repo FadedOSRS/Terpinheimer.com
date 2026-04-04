@@ -54,6 +54,7 @@
       maxZoom: 11,
       noWrap: true,
       tms: true,
+      fadeAnimation: false,
     });
     tileLayer.addTo(map);
   }
@@ -69,14 +70,16 @@
 
   function ensureMap(containerId, opts) {
     const plane = Math.min(3, Math.max(0, Number(opts?.plane) || 0));
-    mapPlane = plane;
 
     if (map) {
+      const planeChanged = plane !== mapPlane || !tileLayer;
       mapPlane = plane;
-      updateTilePath();
+      if (planeChanged) updateTilePath();
       map.invalidateSize();
       return map;
     }
+
+    mapPlane = plane;
 
     const el = document.getElementById(containerId);
     if (!el) return null;
@@ -94,8 +97,14 @@
   }
 
   function setPlane(plane) {
-    mapPlane = Math.min(3, Math.max(0, Number(plane) || 0));
-    if (map) updateTilePath();
+    const next = Math.min(3, Math.max(0, Number(plane) || 0));
+    if (!map) {
+      mapPlane = next;
+      return;
+    }
+    if (tileLayer && next === mapPlane) return;
+    mapPlane = next;
+    updateTilePath();
   }
 
   function setMarkers(players) {

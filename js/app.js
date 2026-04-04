@@ -1610,7 +1610,6 @@
     if (window.TerpinheimerOsrsMap) {
       requestAnimationFrame(() => {
         window.TerpinheimerOsrsMap.invalidateSize();
-        requestAnimationFrame(() => window.TerpinheimerOsrsMap.invalidateSize());
       });
     }
 
