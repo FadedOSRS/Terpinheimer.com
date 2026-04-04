@@ -548,6 +548,7 @@
     stopLiveMapPoll();
     if (hv) hv.hidden = false;
     document.title = "Terpinheimer | OSRS Clan";
+    void refreshHomeLiveMapPresence();
   }
 
   const MIN_ORGANIZER_CODE_LEN = 6;
@@ -1062,6 +1063,8 @@
       }
       const customEvents = await customEventsPromise;
       refreshEventCache([], customEvents);
+      await refreshHomeLiveMapPresence();
+      startHomeLiveMapPoll();
       return;
     }
 
@@ -1083,12 +1086,6 @@
       membersMeta.textContent = `${n} ${n === 1 ? "member" : "members"} on the Wise Old Man roster — search, jump by letter, or open a name for their RuneProfile.`;
     }
     renderMembersListIfVisible();
-
-    const now = Date.now();
-    const active7d = memberships.filter((m) => {
-      const ch = m.player?.lastChangedAt;
-      return ch && now - new Date(ch).getTime() < 7 * MS_DAY;
-    }).length;
 
     setDiscordLinks(group.socialLinks?.discord);
 
@@ -1112,7 +1109,6 @@
     };
 
     stat("members", String(group.memberCount ?? memberships.length));
-    stat("online", String(active7d));
     stat("xp", fmtCompact(sumGained(gainedXp)));
     stat("bosses", sumGained(gainedEhb).toFixed(1));
     stat("clues", String(Math.round(sumGained(gainedClues))));
@@ -1180,23 +1176,8 @@
       ach.innerHTML = rows.length ? rows.join("") : "<li>No recent achievements logged.</li>";
     }
 
-    const onl = document.getElementById("online-members");
-    if (onl) {
-      const sorted = [...memberships]
-        .filter((m) => m.player?.lastChangedAt)
-        .sort((a, b) => new Date(b.player.lastChangedAt) - new Date(a.player.lastChangedAt))
-        .slice(0, 18);
-      onl.innerHTML = sorted
-        .map((m) => {
-          const p = m.player;
-          const name = p.displayName || p.username;
-          const u = memberProfileHref(p.username);
-          const when = relTime(p.lastChangedAt);
-          return `<li><a href="${u}" class="wom-link">${escHtml(name)}</a> <span class="muted">${when}</span></li>`;
-        })
-        .join("");
-      if (!sorted.length) onl.innerHTML = "<li>No update timestamps.</li>";
-    }
+    await refreshHomeLiveMapPresence();
+    startHomeLiveMapPoll();
   }
 
   const toggle = document.querySelector(".nav-toggle");
@@ -1458,9 +1439,9 @@
     liveMapPlayers = list.map(normalizeLiveMapPlayer).filter(Boolean);
   }
 
-  /** Live map API rows: skip offline; require x/y. */
-  function mergeApiPlayers(rows) {
-    if (!Array.isArray(rows)) return;
+  /** Live map API rows: skip offline; require x/y (same rules as map markers). */
+  function liveMapRowsToOnlinePlayers(rows) {
+    if (!Array.isArray(rows)) return [];
     const next = [];
     for (const row of rows) {
       if (!row || typeof row !== "object") continue;
@@ -1473,10 +1454,63 @@
         plane: row.plane ?? row.z,
         status: row.status,
         title: row.title,
+        world: row.world,
       });
       if (p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))) next.push(p);
     }
-    liveMapPlayers = next;
+    return next;
+  }
+
+  function mergeApiPlayers(rows) {
+    liveMapPlayers = liveMapRowsToOnlinePlayers(rows);
+  }
+
+  let homeLiveMapPollTimer = null;
+
+  async function refreshHomeLiveMapPresence() {
+    const statEl = document.querySelector('[data-stat="online"]');
+    const onl = document.getElementById("online-members");
+    try {
+      const r = await fetch("/api/live-map-players", { credentials: "same-origin" });
+      if (!r.ok) {
+        if (statEl) statEl.textContent = "—";
+        if (onl) onl.innerHTML = '<li class="muted">Live map API unavailable.</li>';
+        return;
+      }
+      const j = await r.json();
+      const players = liveMapRowsToOnlinePlayers(Array.isArray(j.data) ? j.data : []);
+      if (statEl) statEl.textContent = String(players.length);
+      if (onl) {
+        const sorted = [...players].sort((a, b) =>
+          String(a.displayName || a.name || "").localeCompare(String(b.displayName || b.name || ""), undefined, {
+            sensitivity: "base",
+          })
+        );
+        onl.innerHTML = sorted.length
+          ? sorted
+              .map((p) => {
+                const label = escHtml(p.displayName || p.name || "?");
+                const planeNum = Number.isFinite(p.plane) ? Math.min(3, Math.max(0, Number(p.plane))) + 1 : 1;
+                const bits = [`Plane ${planeNum}`];
+                if (p.world != null && Number.isFinite(Number(p.world))) bits.push(`W${Number(p.world)}`);
+                const sub = bits.join(" · ");
+                return `<li><a href="#/map" class="wom-link">${label}</a> <span class="muted">${escHtml(sub)}</span></li>`;
+              })
+              .join("")
+          : '<li class="muted">No one on the live map. Use the RuneLite plugin to share your in-game location.</li>';
+      }
+    } catch {
+      if (statEl) statEl.textContent = "—";
+      if (onl) onl.innerHTML = '<li class="muted">Could not load live map.</li>';
+    }
+  }
+
+  function startHomeLiveMapPoll() {
+    if (homeLiveMapPollTimer != null) return;
+    homeLiveMapPollTimer = setInterval(() => {
+      const hv = document.getElementById("home-view");
+      if (hv && !hv.hidden) void refreshHomeLiveMapPresence();
+    }, 30000);
   }
 
   function syncPlaneSelect() {
@@ -1736,5 +1770,7 @@
     } catch {
       /* ignore */
     }
+    await refreshHomeLiveMapPresence();
+    startHomeLiveMapPoll();
   });
 })();
