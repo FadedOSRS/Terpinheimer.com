@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <rect width="32" height="32" fill="#1a1510"/>
+  <!-- book cover -->
+  <rect x="7" y="5" width="18" height="22" fill="#5c3d2e"/>
+  <rect x="9" y="7" width="14" height="18" fill="#7a5540"/>
+  <!-- pages edge -->
+  <rect x="21" y="7" width="2" height="18" fill="#d4c4a8"/>
+  <!-- spine highlight -->
+  <rect x="9" y="7" width="2" height="18" fill="#4a3020"/>
+  <!-- bookmark -->
+  <rect x="15" y="4" width="2" height="8" fill="#c94a4a"/>
+</svg>
