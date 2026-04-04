@@ -34,7 +34,20 @@ function loadDotEnv() {
 }
 loadDotEnv();
 
-const CUSTOM_EVENTS_PATH = path.join(__dirname, "_data", "custom-events.json");
+/** Clan events JSON file. On hosts with an ephemeral filesystem (default Render), data is lost on restart/deploy unless you use a persistent disk or set these env vars. */
+function resolveCustomEventsPath() {
+  const file = process.env.CUSTOM_EVENTS_PATH?.trim();
+  if (file) {
+    return path.isAbsolute(file) ? file : path.join(__dirname, file);
+  }
+  const dir = process.env.CUSTOM_EVENTS_DIR?.trim();
+  if (dir) {
+    return path.join(dir, "custom-events.json");
+  }
+  return path.join(__dirname, "_data", "custom-events.json");
+}
+
+const CUSTOM_EVENTS_PATH = resolveCustomEventsPath();
 const MAX_BODY = 32768;
 const EVENT_SESSION_COOKIE = "th_ev";
 const EVENT_SESSION_DAYS = 7;
@@ -716,6 +729,7 @@ http
   })
   .listen(PORT, () => {
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
+    console.log(`Clan events data file: ${CUSTOM_EVENTS_PATH}`);
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST /api/event-session — browser unlock cookie for adding events");

@@ -6,6 +6,12 @@
 #
 # Optional: DISCORD_EVENTS_WEBHOOK_URL (Incoming Webhook URL) posts new events to Discord.
 # Optional: PUBLIC_SITE_URL for calendar link in the embed. See DISCORD_EVENTS.md.
+#
+# Clan events file: on Render the filesystem is ephemeral unless you use a persistent disk (paid
+# web services) or point CUSTOM_EVENTS_DIR at a mounted path. Free tier: add a disk after upgrading,
+# or use an external DB / KV store. Node app path for repo _data is usually:
+#   /opt/render/project/src/_data
+# Dashboard → your service → Disks → add disk with that mount path (then redeploy).
 services:
   - type: web
     name: terpinheimer-site
