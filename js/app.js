@@ -1118,12 +1118,12 @@
     if (monthEl) {
       monthEl.innerHTML = gainedXp
         .slice(0, 10)
-        .map((row, i) => {
+        .map((row) => {
           const p = row.player;
           const name = p?.displayName || p?.username || "?";
           const u = p?.username ? memberProfileHref(p.username) : "#/";
           const g = row.data?.gained ?? 0;
-          return `<li><strong><a href="${u}" class="wom-link">${i + 1}. ${escHtml(name)}</a></strong> — +${fmtCompact(g)} XP</li>`;
+          return `<li><strong><a href="${u}" class="wom-link">${escHtml(name)}</a></strong> — +${fmtCompact(g)} XP</li>`;
         })
         .join("");
       if (!gainedXp.length) monthEl.innerHTML = "<li>No monthly gain data yet.</li>";
