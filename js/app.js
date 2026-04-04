@@ -821,17 +821,22 @@
     return `${Math.floor(d / 30)}mo ago`;
   }
 
-  function formatActivityRow(row) {
-    const name = row.player?.displayName || row.player?.username || "?";
-    const t = new Date(row.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-    const u = row.player?.username ? womPlayerUrl(row.player.username) : WOM_GROUP_URL;
-    if (row.type === "joined")
-      return `<time>${t}</time> — <a href="${u}" target="_blank" rel="noopener" class="wom-link">${name}</a> joined`;
-    if (row.type === "left")
-      return `<time>${t}</time> — <a href="${u}" target="_blank" rel="noopener" class="wom-link">${name}</a> left`;
-    if (row.type === "role_changed")
-      return `<time>${t}</time> — <a href="${u}" target="_blank" rel="noopener" class="wom-link">${name}</a> role → ${row.role || "?"}`;
-    return `<time>${t}</time> — ${row.type}: ${name}`;
+  /** Wise Old Man collection log delta — links to on-site member profile (RuneProfile) like the roster. */
+  function formatCollectionGainedRow(row) {
+    const p = row.player;
+    const name = p?.displayName || p?.username || "?";
+    const href = p?.username ? memberProfileHref(p.username) : "#/members";
+    const raw = row.endDate ? String(row.endDate).replace(" ", "T") : "";
+    const when = raw
+      ? new Date(raw).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+      : "";
+    const gained = row.data && typeof row.data.gained === "number" ? row.data.gained : 0;
+    const total = row.data && typeof row.data.end === "number" && row.data.end >= 0 ? row.data.end : null;
+    const totalBit =
+      total != null ? ` <span class="muted">(${total} slots logged)</span>` : "";
+    return `<time>${escHtml(when)}</time> — <a href="${escHtml(href)}" class="wom-link">${escHtml(
+      name
+    )}</a> · +${escHtml(String(gained))} new${totalBit}`;
   }
 
   function setDiscordLinks(url) {
@@ -1004,7 +1009,6 @@
       gainedClues: `/groups/${WOM_GROUP_ID}/gained?metric=clue_scrolls_all&period=month&limit=200`,
       gainedColl: `/groups/${WOM_GROUP_ID}/gained?metric=collections_logged&period=month&limit=200`,
       gainedEhb: `/groups/${WOM_GROUP_ID}/gained?metric=ehb&period=month&limit=200`,
-      activity: `/groups/${WOM_GROUP_ID}/activity?limit=15`,
       achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
       competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
     };
@@ -1016,7 +1020,6 @@
       womGet(paths.gainedClues),
       womGet(paths.gainedColl),
       womGet(paths.gainedEhb),
-      womGet(paths.activity),
       womGet(paths.achievements),
       womGet(paths.competitions),
     ]);
@@ -1048,9 +1051,8 @@
     const gainedClues = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
     const gainedColl = results[4].status === "fulfilled" ? unwrapList(results[4].value) : [];
     const gainedEhb = results[5].status === "fulfilled" ? unwrapList(results[5].value) : [];
-    const activity = results[6].status === "fulfilled" ? unwrapList(results[6].value) : [];
-    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
-    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
+    const achievements = results[6].status === "fulfilled" ? unwrapList(results[6].value) : [];
+    const competitions = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
 
     const memberships = group.memberships || [];
     cachedMemberships = memberships;
@@ -1130,8 +1132,19 @@
 
     const act = document.getElementById("activity");
     if (act) {
-      const rows = activity.map((row) => `<li>${formatActivityRow(row)}</li>`);
-      act.innerHTML = rows.length ? rows.join("") : "<li>No recent roster activity.</li>";
+      const collActivity = gainedColl
+        .filter((row) => (row.data?.gained ?? 0) > 0)
+        .sort((a, b) => {
+          const ta = new Date(a.endDate || a.player?.lastChangedAt || 0).getTime();
+          const tb = new Date(b.endDate || b.player?.lastChangedAt || 0).getTime();
+          if (tb !== ta) return tb - ta;
+          return (b.data?.gained || 0) - (a.data?.gained || 0);
+        })
+        .slice(0, 20);
+      const rows = collActivity.map((row) => `<li>${formatCollectionGainedRow(row)}</li>`);
+      act.innerHTML = rows.length
+        ? rows.join("")
+        : "<li class=\"muted\">No recent collection log gains on the roster this month. Wise Old Man updates when players sync.</li>";
     }
 
     const ach = document.getElementById("achievements");
