@@ -673,6 +673,186 @@ async function handleCustomEventsApi(req, res) {
   res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify({ ok: true, event: entry }));
 }
+
+const RUNELITE_CLAN_EVENTS_SCHEMA = 1;
+
+function runeliteClanEventsReadAuthorize(req, url) {
+  const secret = process.env.RUNELITE_CLAN_EVENTS_SECRET?.trim();
+  if (!secret) return true;
+  const qp = String(url.searchParams.get("key") || "").trim();
+  if (qp && timingSafeEqualString(qp, secret)) return true;
+  const hk = req.headers["x-runelite-key"];
+  if (typeof hk === "string" && timingSafeEqualString(hk.trim(), secret)) return true;
+  const auth = req.headers["authorization"];
+  if (typeof auth === "string") {
+    const trimmed = auth.trim();
+    if (trimmed.toLowerCase().startsWith("bearer ")) {
+      if (timingSafeEqualString(trimmed.slice(7).trim(), secret)) return true;
+    } else if (timingSafeEqualString(trimmed, secret)) return true;
+  }
+  return false;
+}
+
+function normalizeClanEventForRunelite(e) {
+  if (!e || typeof e !== "object") return null;
+  const id = typeof e.id === "string" ? e.id.trim() : "";
+  if (!isCustomEventId(id)) return null;
+  const title = typeof e.title === "string" ? e.title.trim() : "";
+  if (!title) return null;
+  const startsAt = typeof e.startsAt === "string" ? e.startsAt.trim() : "";
+  const endsAt = typeof e.endsAt === "string" ? e.endsAt.trim() : "";
+  if (!startsAt || !endsAt) return null;
+  if (Number.isNaN(Date.parse(startsAt)) || Number.isNaN(Date.parse(endsAt))) return null;
+  const out = {
+    id,
+    title,
+    startsAt,
+    endsAt,
+    link: typeof e.link === "string" && e.link.trim() ? e.link.trim().slice(0, 500) : null,
+    notes: typeof e.notes === "string" && e.notes.trim() ? e.notes.trim().slice(0, 800) : null,
+  };
+  if (typeof e.createdAt === "string" && e.createdAt.trim()) out.createdAt = e.createdAt.trim();
+  return out;
+}
+
+/** Gson-friendly DTO: duplicate date fields + description alias (RuneLite plugins). */
+function expandRuneliteEventDto(ev) {
+  if (!ev) return null;
+  const notes = ev.notes != null ? ev.notes : null;
+  const dto = {
+    id: ev.id,
+    title: ev.title,
+    startsAt: ev.startsAt,
+    endsAt: ev.endsAt,
+    start: ev.startsAt,
+    end: ev.endsAt,
+    link: ev.link,
+    notes,
+    description: notes,
+  };
+  if (ev.createdAt) dto.createdAt = ev.createdAt;
+  return dto;
+}
+
+/**
+ * ACTIVE = now inside [startsAt, endsAt] of some event.
+ * PENDING = none active, but a future event exists.
+ * NONE = no events, or all ended.
+ */
+function computeRuneliteCalendarSummary(events, nowMs) {
+  let currentEvent = null;
+  let nextEvent = null;
+  let state = "NONE";
+  for (const ev of events) {
+    const s = Date.parse(ev.startsAt);
+    const e = Date.parse(ev.endsAt);
+    if (Number.isNaN(s) || Number.isNaN(e)) continue;
+    if (s <= nowMs && nowMs <= e) {
+      currentEvent = ev;
+      state = "ACTIVE";
+      break;
+    }
+  }
+  if (state !== "ACTIVE") {
+    for (const ev of events) {
+      const s = Date.parse(ev.startsAt);
+      if (Number.isNaN(s)) continue;
+      if (s > nowMs) {
+        nextEvent = ev;
+        state = "PENDING";
+        break;
+      }
+    }
+  }
+  return { state, currentEvent, nextEvent };
+}
+
+async function handleRuneliteClanEventsApi(req, res, url) {
+  const cors = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Runelite-Key",
+  };
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    res.end();
+    return;
+  }
+  if (req.method !== "GET") {
+    res.writeHead(405, cors);
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+  if (!runeliteClanEventsReadAuthorize(req, url)) {
+    res.writeHead(401, cors);
+    res.end(
+      JSON.stringify({
+        error:
+          "Unauthorized — set RUNELITE_CLAN_EVENTS_SECRET on the server and pass the same value as ?key=…, header X-Runelite-Key, or Authorization (raw or Bearer).",
+      })
+    );
+    return;
+  }
+  let list;
+  try {
+    list = await readCustomEvents();
+  } catch {
+    res.writeHead(500, cors);
+    res.end(JSON.stringify({ error: "Could not read clan events." }));
+    return;
+  }
+  let events = list.map(normalizeClanEventForRunelite).filter(Boolean);
+  events.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+
+  const now = Date.now();
+  if (url.searchParams.get("upcoming") === "1") {
+    events = events.filter((ev) => Date.parse(ev.endsAt) >= now);
+  }
+  const sinceRaw = url.searchParams.get("since");
+  if (sinceRaw && String(sinceRaw).trim()) {
+    const sinceMs = Date.parse(String(sinceRaw).trim());
+    if (!Number.isNaN(sinceMs)) {
+      events = events.filter((ev) => {
+        const c = ev.createdAt ? Date.parse(ev.createdAt) : Date.parse(ev.startsAt);
+        return !Number.isNaN(c) && c >= sinceMs;
+      });
+    }
+  }
+
+  const siteBase = process.env.PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  const expanded = events.map((ev) => expandRuneliteEventDto(ev));
+  const summaryCore = computeRuneliteCalendarSummary(events, now);
+  const summaryDto = {
+    state: summaryCore.state,
+    currentEvent: expandRuneliteEventDto(summaryCore.currentEvent),
+    nextEvent: expandRuneliteEventDto(summaryCore.nextEvent),
+  };
+
+  const fmt = String(url.searchParams.get("format") || "").toLowerCase();
+  if (fmt === "array" || fmt === "events") {
+    res.writeHead(200, cors);
+    res.end(JSON.stringify(expanded));
+    return;
+  }
+
+  const payload = {
+    schemaVersion: RUNELITE_CLAN_EVENTS_SCHEMA,
+    source: "terpinheimer",
+    fetchedAt: new Date().toISOString(),
+    calendarUrl: siteBase ? `${siteBase}/#/events` : null,
+    eventCount: expanded.length,
+    events: expanded,
+    summary: summaryDto,
+    state: summaryDto.state,
+    summaryState: summaryDto.state,
+    currentEvent: summaryDto.currentEvent,
+    nextEvent: summaryDto.nextEvent,
+  };
+  res.writeHead(200, cors);
+  res.end(JSON.stringify(payload));
+}
+
 const WIKI_UA = "TerpinheimerLocalDev/1.0 (item name lookup; contact: local)";
 const itemDetailCache = new Map();
 const itemDetailInflight = new Map();
@@ -835,6 +1015,11 @@ http
       return;
     }
 
+    if (url.pathname === "/api/runelite/clan-events" || url.pathname === "/api/runelite/clan-calendar-summary") {
+      await handleRuneliteClanEventsApi(req, res, url);
+      return;
+    }
+
     if (url.pathname === "/api/live-map-players" || url.pathname === "/post") {
       const liveMapPath = url.pathname;
       const cors = {
@@ -971,6 +1156,9 @@ http
     console.log("GET/POST /api/event-session — browser unlock cookie for adding events");
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
+    );
+    console.log(
+      "GET /api/runelite/clan-events (alias …/clan-calendar-summary) — JSON + ACTIVE|PENDING|NONE summary; ?format=array for raw list"
     );
     console.log(
       "GET /api/live-map-players + POST /api/live-map-players or POST /post — live map (RuneLite: POST /post + waypoint JSON; optional LIVE_MAP_SECRET)"

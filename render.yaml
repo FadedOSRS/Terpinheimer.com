@@ -21,6 +21,8 @@ services:
     envVars:
       - key: LIVE_MAP_SECRET
         sync: false
+      - key: RUNELITE_CLAN_EVENTS_SECRET
+        sync: false
       - key: CLAN_EVENTS_SECRET
         sync: false
       # Paste your Discord Incoming Webhook URL in the dashboard (same as local .env DISCORD_EVENTS_WEBHOOK_URL).
