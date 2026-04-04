@@ -373,6 +373,87 @@
     return `<time>${escHtml(when)}</time> — ${escHtml(humanizeSnakeType(row.type || "?"))}`;
   }
 
+  const ITEM_FEED_TYPES = new Set(["valuable_drop", "new_item_obtained"]);
+
+  /** Deduped drops + collection log rows from RuneProfile (excludes level-ups, quests, etc.). */
+  function mergeItemActivitiesFromProfile(profile) {
+    const fromAct = (profile.recentActivities || []).filter((r) => ITEM_FEED_TYPES.has(r.type));
+    const fromItems = (profile.recentItems || []).filter((r) => r.type === "new_item_obtained");
+    const seen = new Set();
+    const out = [];
+    for (const r of [...fromAct, ...fromItems]) {
+      const d = r.data || {};
+      const key = `${r.type}:${String(r.createdAt)}:${String(d.itemId ?? "")}:${String(d.value ?? "")}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+    }
+    out.sort((a, b) => {
+      const ta = new Date(String(a.createdAt).replace(" ", "T")).getTime();
+      const tb = new Date(String(b.createdAt).replace(" ", "T")).getTime();
+      return tb - ta;
+    });
+    return out;
+  }
+
+  function formatMemberItemRow(row, ctx) {
+    if (row.type === "new_item_obtained") return formatRpItem(row);
+    if (row.type === "valuable_drop") return formatRpActivity(row, ctx);
+    return "";
+  }
+
+  function formatHomeItemActivityRow(row, playerDisplay, href) {
+    const raw = row.createdAt ? String(row.createdAt).replace(" ", "T") : "";
+    const when = raw ? new Date(raw).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+    const d = row.data || {};
+    const idAttr = escHtml(String(d.itemId ?? ""));
+    if (row.type === "valuable_drop") {
+      return `<time>${escHtml(when)}</time> — <a href="${escHtml(href)}" class="wom-link">${escHtml(playerDisplay)}</a> · Drop: <span class="osrs-item-name" data-osrs-item="${idAttr}">…</span> <span class="muted">(${escHtml(formatGp(d.value))})</span>`;
+    }
+    if (row.type === "new_item_obtained") {
+      return `<time>${escHtml(when)}</time> — <a href="${escHtml(href)}" class="wom-link">${escHtml(playerDisplay)}</a> · Collection log <span class="osrs-item-name" data-osrs-item="${idAttr}">…</span>`;
+    }
+    return "";
+  }
+
+  async function hydrateClanActivityItemFeed(collActivity, womFallbackHtml, actEl) {
+    const candidates = collActivity.slice(0, 10);
+    const profiles = await Promise.all(
+      candidates.map((row) => fetchRuneProfileBySlug(row.player?.username || ""))
+    );
+    const flat = [];
+    for (let i = 0; i < profiles.length; i++) {
+      const prof = profiles[i];
+      const row = candidates[i];
+      if (!prof || !row?.player) continue;
+      const p = row.player;
+      const display = p.displayName || p.username || prof.username;
+      const href = memberProfileHref(p.username || prof.username);
+      for (const r of mergeItemActivitiesFromProfile(prof)) {
+        flat.push({ row: r, display, href });
+      }
+    }
+    flat.sort((a, b) => {
+      const ta = new Date(String(a.row.createdAt).replace(" ", "T")).getTime();
+      const tb = new Date(String(b.row.createdAt).replace(" ", "T")).getTime();
+      return tb - ta;
+    });
+    const top = flat.slice(0, 40);
+    if (!top.length) {
+      actEl.innerHTML = womFallbackHtml;
+      return;
+    }
+    actEl.innerHTML = top
+      .map(({ row, display, href }) => {
+        const line = formatHomeItemActivityRow(row, display, href);
+        return line ? `<li>${line}</li>` : "";
+      })
+      .filter(Boolean)
+      .join("");
+    const root = document.getElementById("clan-activity");
+    await hydrateOsrsItemNames(root);
+  }
+
   let memberReqId = 0;
 
   async function renderRuneProfile(profile) {
@@ -465,20 +546,16 @@
       }
     }
 
-    const recent = profile.recentActivities || [];
     const questNamesById = buildQuestNamesById(profile.quests);
+    const itemMerged = mergeItemActivitiesFromProfile(profile);
     const rEl = document.getElementById("member-recent");
-    if (rEl)
-      rEl.innerHTML = recent.length
-        ? recent.map((r) => `<li>${formatRpActivity(r, { questNamesById })}</li>`).join("")
-        : '<li class="muted">No recent activities.</li>';
-
-    const items = profile.recentItems || [];
-    const iEl = document.getElementById("member-items");
-    if (iEl)
-      iEl.innerHTML = items.length
-        ? items.map((r) => `<li>${formatRpItem(r)}</li>`).join("")
-        : '<li class="muted">No recent collection log updates.</li>';
+    if (rEl) {
+      rEl.innerHTML = itemMerged.length
+        ? itemMerged.map((r) => `<li>${formatMemberItemRow(r, { questNamesById })}</li>`).join("")
+        : '<li class="muted">No recent drops or collection log entries. Sync RuneProfile from RuneLite to see items here (level-ups and quests are hidden).</li>';
+    }
+    const itemsSec = document.getElementById("member-items-section");
+    if (itemsSec) itemsSec.hidden = true;
 
     const mv = document.getElementById("member-view");
     await hydrateOsrsItemNames(mv);
@@ -1158,10 +1235,13 @@
           return (b.data?.gained || 0) - (a.data?.gained || 0);
         })
         .slice(0, 20);
-      const rows = collActivity.map((row) => `<li>${formatCollectionGainedRow(row)}</li>`);
-      act.innerHTML = rows.length
-        ? rows.join("")
+      const womRows = collActivity.map((row) => `<li>${formatCollectionGainedRow(row)}</li>`);
+      const womFallbackHtml = womRows.length
+        ? womRows.join("")
         : "<li class=\"muted\">No recent collection log gains on the roster this month. Wise Old Man updates when players sync.</li>";
+      act.innerHTML =
+        '<li class="muted">Loading drops &amp; collection items from RuneProfile…</li>';
+      void hydrateClanActivityItemFeed(collActivity, womFallbackHtml, act);
     }
 
     const ach = document.getElementById("achievements");
