@@ -269,9 +269,26 @@ function isHttpsUrl(s) {
   }
 }
 
+function isCustomEventId(s) {
+  return (
+    typeof s === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim())
+  );
+}
+
+function authorizeCustomEventsEdit(req, secret, bodySecret) {
+  const cookieTok = getCookieHeader(req, EVENT_SESSION_COOKIE);
+  const sessionOk = verifyEventSessionToken(cookieTok, secret);
+  const submitted = typeof bodySecret === "string" ? bodySecret : "";
+  const secretBodyOk = timingSafeEqualString(submitted, secret);
+  return sessionOk || secretBodyOk;
+}
+
 async function handleCustomEventsApi(req, res) {
+  const url = new URL(req.url || "/", "http://127.0.0.1");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204).end();
@@ -285,12 +302,6 @@ async function handleCustomEventsApi(req, res) {
     return;
   }
 
-  if (req.method !== "POST") {
-    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: "Method not allowed" }));
-    return;
-  }
-
   const secret = process.env.CLAN_EVENTS_SECRET;
   if (!secret || secret.length < 6) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
@@ -299,6 +310,64 @@ async function handleCustomEventsApi(req, res) {
         error: "Event submissions are not configured (set CLAN_EVENTS_SECRET on the server, min 6 characters).",
       })
     );
+    return;
+  }
+
+  if (req.method === "DELETE") {
+    const id = (url.searchParams.get("id") || "").trim();
+    if (!isCustomEventId(id)) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Missing or invalid id query parameter (expected event UUID)." }));
+      return;
+    }
+    const read = await readRequestBody(req, MAX_BODY);
+    if (read.error) {
+      res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Body too large" }));
+      return;
+    }
+    const body =
+      read.buf.length > 0 ? parseJsonBody(read.buf) : null;
+    const bodySecret =
+      body && typeof body === "object" && typeof body.secret === "string" ? body.secret : "";
+    if (!authorizeCustomEventsEdit(req, secret, bodySecret)) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          error: "Not authorized — unlock on the Events page or send secret in JSON body (e.g. bot).",
+        })
+      );
+      return;
+    }
+    let list;
+    try {
+      list = await readCustomEvents();
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read events." }));
+      return;
+    }
+    const next = list.filter((e) => e && e.id !== id);
+    if (next.length === list.length) {
+      res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Event not found." }));
+      return;
+    }
+    try {
+      await writeCustomEvents(next);
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not remove event." }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
     return;
   }
 
@@ -316,17 +385,47 @@ async function handleCustomEventsApi(req, res) {
     return;
   }
 
-  const cookieTok = getCookieHeader(req, EVENT_SESSION_COOKIE);
-  const sessionOk = verifyEventSessionToken(cookieTok, secret);
   const submitted = typeof body.secret === "string" ? body.secret : "";
-  const secretBodyOk = timingSafeEqualString(submitted, secret);
-  if (!sessionOk && !secretBodyOk) {
+  if (!authorizeCustomEventsEdit(req, secret, submitted)) {
     res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
       JSON.stringify({
         error: "Not authorized — unlock with organizer code on the Events page or send secret in JSON (e.g. bot).",
       })
     );
+    return;
+  }
+
+  if (body.action === "delete") {
+    const delId = typeof body.id === "string" ? body.id.trim() : "";
+    if (!isCustomEventId(delId)) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "delete requires a valid id (event UUID)." }));
+      return;
+    }
+    let list;
+    try {
+      list = await readCustomEvents();
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read events." }));
+      return;
+    }
+    const next = list.filter((e) => e && e.id !== delId);
+    if (next.length === list.length) {
+      res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Event not found." }));
+      return;
+    }
+    try {
+      await writeCustomEvents(next);
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not remove event." }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: true }));
     return;
   }
 
@@ -621,7 +720,7 @@ http
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST /api/event-session — browser unlock cookie for adding events");
     console.log(
-      "GET/POST /api/custom-events — clan calendar (POST: session cookie or JSON secret for bots)"
+      "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );
     if (process.env.DISCORD_EVENTS_WEBHOOK_URL) {
       console.log("Discord: new clan events will be posted to DISCORD_EVENTS_WEBHOOK_URL");

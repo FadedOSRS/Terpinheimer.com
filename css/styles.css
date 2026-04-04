@@ -397,15 +397,53 @@ a:hover {
 }
 
 .cal-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
   font-size: 0.58rem;
   line-height: 1.2;
   padding: 0.12rem 0.2rem;
   border-radius: 2px;
   border: 1px solid var(--panel-edge);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cal-chip-inner {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
+  flex: 1;
+}
+
+.cal-chip-remove {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--cream);
+  background: rgba(139, 30, 30, 0.55);
+  cursor: pointer;
+}
+
+.cal-chip-remove:hover,
+.cal-chip-remove:focus-visible {
+  background: rgba(180, 45, 45, 0.85);
+  outline: none;
+}
+
+#events-view[data-organizer-unlocked="1"] .cal-chip--clan .cal-chip-remove {
+  display: inline-flex;
 }
 
 .cal-chip--wom {

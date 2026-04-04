@@ -7,6 +7,7 @@
     return { y: n.getFullYear(), m: n.getMonth() };
   }
   let calendarCursor = initialCalendarCursor();
+  let eventsOrganizerUnlocked = false;
 
   function closeMobileNav() {
     const nav = document.querySelector(".nav");
@@ -543,10 +544,17 @@
   }
 
   function applyEventFormUnlocked(unlocked) {
+    eventsOrganizerUnlocked = !!unlocked;
     const fs = document.getElementById("event-form-fieldset");
     const panel = document.getElementById("event-unlock-panel");
+    const evw = document.getElementById("events-view");
     if (fs) fs.disabled = !unlocked;
     if (panel) panel.hidden = !!unlocked;
+    if (evw) {
+      if (unlocked) evw.dataset.organizerUnlocked = "1";
+      else delete evw.dataset.organizerUnlocked;
+    }
+    renderCalendarIfVisible();
   }
 
   async function refreshEventUnlockState() {
@@ -945,7 +953,13 @@
         const inner = ev.link
           ? `<a href="${escHtml(ev.link)}" target="_blank" rel="noopener noreferrer" class="cal-chip-link">${t}</a>`
           : `<span class="cal-chip-text">${t}</span>`;
-        chips += `<div class="${chipClass}" title="${escHtml(tip)}">${inner}</div>`;
+        const idAttr =
+          ev.kind === "clan" && ev.id ? ` data-clan-event-id="${escHtml(String(ev.id))}"` : "";
+        const removeBtn =
+          ev.kind === "clan" && ev.id
+            ? `<button type="button" class="cal-chip-remove" aria-label="Remove this clan event">×</button>`
+            : "";
+        chips += `<div class="${chipClass}" title="${escHtml(tip)}"${idAttr}><span class="cal-chip-inner">${inner}</span>${removeBtn}</div>`;
       }
       if (more > 0) chips += `<div class="cal-more muted">+${more} more</div>`;
 
@@ -1177,6 +1191,41 @@
   document.getElementById("cal-today")?.addEventListener("click", () => {
     calendarCursor = initialCalendarCursor();
     renderCalendarIfVisible();
+  });
+
+  document.getElementById("calendar-grid")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".cal-chip-remove");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const chip = btn.closest("[data-clan-event-id]");
+    const id = chip?.getAttribute("data-clan-event-id");
+    if (!id || !eventsOrganizerUnlocked) return;
+    if (!window.confirm("Remove this clan event from the calendar?")) return;
+    try {
+      const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        window.alert(j.error || "Could not remove event.");
+        return;
+      }
+      const listR = await fetch("/api/custom-events");
+      let list = [];
+      if (listR.ok) {
+        try {
+          const parsed = await listR.json();
+          if (Array.isArray(parsed)) list = parsed;
+        } catch {
+          /* ignore */
+        }
+      }
+      refreshEventCache(cachedCompetitions, list);
+    } catch {
+      window.alert("Could not reach the server.");
+    }
   });
 
   document.getElementById("event-unlock-btn")?.addEventListener("click", async () => {
