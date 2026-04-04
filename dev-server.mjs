@@ -229,6 +229,7 @@ function normalizeLiveMapIncomingRow(p, now) {
   if (p.title != null) row.title = String(p.title).slice(0, 128);
   if (p.id != null) row.id = p.id;
   if (p.playerId != null) row.playerId = p.playerId;
+  if (p.world != null && Number.isFinite(Number(p.world))) row.world = Number(p.world);
   return { key, row, _lastSeen: now };
 }
 
@@ -249,9 +250,14 @@ function liveMapAuthorize(req, bodyObj) {
   const hk = req.headers["x-live-map-key"];
   if (typeof hk === "string" && timingSafeEqualString(hk.trim(), LIVE_MAP_SECRET)) return true;
   const auth = req.headers["authorization"];
-  if (typeof auth === "string" && auth.toLowerCase().startsWith("bearer ")) {
-    const t = auth.slice(7).trim();
-    if (timingSafeEqualString(t, LIVE_MAP_SECRET)) return true;
+  if (typeof auth === "string") {
+    const trimmed = auth.trim();
+    if (trimmed.toLowerCase().startsWith("bearer ")) {
+      const t = trimmed.slice(7).trim();
+      if (timingSafeEqualString(t, LIVE_MAP_SECRET)) return true;
+    } else if (timingSafeEqualString(trimmed, LIVE_MAP_SECRET)) {
+      return true;
+    }
   }
   if (bodyObj && typeof bodyObj === "object") {
     const k = bodyObj.sharedKey ?? bodyObj.key ?? bodyObj.secret;
@@ -260,16 +266,63 @@ function liveMapAuthorize(req, bodyObj) {
   return false;
 }
 
-function liveMapExtractEntries(j, merge) {
+/** RuneLite-style body: { name, waypoint: { x, y, plane }, title?, world? } → flat row for normalizeLiveMapIncomingRow */
+function flattenRuneliteWaypointBody(j) {
   if (!j || typeof j !== "object") return null;
-  if (Array.isArray(j.data)) return j.data;
-  if (Array.isArray(j)) return j;
+  const w = j.waypoint;
+  if (!w || typeof w !== "object") return null;
+  const x = Number(w.x);
+  const y = Number(w.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  let plane = w.plane ?? w.z ?? w.floor ?? w.level ?? 0;
+  plane = Number(plane);
+  if (!Number.isFinite(plane) || plane < 0) plane = 0;
+  if (plane > 3) plane = 3;
+  const name = j.name != null ? String(j.name) : "";
+  const displayName = j.displayName != null ? String(j.displayName) : name || "Unknown";
+  const row = {
+    name: name || displayName,
+    displayName,
+    x,
+    y,
+    plane,
+    status: j.status != null ? String(j.status) : "online",
+  };
+  if (j.title != null && String(j.title).length) row.title = String(j.title).slice(0, 128);
+  if (j.world != null && Number.isFinite(Number(j.world))) row.world = Number(j.world);
+  return row;
+}
+
+function liveMapExtractEntriesRemainder(j, merge) {
+  if (!j || typeof j !== "object") return null;
   if (merge && j.player && typeof j.player === "object") return [j.player];
   if (merge && Number.isFinite(Number(j.x)) && Number.isFinite(Number(j.y))) {
     const { merge: _m, mode, sharedKey, key, secret, data, player, ...rest } = j;
     return [rest];
   }
   return null;
+}
+
+/** Resolves POST body to { entries, merge }. Supports RuneLite /post { waypoint }, { data }, merge modes, top-level array. */
+function resolveLiveMapEntriesAndMerge(j) {
+  if (j === null || j === undefined) return { entries: null, merge: false };
+  if (Array.isArray(j)) return { entries: j, merge: false };
+  if (typeof j !== "object") return { entries: null, merge: false };
+
+  if (Array.isArray(j.data)) {
+    const merge = j.merge === true || j.mode === "merge";
+    return { entries: j.data, merge };
+  }
+
+  if (j.waypoint && typeof j.waypoint === "object") {
+    const flat = flattenRuneliteWaypointBody(j);
+    if (!flat) return { entries: null, merge: j.merge !== false };
+    return { entries: [flat], merge: j.merge !== false };
+  }
+
+  const merge = j.merge === true || j.mode === "merge";
+  const entries = liveMapExtractEntriesRemainder(j, merge);
+  return { entries, merge };
 }
 
 function applyLiveMapEntries(entries) {
@@ -782,7 +835,8 @@ http
       return;
     }
 
-    if (url.pathname === "/api/live-map-players") {
+    if (url.pathname === "/api/live-map-players" || url.pathname === "/post") {
+      const liveMapPath = url.pathname;
       const cors = {
         "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
@@ -795,6 +849,11 @@ http
         return;
       }
       if (req.method === "GET") {
+        if (liveMapPath === "/post") {
+          res.writeHead(404, cors);
+          res.end(JSON.stringify({ error: "Use GET /api/live-map-players for the map roster." }));
+          return;
+        }
         res.writeHead(200, cors);
         res.end(JSON.stringify({ data: liveMapPlayersSnapshot() }));
         return;
@@ -816,19 +875,19 @@ http
           res.writeHead(401, cors);
           res.end(
             JSON.stringify({
-              error: "Unauthorized — set LIVE_MAP_SECRET on the server and send the same value via header X-Live-Map-Key, Authorization: Bearer …, or JSON sharedKey / key / secret.",
+              error:
+                "Unauthorized — set LIVE_MAP_SECRET on the server and send the same value via X-Live-Map-Key, Authorization: <secret> or Authorization: Bearer <secret>, or JSON sharedKey / key / secret.",
             })
           );
           return;
         }
-        const merge = j && (j.merge === true || j.mode === "merge");
-        const entries = liveMapExtractEntries(j, merge);
+        const { entries, merge } = resolveLiveMapEntriesAndMerge(j);
         if (!entries) {
           res.writeHead(400, cors);
           res.end(
             JSON.stringify({
               error:
-                "Expected JSON { data: [...] } or a JSON array. RuneLite clients should send merge: true and data: [{ name, x, y, plane? }] (or player: {…}, or top-level x/y/name with merge).",
+                "Expected JSON with waypoint {x,y,plane}, or { data: [...] }, or (with merge) player / top-level x,y. See .env.example (RuneLite / live map).",
             })
           );
           return;
@@ -914,7 +973,7 @@ http
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );
     console.log(
-      "GET/POST /api/live-map-players — live map (GET public; POST merge:true upserts, replace clears; optional LIVE_MAP_SECRET)"
+      "GET /api/live-map-players + POST /api/live-map-players or POST /post — live map (RuneLite: POST /post + waypoint JSON; optional LIVE_MAP_SECRET)"
     );
     if (process.env.DISCORD_EVENTS_WEBHOOK_URL) {
       console.log("Discord: new clan events will be posted to DISCORD_EVENTS_WEBHOOK_URL");
