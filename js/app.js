@@ -493,9 +493,13 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
     if (mv) mv.hidden = false;
     window.scrollTo(0, 0);
 
@@ -535,9 +539,13 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const mapv = document.getElementById("map-view");
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
     if (hv) hv.hidden = false;
     document.title = "Terpinheimer | OSRS Clan";
   }
@@ -583,9 +591,13 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
     if (evw) evw.hidden = false;
     window.scrollTo(0, 0);
     document.title = "Events | Terpinheimer";
@@ -723,9 +735,13 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (evw) evw.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
     if (listv) listv.hidden = false;
     window.scrollTo(0, 0);
     document.title = "Members | Terpinheimer";
@@ -751,6 +767,11 @@
 
     if (path === "/events") {
       showEventsCalendarView();
+      return;
+    }
+
+    if (path === "/map") {
+      showMapView();
       return;
     }
 
@@ -1403,6 +1424,252 @@
       status.classList.add("load-error");
     }
   });
+
+  let liveMapControlsBound = false;
+  let liveMapPlane = 0;
+  let liveMapPlayers = [];
+  let liveMapPollTimer = null;
+  let lastLiveMapOnPlanePlayers = [];
+
+  function stopLiveMapPoll() {
+    if (liveMapPollTimer != null) {
+      clearInterval(liveMapPollTimer);
+      liveMapPollTimer = null;
+    }
+  }
+
+  /** OSRS plane 0–3 (shown as Plane 1–4). Accepts z | floor | level. */
+  function normalizeLiveMapPlayer(pl) {
+    if (!pl || typeof pl !== "object") return null;
+    let plane = pl.plane;
+    if (plane == null && pl.z != null) plane = pl.z;
+    if (plane == null && pl.floor != null) plane = pl.floor;
+    if (plane == null && pl.level != null) plane = pl.level;
+    plane = Number(plane);
+    if (!Number.isFinite(plane) || plane < 0) plane = 0;
+    if (plane > 3) plane = 3;
+    const displayName = pl.displayName ?? pl.name ?? "?";
+    const name = pl.name ?? pl.displayName ?? displayName;
+    return { ...pl, plane, name, displayName };
+  }
+
+  function applyLiveMapPlayersList(arr) {
+    const list = Array.isArray(arr) ? arr : [];
+    liveMapPlayers = list.map(normalizeLiveMapPlayer).filter(Boolean);
+  }
+
+  /** Live map API rows: skip offline; require x/y. */
+  function mergeApiPlayers(rows) {
+    if (!Array.isArray(rows)) return;
+    const next = [];
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      if (String(row.status || "online").toLowerCase() === "offline") continue;
+      const p = normalizeLiveMapPlayer({
+        name: row.name,
+        displayName: row.displayName ?? row.name,
+        x: row.x ?? row.worldX ?? row.world_x,
+        y: row.y ?? row.worldY ?? row.world_y,
+        plane: row.plane ?? row.z,
+        status: row.status,
+        title: row.title,
+      });
+      if (p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))) next.push(p);
+    }
+    liveMapPlayers = next;
+  }
+
+  function syncPlaneSelect() {
+    const sel = document.getElementById("map-plane-select");
+    if (!sel) return;
+    const want = String(liveMapPlane);
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === want) {
+        sel.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  function renderLiveMapUi() {
+    const box = document.getElementById("map-live-player-buttons");
+    const hint = document.getElementById("map-live-empty-hint");
+    if (!box) return;
+
+    syncPlaneSelect();
+
+    const onPlane = liveMapPlayers.filter((pl) => pl.plane === liveMapPlane);
+    lastLiveMapOnPlanePlayers = onPlane;
+
+    if (window.TerpinheimerOsrsMap) {
+      window.TerpinheimerOsrsMap.setPlane(liveMapPlane);
+      window.TerpinheimerOsrsMap.setMarkers(onPlane);
+    }
+
+    if (!onPlane.length) {
+      box.innerHTML = "";
+      if (hint) hint.hidden = false;
+    } else {
+      if (hint) hint.hidden = true;
+      box.innerHTML = onPlane
+        .map(
+          (pl, idx) =>
+            `<button type="button" class="live-map-player-btn" data-player-idx="${idx}"><span class="live-map-player-dot" aria-hidden="true"></span>${escHtml(
+              pl.displayName || pl.name || "?"
+            )}</button>`
+        )
+        .join("");
+    }
+  }
+
+  function bindLiveMapControlsOnce() {
+    if (liveMapControlsBound) return;
+    liveMapControlsBound = true;
+
+    const sel = document.getElementById("map-plane-select");
+    if (sel) {
+      sel.addEventListener("change", () => {
+        const v = Number(sel.value);
+        if (Number.isNaN(v)) return;
+        liveMapPlane = Math.min(3, Math.max(0, v));
+        renderLiveMapUi();
+      });
+    }
+
+    const btnRoot = document.getElementById("map-live-player-buttons");
+    if (btnRoot) {
+      btnRoot.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-player-idx]");
+        if (!b) return;
+        const idx = Number(b.getAttribute("data-player-idx"));
+        const pl = lastLiveMapOnPlanePlayers[idx];
+        if (!pl) return;
+        liveMapPlane = Math.min(3, Math.max(0, pl.plane));
+        syncPlaneSelect();
+        if (window.TerpinheimerOsrsMap) {
+          window.TerpinheimerOsrsMap.setPlane(liveMapPlane);
+          window.TerpinheimerOsrsMap.setMarkers(liveMapPlayers.filter((p) => p.plane === liveMapPlane));
+          window.TerpinheimerOsrsMap.flyToGameTile(pl.x, pl.y);
+        }
+      });
+    }
+
+    const plugin = document.getElementById("map-plugin-link");
+    if (plugin) {
+      plugin.addEventListener("click", (e) => {
+        if (plugin.getAttribute("href") === "#") e.preventDefault();
+      });
+    }
+  }
+
+  function startLiveMapPoll() {
+    stopLiveMapPoll();
+    liveMapPollTimer = setInterval(async () => {
+      const mapv = document.getElementById("map-view");
+      if (!mapv || mapv.hidden) return;
+      try {
+        const r = await fetch("/api/live-map-players", { credentials: "same-origin" });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (Array.isArray(j.data)) mergeApiPlayers(j.data);
+        renderLiveMapUi();
+      } catch {
+        /* ignore */
+      }
+    }, 1000);
+  }
+
+  function showMapView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const mapv = document.getElementById("map-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (mapv) mapv.hidden = false;
+    document.body.classList.add("map-route-live");
+    window.scrollTo(0, 0);
+    document.title = "Live Map | Terpinheimer";
+    bindLiveMapControlsOnce();
+
+    if (window.TerpinheimerOsrsMap) {
+      window.TerpinheimerOsrsMap.ensureMap("map-leaflet", { plane: liveMapPlane });
+      const mapInst = window.TerpinheimerOsrsMap.getMap();
+      const playerBox = document.getElementById("map-player-box");
+      if (mapInst && playerBox && window.L) {
+        window.L.DomEvent.disableScrollPropagation(playerBox);
+        window.L.DomEvent.disableClickPropagation(playerBox);
+      }
+    }
+
+    renderLiveMapUi();
+    if (window.TerpinheimerOsrsMap) {
+      requestAnimationFrame(() => {
+        window.TerpinheimerOsrsMap.invalidateSize();
+        requestAnimationFrame(() => window.TerpinheimerOsrsMap.invalidateSize());
+      });
+    }
+
+    void (async () => {
+      try {
+        const r = await fetch("/api/live-map-players", { credentials: "same-origin" });
+        if (r.ok) {
+          const j = await r.json();
+          if (Array.isArray(j.data)) mergeApiPlayers(j.data);
+        }
+      } catch {
+        /* keep client-injected players */
+      }
+      renderLiveMapUi();
+    })();
+
+    startLiveMapPoll();
+  }
+
+  window.TerpinheimerLiveMap = window.TerpinheimerLiveMap || {};
+  /**
+   * @param {object[]} players { x, y, plane?, name? | displayName?, ... } — OSRS game tile coords (Explv tile set).
+   * @param {{ followPlane?: boolean, fitMarkers?: boolean }} [options]
+   */
+  window.TerpinheimerLiveMap.setPlayers = (players, options = {}) => {
+    applyLiveMapPlayersList(players);
+    const follow = !!options.followPlane;
+    if (follow && liveMapPlayers.length > 0) {
+      const counts = [0, 0, 0, 0];
+      for (const pl of liveMapPlayers) counts[pl.plane]++;
+      let bestPlane = 0;
+      let bestCount = -1;
+      for (let i = 0; i <= 3; i++) {
+        if (counts[i] > bestCount) {
+          bestCount = counts[i];
+          bestPlane = i;
+        }
+      }
+      liveMapPlane = bestPlane;
+    }
+    const mapv = document.getElementById("map-view");
+    if (mapv && !mapv.hidden) {
+      syncPlaneSelect();
+      renderLiveMapUi();
+      const shouldFit = follow && options.fitMarkers !== false;
+      if (shouldFit && window.TerpinheimerOsrsMap) {
+        requestAnimationFrame(() => window.TerpinheimerOsrsMap.fitToMarkersIfAny());
+      }
+    }
+  };
+  window.TerpinheimerLiveMap.setPlane = (n) => {
+    liveMapPlane = Math.min(3, Math.max(0, Number(n) || 0));
+    const mapv = document.getElementById("map-view");
+    if (mapv && !mapv.hidden) {
+      syncPlaneSelect();
+      renderLiveMapUi();
+    }
+  };
+  window.TerpinheimerLiveMap.getPlane = () => liveMapPlane;
 
   window.addEventListener("hashchange", applyRoute);
   applyRoute();

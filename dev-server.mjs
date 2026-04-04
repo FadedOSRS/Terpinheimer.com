@@ -48,6 +48,17 @@ function resolveCustomEventsPath() {
 }
 
 const CUSTOM_EVENTS_PATH = resolveCustomEventsPath();
+
+const LIVE_MAP_SECRET = (process.env.LIVE_MAP_SECRET || "").trim();
+const LIVE_MAP_TTL_MS =
+  Number.isFinite(Number(process.env.LIVE_MAP_PLAYER_TTL_MS)) && Number(process.env.LIVE_MAP_PLAYER_TTL_MS) > 0
+    ? Number(process.env.LIVE_MAP_PLAYER_TTL_MS)
+    : 120000;
+const LIVE_MAP_MAX_BODY = Math.min(Math.max(Number(process.env.LIVE_MAP_MAX_BODY) || 98304, 4096), 524288);
+
+/** Live map: keyed roster for merge + TTL (RuneLite / HTTP clients). */
+const liveMapPlayersByKey = new Map();
+
 const MAX_BODY = 32768;
 const EVENT_SESSION_COOKIE = "th_ev";
 const EVENT_SESSION_DAYS = 7;
@@ -178,6 +189,100 @@ function timingSafeEqualString(a, b) {
   const bb = Buffer.from(b, "utf8");
   if (ba.length !== bb.length) return false;
   return crypto.timingSafeEqual(ba, bb);
+}
+
+function liveMapPlayerDedupeKey(p) {
+  if (!p || typeof p !== "object") return null;
+  const id = p.id ?? p.playerId ?? p.accountHash ?? p.uuid;
+  if (id != null && String(id).length > 0) return `i:${String(id)}`;
+  const n = String(p.name ?? p.displayName ?? "").trim().toLowerCase();
+  if (n) return `n:${n}`;
+  return null;
+}
+
+function normalizeLiveMapIncomingRow(p, now) {
+  if (!p || typeof p !== "object") return null;
+  const st = String(p.status ?? "online").toLowerCase();
+  if (st === "offline") {
+    const k = liveMapPlayerDedupeKey(p);
+    return k ? { offlineKey: k } : null;
+  }
+  const key = liveMapPlayerDedupeKey(p);
+  if (!key) return null;
+  let plane = p.plane ?? p.z ?? p.floor ?? p.level ?? 0;
+  plane = Number(plane);
+  if (!Number.isFinite(plane) || plane < 0) plane = 0;
+  if (plane > 3) plane = 3;
+  const x = Number(p.x ?? p.worldX ?? p.world_x);
+  const y = Number(p.y ?? p.worldY ?? p.world_y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const name = String(p.name ?? p.displayName ?? "Unknown").slice(0, 64);
+  const displayName = String(p.displayName ?? p.name ?? name).slice(0, 64);
+  const row = {
+    name,
+    displayName,
+    x,
+    y,
+    plane,
+    status: String(p.status ?? "online").slice(0, 32),
+  };
+  if (p.title != null) row.title = String(p.title).slice(0, 128);
+  if (p.id != null) row.id = p.id;
+  if (p.playerId != null) row.playerId = p.playerId;
+  return { key, row, _lastSeen: now };
+}
+
+function pruneLiveMapPlayers() {
+  const now = Date.now();
+  for (const [k, v] of liveMapPlayersByKey) {
+    if (now - v._lastSeen > LIVE_MAP_TTL_MS) liveMapPlayersByKey.delete(k);
+  }
+}
+
+function liveMapPlayersSnapshot() {
+  pruneLiveMapPlayers();
+  return [...liveMapPlayersByKey.values()].map((v) => v.row);
+}
+
+function liveMapAuthorize(req, bodyObj) {
+  if (!LIVE_MAP_SECRET) return true;
+  const hk = req.headers["x-live-map-key"];
+  if (typeof hk === "string" && timingSafeEqualString(hk.trim(), LIVE_MAP_SECRET)) return true;
+  const auth = req.headers["authorization"];
+  if (typeof auth === "string" && auth.toLowerCase().startsWith("bearer ")) {
+    const t = auth.slice(7).trim();
+    if (timingSafeEqualString(t, LIVE_MAP_SECRET)) return true;
+  }
+  if (bodyObj && typeof bodyObj === "object") {
+    const k = bodyObj.sharedKey ?? bodyObj.key ?? bodyObj.secret;
+    if (typeof k === "string" && timingSafeEqualString(k.trim(), LIVE_MAP_SECRET)) return true;
+  }
+  return false;
+}
+
+function liveMapExtractEntries(j, merge) {
+  if (!j || typeof j !== "object") return null;
+  if (Array.isArray(j.data)) return j.data;
+  if (Array.isArray(j)) return j;
+  if (merge && j.player && typeof j.player === "object") return [j.player];
+  if (merge && Number.isFinite(Number(j.x)) && Number.isFinite(Number(j.y))) {
+    const { merge: _m, mode, sharedKey, key, secret, data, player, ...rest } = j;
+    return [rest];
+  }
+  return null;
+}
+
+function applyLiveMapEntries(entries) {
+  const now = Date.now();
+  for (const item of entries) {
+    const n = normalizeLiveMapIncomingRow(item, now);
+    if (!n) continue;
+    if (n.offlineKey) {
+      liveMapPlayersByKey.delete(n.offlineKey);
+      continue;
+    }
+    liveMapPlayersByKey.set(n.key, { row: n.row, _lastSeen: n._lastSeen });
+  }
 }
 
 async function readCustomEvents() {
@@ -677,6 +782,69 @@ http
       return;
     }
 
+    if (url.pathname === "/api/live-map-players") {
+      const cors = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Live-Map-Key",
+      };
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, cors);
+        res.end();
+        return;
+      }
+      if (req.method === "GET") {
+        res.writeHead(200, cors);
+        res.end(JSON.stringify({ data: liveMapPlayersSnapshot() }));
+        return;
+      }
+      if (req.method === "POST") {
+        const read = await readRequestBody(req, LIVE_MAP_MAX_BODY);
+        if (read.error) {
+          res.writeHead(413, cors);
+          res.end(JSON.stringify({ error: "Body too large" }));
+          return;
+        }
+        const j = read.buf.length > 0 ? parseJsonBody(read.buf) : null;
+        if (j !== null && typeof j !== "object") {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+          return;
+        }
+        if (!liveMapAuthorize(req, j)) {
+          res.writeHead(401, cors);
+          res.end(
+            JSON.stringify({
+              error: "Unauthorized — set LIVE_MAP_SECRET on the server and send the same value via header X-Live-Map-Key, Authorization: Bearer …, or JSON sharedKey / key / secret.",
+            })
+          );
+          return;
+        }
+        const merge = j && (j.merge === true || j.mode === "merge");
+        const entries = liveMapExtractEntries(j, merge);
+        if (!entries) {
+          res.writeHead(400, cors);
+          res.end(
+            JSON.stringify({
+              error:
+                "Expected JSON { data: [...] } or a JSON array. RuneLite clients should send merge: true and data: [{ name, x, y, plane? }] (or player: {…}, or top-level x/y/name with merge).",
+            })
+          );
+          return;
+        }
+        if (!merge) liveMapPlayersByKey.clear();
+        applyLiveMapEntries(entries);
+        const snapshot = liveMapPlayersSnapshot();
+        res.writeHead(200, cors);
+        res.end(JSON.stringify({ ok: true, count: snapshot.length, merge: !!merge }));
+        return;
+      }
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
     if (isPrivateDataPath(url.pathname)) {
       res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
       res.end("Forbidden");
@@ -744,6 +912,9 @@ http
     console.log("GET/POST /api/event-session — browser unlock cookie for adding events");
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
+    );
+    console.log(
+      "GET/POST /api/live-map-players — live map (GET public; POST merge:true upserts, replace clears; optional LIVE_MAP_SECRET)"
     );
     if (process.env.DISCORD_EVENTS_WEBHOOK_URL) {
       console.log("Discord: new clan events will be posted to DISCORD_EVENTS_WEBHOOK_URL");

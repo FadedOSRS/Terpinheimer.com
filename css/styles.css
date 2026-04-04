@@ -697,7 +697,7 @@ a:hover {
   font-size: 0.95rem;
 }
 
-/* Stats grid — mirrors Goblin Scape stat tiles */
+/* Stats grid — OSRS-style stat tiles */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1567,4 +1567,253 @@ a:hover {
 .osrs-item-name {
   color: var(--cream);
   font-weight: 600;
+}
+
+/* ——— Fullscreen live map (#/map) ——— */
+body.map-route-live {
+  overflow: hidden;
+}
+
+body.map-route-live .noise,
+body.map-route-live .site-header,
+body.map-route-live .site-footer,
+body.map-route-live #load-error {
+  display: none !important;
+}
+
+body.map-route-live #app {
+  display: block;
+  min-height: 100vh;
+}
+
+.map-view--live-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  padding: 0;
+  margin: 0;
+  background: var(--navy-deep);
+}
+
+.live-map-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+}
+
+.live-map-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--navy-deep);
+}
+
+.live-map-canvas .leaflet-container {
+  background: var(--navy-deep);
+  font-family: var(--font-body);
+}
+
+.live-map-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  padding: 10px;
+}
+
+.live-map-ui .live-map-stack > * {
+  pointer-events: auto;
+}
+
+.live-map-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: min(100%, 440px);
+}
+
+.live-map-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.live-map-panel,
+.live-map-select,
+.live-map-btn {
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.live-map-panel {
+  background: linear-gradient(165deg, var(--panel) 0%, var(--navy-deep) 100%);
+  border: 1px solid var(--panel-edge);
+  color: var(--cream);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 159, 28, 0.08);
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.live-map-title {
+  padding: 0.5rem 0.85rem;
+}
+
+.live-map-select {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.48rem 0.65rem;
+  background: rgba(15, 20, 24, 0.92);
+  border: 1px solid var(--panel-edge);
+  color: var(--cream);
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.live-map-select:hover,
+.live-map-select:focus {
+  outline: none;
+  border-color: rgba(255, 159, 28, 0.45);
+  color: var(--cream);
+}
+
+.live-map-select option {
+  background: var(--navy-deep);
+  color: var(--cream);
+}
+
+.live-map-btn {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.48rem 0.75rem;
+  background: rgba(36, 48, 56, 0.55);
+  border: 1px solid var(--panel-edge);
+  color: var(--cream);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.live-map-btn:hover {
+  filter: none;
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(36, 48, 56, 0.75);
+}
+
+.live-map-player-box {
+  padding: 0.5rem 0.75rem 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.live-map-player-heading {
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.live-map-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.live-map-player-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.42rem 0.7rem;
+  background: rgba(15, 20, 24, 0.75);
+  border: 1px solid var(--panel-edge);
+  color: var(--cream);
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.live-map-player-btn:hover {
+  filter: none;
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.live-map-player-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--navy-deep);
+}
+
+.live-map-hint {
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  text-shadow: none;
+}
+
+.live-map-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.live-map-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.live-map-tooltip::before {
+  display: none !important;
+}
+
+.live-map-tip-inner {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--cream);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+.live-map-marker-wrap {
+  background: none !important;
+  border: none !important;
+}
+
+.live-map-marker-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--amber);
+  border: 2px solid var(--maroon-deep);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
 }
