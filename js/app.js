@@ -374,6 +374,8 @@
   }
 
   const ITEM_FEED_TYPES = new Set(["valuable_drop", "new_item_obtained"]);
+  /** Max rows for home + member drops / collection log lists. */
+  const CLAN_ITEM_FEED_LIMIT = 12;
 
   /** Deduped drops + collection log rows from RuneProfile (excludes level-ups, quests, etc.). */
   function mergeItemActivitiesFromProfile(profile) {
@@ -438,7 +440,7 @@
       const tb = new Date(String(b.row.createdAt).replace(" ", "T")).getTime();
       return tb - ta;
     });
-    const top = flat.slice(0, 40);
+    const top = flat.slice(0, CLAN_ITEM_FEED_LIMIT);
     if (!top.length) {
       actEl.innerHTML = womFallbackHtml;
       return;
@@ -547,7 +549,7 @@
     }
 
     const questNamesById = buildQuestNamesById(profile.quests);
-    const itemMerged = mergeItemActivitiesFromProfile(profile);
+    const itemMerged = mergeItemActivitiesFromProfile(profile).slice(0, CLAN_ITEM_FEED_LIMIT);
     const rEl = document.getElementById("member-recent");
     if (rEl) {
       rEl.innerHTML = itemMerged.length
