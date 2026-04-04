@@ -543,18 +543,41 @@
     document.title = "Terpinheimer | OSRS Clan";
   }
 
-  function applyEventFormUnlocked(unlocked) {
-    eventsOrganizerUnlocked = !!unlocked;
-    const fs = document.getElementById("event-form-fieldset");
-    const panel = document.getElementById("event-unlock-panel");
+  const MIN_ORGANIZER_CODE_LEN = 6;
+
+  function getOrganizerSecretInput() {
+    return String(document.getElementById("event-organizer-secret")?.value || "").trim();
+  }
+
+  function syncOrganizerRemoveUi() {
     const evw = document.getElementById("events-view");
-    if (fs) fs.disabled = !unlocked;
-    if (panel) panel.hidden = !!unlocked;
+    const showRemove =
+      eventsOrganizerUnlocked || getOrganizerSecretInput().length >= MIN_ORGANIZER_CODE_LEN;
     if (evw) {
-      if (unlocked) evw.dataset.organizerUnlocked = "1";
+      if (showRemove) evw.dataset.organizerUnlocked = "1";
       else delete evw.dataset.organizerUnlocked;
     }
     renderCalendarIfVisible();
+  }
+
+  function applyEventFormUnlocked(unlocked) {
+    eventsOrganizerUnlocked = !!unlocked;
+    const panel = document.getElementById("event-unlock-panel");
+    if (panel) panel.hidden = !!unlocked;
+    syncOrganizerRemoveUi();
+  }
+
+  async function resolveClanEventsAuth() {
+    const secret = getOrganizerSecretInput();
+    if (secret.length >= MIN_ORGANIZER_CODE_LEN) return { secret };
+    try {
+      const r = await fetch("/api/event-session", { credentials: "same-origin" });
+      const j = await r.json().catch(() => ({}));
+      if (j.unlocked) return { secret: "" };
+    } catch {
+      /* ignore */
+    }
+    return null;
   }
 
   async function refreshEventUnlockState() {
@@ -1193,6 +1216,10 @@
     renderCalendarIfVisible();
   });
 
+  document.getElementById("event-organizer-secret")?.addEventListener("input", () => {
+    syncOrganizerRemoveUi();
+  });
+
   document.getElementById("calendar-grid")?.addEventListener("click", async (e) => {
     const btn = e.target.closest(".cal-chip-remove");
     if (!btn) return;
@@ -1200,13 +1227,25 @@
     e.stopPropagation();
     const chip = btn.closest("[data-clan-event-id]");
     const id = chip?.getAttribute("data-clan-event-id");
-    if (!id || !eventsOrganizerUnlocked) return;
+    if (!id) return;
+    const auth = await resolveClanEventsAuth();
+    if (!auth) {
+      window.alert(
+        "Enter the leadership code (at least 6 characters) under Add clan event, or use Unlock."
+      );
+      return;
+    }
     if (!window.confirm("Remove this clan event from the calendar?")) return;
     try {
-      const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, {
+      const delInit = {
         method: "DELETE",
         credentials: "same-origin",
-      });
+      };
+      if (auth.secret) {
+        delInit.headers = { "Content-Type": "application/json" };
+        delInit.body = JSON.stringify({ secret: auth.secret });
+      }
+      const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, delInit);
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         window.alert(j.error || "Could not remove event.");
@@ -1294,6 +1333,15 @@
     status.classList.remove("load-error");
     status.classList.add("muted");
 
+    const auth = await resolveClanEventsAuth();
+    if (!auth) {
+      status.textContent =
+        "Enter the leadership code (at least 6 characters) or use Unlock above.";
+      status.classList.remove("muted");
+      status.classList.add("load-error");
+      return;
+    }
+
     const fd = new FormData(form);
     const title = String(fd.get("title") || "").trim();
     const startsRaw = String(fd.get("startsAt") || "");
@@ -1320,6 +1368,7 @@
       link: String(fd.get("link") || "").trim(),
       notes: String(fd.get("notes") || "").trim(),
     };
+    if (auth.secret) payload.secret = auth.secret;
 
     try {
       const r = await fetch("/api/custom-events", {
