@@ -120,7 +120,7 @@
           <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Events</span>
         </nav>
         <h1 class="section-title events-cal-heading">Clan calendar</h1>
-        <p class="muted events-cal-lead">Wise Old Man competitions and clan events. Organizers use the leadership code below to add or remove clan events (or unlock once so the site remembers you).</p>
+        <p class="muted events-cal-lead">Wise Old Man competitions and clan events. Removing a clan event (× on a gold chip) always asks for the leadership code. Adding can use the code or optional Unlock.</p>
 
         <div class="calendar-toolbar">
           <button type="button" class="btn btn-ghost cal-nav-btn" id="cal-prev" aria-label="Previous month">←</button>
@@ -140,7 +140,7 @@
 
         <details class="event-add-panel event-add-panel--page">
           <summary class="event-add-summary">Add clan event</summary>
-          <p class="muted event-add-lead">Use <strong>Leadership code</strong> when adding or removing events. Optional: <strong>Unlock</strong> sets a private browser cookie so you can leave the code blank until it expires.</p>
+          <p class="muted event-add-lead"><strong>Leadership code</strong> is required to remove events (in the box below or the prompt). For <strong>adding</strong> events you can use the code or <strong>Unlock</strong> (cookie) so the code field can stay empty.</p>
           <div class="event-unlock-panel" id="event-unlock-panel">
             <label class="event-add-label">
               <span>Unlock (optional)</span>
@@ -153,7 +153,7 @@
             <span>Leadership code</span>
             <input id="event-organizer-secret" type="password" class="event-add-input" autocomplete="off" />
           </label>
-          <p class="muted event-organizer-secret-hint">Enter this for each add or remove if you are not unlocked. The code is sent only to the server, not saved in the page.</p>
+          <p class="muted event-organizer-secret-hint">Required for every remove (or type it when prompted). For adds, use this if you have not unlocked. The code is sent only to the server, not saved in the page.</p>
           <form id="event-add-form" class="event-add-form">
             <fieldset class="event-form-fieldset" id="event-form-fieldset">
               <label class="event-add-label">

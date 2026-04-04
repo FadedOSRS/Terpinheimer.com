@@ -52,12 +52,14 @@ Your bot runs **separate** from the Terpinheimer site. To add a calendar event f
 | `TERPINHEIMER_SITE_URL` | Public origin only, e.g. `https://terpinheimer.com` (no `/api`, no trailing slash) |
 | `TERPINHEIMER_EVENTS_SECRET` | Same value as **`CLAN_EVENTS_SECRET`** on the site server (never commit this; use `.env` + `dotenv`) |
 
-The **website** unlock flow uses an **HttpOnly cookie** after `POST /api/event-session`, so the browser does not need to send `secret` on `POST /api/custom-events` or on `DELETE /api/custom-events?id=<event-uuid>`. **Bots and scripts** should send JSON `{ "secret": "<CLAN_EVENTS_SECRET>", ... }` on `POST` (no cookie required).
+The **website** unlock flow uses an **HttpOnly cookie** after `POST /api/event-session`, so the browser does not need to send `secret` on **`POST /api/custom-events`** when creating an event (cookie is enough). **Removing** an event always requires `secret` in the JSON body — session unlock is not enough.
 
-**Remove an event (same auth as create):**
+**Bots and scripts** should send JSON `{ "secret": "<CLAN_EVENTS_SECRET>", ... }` as usual.
 
-- **Browser (after unlock):** `DELETE /api/custom-events?id=<uuid>` with cookies (no body).
-- **Bot:** `DELETE` with query `id=<uuid>` and JSON body `{ "secret": "<CLAN_EVENTS_SECRET>" }`, or `POST` with `{ "secret": "...", "action": "delete", "id": "<uuid>" }`.
+**Remove an event:**
+
+- **Browser:** `DELETE /api/custom-events?id=<uuid>` with `Content-Type: application/json` and body `{ "secret": "<CLAN_EVENTS_SECRET>" }` (the site prompts or uses the leadership code field).
+- **Bot:** same `DELETE`, or `POST` with `{ "secret": "...", "action": "delete", "id": "<uuid>" }` (secret required; cookie alone does not authorize delete).
 
 ### Behavior choice
 

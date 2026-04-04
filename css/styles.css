@@ -442,7 +442,7 @@ a:hover {
   outline: none;
 }
 
-#events-view[data-organizer-unlocked="1"] .cal-chip--clan .cal-chip-remove {
+.cal-chip--clan .cal-chip-remove {
   display: inline-flex;
 }
 

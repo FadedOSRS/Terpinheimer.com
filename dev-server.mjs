@@ -343,11 +343,11 @@ async function handleCustomEventsApi(req, res) {
       read.buf.length > 0 ? parseJsonBody(read.buf) : null;
     const bodySecret =
       body && typeof body === "object" && typeof body.secret === "string" ? body.secret : "";
-    if (!authorizeCustomEventsEdit(req, secret, bodySecret)) {
+    if (!timingSafeEqualString(bodySecret, secret)) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
       res.end(
         JSON.stringify({
-          error: "Not authorized — unlock on the Events page or send secret in JSON body (e.g. bot).",
+          error: "Removing an event requires the leadership code in the JSON body (field secret). Session unlock is not enough.",
         })
       );
       return;
@@ -410,6 +410,15 @@ async function handleCustomEventsApi(req, res) {
   }
 
   if (body.action === "delete") {
+    if (!timingSafeEqualString(submitted, secret)) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          error: "Removing an event requires secret in the JSON body (same as create). Session unlock alone is not enough.",
+        })
+      );
+      return;
+    }
     const delId = typeof body.id === "string" ? body.id.trim() : "";
     if (!isCustomEventId(delId)) {
       res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });

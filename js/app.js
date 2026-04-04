@@ -7,7 +7,6 @@
     return { y: n.getFullYear(), m: n.getMonth() };
   }
   let calendarCursor = initialCalendarCursor();
-  let eventsOrganizerUnlocked = false;
 
   function closeMobileNav() {
     const nav = document.querySelector(".nav");
@@ -549,22 +548,10 @@
     return String(document.getElementById("event-organizer-secret")?.value || "").trim();
   }
 
-  function syncOrganizerRemoveUi() {
-    const evw = document.getElementById("events-view");
-    const showRemove =
-      eventsOrganizerUnlocked || getOrganizerSecretInput().length >= MIN_ORGANIZER_CODE_LEN;
-    if (evw) {
-      if (showRemove) evw.dataset.organizerUnlocked = "1";
-      else delete evw.dataset.organizerUnlocked;
-    }
-    renderCalendarIfVisible();
-  }
-
   function applyEventFormUnlocked(unlocked) {
-    eventsOrganizerUnlocked = !!unlocked;
     const panel = document.getElementById("event-unlock-panel");
     if (panel) panel.hidden = !!unlocked;
-    syncOrganizerRemoveUi();
+    renderCalendarIfVisible();
   }
 
   async function resolveClanEventsAuth() {
@@ -1216,10 +1203,6 @@
     renderCalendarIfVisible();
   });
 
-  document.getElementById("event-organizer-secret")?.addEventListener("input", () => {
-    syncOrganizerRemoveUi();
-  });
-
   document.getElementById("calendar-grid")?.addEventListener("click", async (e) => {
     const btn = e.target.closest(".cal-chip-remove");
     if (!btn) return;
@@ -1228,24 +1211,26 @@
     const chip = btn.closest("[data-clan-event-id]");
     const id = chip?.getAttribute("data-clan-event-id");
     if (!id) return;
-    const auth = await resolveClanEventsAuth();
-    if (!auth) {
+    let code = getOrganizerSecretInput();
+    if (code.length < MIN_ORGANIZER_CODE_LEN) {
+      code = String(
+        window.prompt("Enter leadership code to remove this event:") || ""
+      ).trim();
+    }
+    if (code.length < MIN_ORGANIZER_CODE_LEN) {
       window.alert(
-        "Enter the leadership code (at least 6 characters) under Add clan event, or use Unlock."
+        "You must enter the leadership code (at least 6 characters) to remove an event. You can type it in the box under Add clan event first, or use this prompt."
       );
       return;
     }
     if (!window.confirm("Remove this clan event from the calendar?")) return;
     try {
-      const delInit = {
+      const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
         credentials: "same-origin",
-      };
-      if (auth.secret) {
-        delInit.headers = { "Content-Type": "application/json" };
-        delInit.body = JSON.stringify({ secret: auth.secret });
-      }
-      const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, delInit);
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: code }),
+      });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         window.alert(j.error || "Could not remove event.");
