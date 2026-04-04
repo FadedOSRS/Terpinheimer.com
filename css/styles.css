@@ -727,6 +727,10 @@ a:hover {
   image-rendering: crisp-edges;
 }
 
+.stat-icon--raster {
+  image-rendering: auto;
+}
+
 .stat-card::before {
   content: "";
   position: absolute;
