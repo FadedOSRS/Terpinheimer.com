@@ -21,3 +21,8 @@ services:
     envVars:
       - key: CLAN_EVENTS_SECRET
         sync: false
+      # Paste your Discord Incoming Webhook URL in the dashboard (same as local .env DISCORD_EVENTS_WEBHOOK_URL).
+      - key: DISCORD_EVENTS_WEBHOOK_URL
+        sync: false
+      - key: DISCORD_WEBHOOK_USERNAME
+        value: Terpinheimer.com
