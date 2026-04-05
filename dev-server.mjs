@@ -139,7 +139,13 @@ async function handleEventSessionApi(req, res) {
     const tok = getCookieHeader(req, EVENT_SESSION_COOKIE);
     const unlocked = verifyEventSessionToken(tok, secret);
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ unlocked }));
+    res.end(
+      JSON.stringify({
+        unlocked,
+        /** Same value as HttpOnly cookie — for mobile / in-app browsers that drop cookies on fetch POST. */
+        sessionToken: unlocked ? tok : undefined,
+      })
+    );
     return;
   }
 
@@ -173,7 +179,13 @@ async function handleEventSessionApi(req, res) {
     "Content-Type": "application/json; charset=utf-8",
     "Set-Cookie": cookieLine,
   });
-  res.end(JSON.stringify({ ok: true, unlocked: true }));
+  res.end(
+    JSON.stringify({
+      ok: true,
+      unlocked: true,
+      sessionToken: token,
+    })
+  );
 }
 
 function isPrivateDataPath(urlPathname) {
@@ -372,8 +384,10 @@ const DISCORD_WEBHOOK_MAX_RETRIES = Math.min(
 let discordWebhookLastSent = 0;
 let discordWebhookQueue = Promise.resolve();
 
+/** Run webhook tasks one at a time (serial spacing + 429 retries). */
 function enqueueDiscordWebhook(task) {
-  discordWebhookQueue = discordWebhookQueue.then(task).catch((err) => {
+  const pending = discordWebhookQueue.then(() => task());
+  discordWebhookQueue = pending.catch((err) => {
     console.warn("Discord webhook queue error:", err?.message || err);
   });
 }
@@ -517,12 +531,14 @@ function isCustomEventId(s) {
   );
 }
 
-function authorizeCustomEventsEdit(req, secret, bodySecret) {
+function authorizeCustomEventsEdit(req, secret, bodySecret, bodySessionToken) {
   const cookieTok = getCookieHeader(req, EVENT_SESSION_COOKIE);
-  const sessionOk = verifyEventSessionToken(cookieTok, secret);
+  if (verifyEventSessionToken(cookieTok, secret)) return true;
   const submitted = typeof bodySecret === "string" ? bodySecret : "";
-  const secretBodyOk = timingSafeEqualString(submitted, secret);
-  return sessionOk || secretBodyOk;
+  if (timingSafeEqualString(submitted, secret)) return true;
+  const st = typeof bodySessionToken === "string" ? bodySessionToken.trim() : "";
+  if (st && verifyEventSessionToken(st, secret)) return true;
+  return false;
 }
 
 async function handleCustomEventsApi(req, res) {
@@ -627,7 +643,8 @@ async function handleCustomEventsApi(req, res) {
   }
 
   const submitted = typeof body.secret === "string" ? body.secret : "";
-  if (!authorizeCustomEventsEdit(req, secret, submitted)) {
+  const sessionTok = typeof body.sessionToken === "string" ? body.sessionToken.trim() : "";
+  if (!authorizeCustomEventsEdit(req, secret, submitted, sessionTok)) {
     res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
       JSON.stringify({

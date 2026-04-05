@@ -703,6 +703,8 @@
   }
 
   const MIN_ORGANIZER_CODE_LEN = 6;
+  /** Mirrors server session cookie for POST /api/custom-events when cookies fail (mobile in-app browsers). */
+  const EVENT_SESSION_STORAGE_KEY = "th_ev_sess";
 
   /** Mobile browsers sometimes emit a space between date and time; Date.parse needs a T. */
   function parseDatetimeLocalInput(raw) {
@@ -727,9 +729,28 @@
   async function resolveClanEventsAuth() {
     const secret = getOrganizerSecretInput();
     if (secret.length >= MIN_ORGANIZER_CODE_LEN) return { secret };
+
+    let stored = "";
+    try {
+      stored = String(sessionStorage.getItem(EVENT_SESSION_STORAGE_KEY) || "").trim();
+    } catch {
+      /* private mode / blocked */
+    }
+    if (/^\d+\.[a-f0-9]{64}$/i.test(stored)) {
+      return { secret: "", sessionToken: stored };
+    }
+
     try {
       const r = await fetch("/api/event-session", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
+      if (j.unlocked && j.sessionToken) {
+        try {
+          sessionStorage.setItem(EVENT_SESSION_STORAGE_KEY, j.sessionToken);
+        } catch {
+          /* ignore */
+        }
+        return { secret: "", sessionToken: j.sessionToken };
+      }
       if (j.unlocked) return { secret: "" };
     } catch {
       /* ignore */
@@ -742,6 +763,15 @@
       const r = await fetch("/api/event-session", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       applyEventFormUnlocked(!!j.unlocked);
+      try {
+        if (j.unlocked && j.sessionToken) {
+          sessionStorage.setItem(EVENT_SESSION_STORAGE_KEY, j.sessionToken);
+        } else if (!j.unlocked) {
+          sessionStorage.removeItem(EVENT_SESSION_STORAGE_KEY);
+        }
+      } catch {
+        /* ignore */
+      }
     } catch {
       applyEventFormUnlocked(false);
     }
@@ -1548,6 +1578,13 @@
         return;
       }
       if (inp) inp.value = "";
+      if (j.sessionToken) {
+        try {
+          sessionStorage.setItem(EVENT_SESSION_STORAGE_KEY, j.sessionToken);
+        } catch {
+          /* ignore */
+        }
+      }
       if (st) {
         st.textContent = "Unlocked — you can add events for this browser session.";
         st.classList.remove("load-error");
@@ -1608,6 +1645,7 @@
       notes: String(fd.get("notes") || "").trim(),
     };
     if (auth.secret) payload.secret = auth.secret;
+    if (auth.sessionToken) payload.sessionToken = auth.sessionToken;
 
     try {
       const r = await fetch("/api/custom-events", {
@@ -1618,6 +1656,13 @@
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
+        if (r.status === 401) {
+          try {
+            sessionStorage.removeItem(EVENT_SESSION_STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
+        }
         status.textContent = j.error || "Could not add event.";
         status.classList.remove("muted");
         status.classList.add("load-error");
@@ -1946,9 +1991,27 @@
   window.addEventListener("hashchange", applyRoute);
   applyRoute();
 
+  /** Coarse pointer or narrow view: skip parallax RAF (fixes mobile scroll jank). */
+  function prefersMobileScrollLite() {
+    try {
+      return (
+        window.matchMedia("(pointer: coarse)").matches ||
+        window.matchMedia("(max-width: 768px)").matches
+      );
+    } catch {
+      return typeof window.innerWidth === "number" && window.innerWidth <= 768;
+    }
+  }
+
+  if (prefersMobileScrollLite()) {
+    document.documentElement.classList.add("lite-scroll");
+  }
+
   /** Smooth scroll-linked background: eases --bg-scroll / --scroll-progress for parallax + vignette (CSS). */
   (function initScrollBackground() {
     const root = document.documentElement;
+    if (root.classList.contains("lite-scroll")) return;
+
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let smooth = window.scrollY || 0;
     let rafId = 0;
@@ -1995,7 +2058,7 @@
   (function initHomeScrollReveal() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const els = document.querySelectorAll("#home-view .section--scroll-reveal");
-    if (!els.length || reduced.matches) return;
+    if (!els.length || reduced.matches || document.documentElement.classList.contains("lite-scroll")) return;
 
     const root = document.documentElement;
     root.classList.add("use-scroll-reveal");

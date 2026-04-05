@@ -51,6 +51,52 @@ html {
   --scroll-progress: 0;
 }
 
+/* Touch / narrow: native momentum scroll fights JS-smoothed parallax → jank; keep scroll instant on links. */
+@media (max-width: 768px), (pointer: coarse) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/*
+ * Set on documentElement from app.js for coarse pointers or narrow viewports.
+ * Disables parallax, embers, and grain during scroll to avoid mobile GPU stutter.
+ */
+html.lite-scroll {
+  --scroll-progress: 0;
+  --bg-scroll: 0px;
+}
+
+html.lite-scroll body::before,
+html.lite-scroll .bg-atmosphere,
+html.lite-scroll .hero-bg {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+html.lite-scroll body::after {
+  background:
+    linear-gradient(180deg, rgba(14, 19, 25, 0.32) 0%, var(--bg-fade-out) min(32%, 14rem)),
+    linear-gradient(0deg, rgba(14, 19, 25, 0.4) 0%, var(--bg-fade-out) min(40%, 18rem));
+}
+
+html.lite-scroll .section-alt {
+  background: linear-gradient(
+    180deg,
+    rgba(36, 48, 56, 0.41) 0%,
+    rgba(18, 24, 30, 0.65) 100%
+  );
+}
+
+html.lite-scroll .ember-field {
+  display: none !important;
+}
+
+html.lite-scroll .noise {
+  opacity: 0;
+  display: none;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -410,9 +456,11 @@ a:hover {
   background: linear-gradient(180deg, var(--navy) 0%, #151d22 100%);
   border-bottom: 3px solid var(--maroon-deep);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: visible;
 }
 
 .header-inner {
+  position: relative;
   width: min(1120px, 92vw);
   margin-inline: auto;
   display: flex;
@@ -426,6 +474,8 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
   color: var(--cream);
   text-decoration: none;
   font-family: var(--font-display);
@@ -433,6 +483,13 @@ a:hover {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-size: 1.05rem;
+}
+
+.brand-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand:hover {
@@ -483,6 +540,7 @@ a:hover {
   display: none;
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
   border: 2px solid var(--panel-edge);
   background: var(--panel);
   border-radius: var(--radius);
@@ -529,6 +587,28 @@ a:hover {
 
   .nav.is-open {
     display: flex;
+    z-index: 110;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .container,
+  .header-inner {
+    width: 100%;
+    max-width: 100%;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+  }
+
+  .events-calendar-wrap {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hero-content {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
   }
 }
 
@@ -599,6 +679,8 @@ a:hover {
 
 .calendar-grid-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   margin-bottom: 1rem;
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius);
@@ -1184,6 +1266,8 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 /* Hiscores table */
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   border: 2px solid var(--panel-edge);
   border-radius: var(--radius);
   box-shadow: var(--shadow-hard);

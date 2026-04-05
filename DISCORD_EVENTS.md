@@ -35,9 +35,10 @@ If the webhook URL is missing, the site still saves events; it simply skips Disc
 
 ## 4. Troubleshooting
 
-- **No message in Discord:** check server logs for `Discord webhook failed:` or `Discord notify error:`.
-- **401 / 404 from Discord:** webhook was deleted or URL is wrong; create a new webhook and update the env var.
+- **No message in Discord:** check server logs for `Discord webhook failed:` or `Discord webhook queue error:`.
+- **401 / 404 from Discord’s API:** webhook was deleted or URL is wrong; create a new webhook and update the env var.
 - **Embed link wrong:** set `PUBLIC_SITE_URL` to your real public origin (no trailing slash).
+- **Event saves on desktop but not from a phone / in-app browser (no Discord):** some WebViews don’t attach the unlock **cookie** to `fetch` POSTs. The site returns a **`sessionToken`** in the Unlock response and in `GET /api/event-session` when unlocked; the browser keeps it in **session storage** and sends it as JSON `sessionToken` on create. Use the latest deploy, then **Unlock once** on that device (or enter the leadership code in the form).
 
 ---
 
@@ -52,7 +53,7 @@ Your bot runs **separate** from the Terpinheimer site. To add a calendar event f
 | `TERPINHEIMER_SITE_URL` | Public origin only, e.g. `https://terpinheimer.com` (no `/api`, no trailing slash) |
 | `TERPINHEIMER_EVENTS_SECRET` | Same value as **`CLAN_EVENTS_SECRET`** on the site server (never commit this; use `.env` + `dotenv`) |
 
-The **website** unlock flow uses an **HttpOnly cookie** after `POST /api/event-session`, so the browser does not need to send `secret` on **`POST /api/custom-events`** when creating an event (cookie is enough). **Removing** an event always requires `secret` in the JSON body — session unlock is not enough.
+The **website** unlock flow uses an **HttpOnly cookie** after `POST /api/event-session`, and the same session is returned as **`sessionToken`** in the JSON response. The browser can send either the cookie or **`sessionToken`** in the create-event JSON (mobile / in-app browsers often need the token). **Removing** an event always requires `secret` in the JSON body — session unlock / `sessionToken` is not enough for deletes.
 
 **Bots and scripts** should send JSON `{ "secret": "<CLAN_EVENTS_SECRET>", ... }` as usual.
 
