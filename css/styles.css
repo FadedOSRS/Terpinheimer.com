@@ -818,6 +818,7 @@ a:hover {
 
 .hero {
   position: relative;
+  isolation: isolate;
   min-height: clamp(420px, 72vh, 640px);
   display: flex;
   align-items: center;
@@ -826,24 +827,28 @@ a:hover {
   overflow: hidden;
 }
 
+/* No strong center radial — Chromium/Opera often bloom it into a visible “halo” around the logo */
 .hero-bg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.18) 0%, var(--bg-fade-out) 58%),
-    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.08) 0%, var(--bg-fade-out) 48%),
+    radial-gradient(ellipse 130% 95% at 50% 42%, rgba(139, 30, 30, 0.055) 0%, var(--bg-fade-out) 62%),
+    radial-gradient(ellipse 120% 70% at 50% 100%, rgba(193, 154, 107, 0.04) 0%, var(--bg-fade-out) 55%),
     linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
   transform: translate3d(0, calc(var(--bg-scroll) * 0.07), 0);
   will-change: transform;
+  backface-visibility: hidden;
 }
 
-/* Soft vignette inside hero only — avoids tight diagonal lines that moiré while scrolling */
+/* Edge-only shading — radial center + transparent middle read as a spotlight/halo in some browsers */
 .hero-bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 95% 85% at 50% 45%, var(--bg-fade-out) 20%, rgba(15, 21, 27, 0.35) 100%);
-  opacity: 0.85;
+  background:
+    linear-gradient(180deg, rgba(15, 21, 27, 0.22) 0%, var(--bg-fade-out) 28%),
+    linear-gradient(0deg, rgba(15, 21, 27, 0.38) 0%, var(--bg-fade-out) 42%);
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -865,7 +870,7 @@ a:hover {
   border: 4px solid var(--maroon-deep);
   box-shadow:
     0 0 0 3px var(--tan),
-    0 0 40px rgba(255, 159, 28, 0.15),
+    0 0 22px rgba(255, 159, 28, 0.1),
     var(--shadow-hard);
   margin-bottom: 1.25rem;
 }
@@ -878,7 +883,7 @@ a:hover {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--cream);
-  text-shadow: 3px 3px 0 var(--maroon-deep), 0 0 40px rgba(255, 159, 28, 0.2);
+  text-shadow: 3px 3px 0 var(--maroon-deep), 0 0 22px rgba(255, 159, 28, 0.12);
 }
 
 .hero-tagline {
@@ -935,6 +940,12 @@ a:hover {
 /* Sections */
 .section {
   padding: 2.75rem 0;
+}
+
+/* Match hero bottom tone so Opera/Chromium don’t show a hard band under the hero */
+.section-welcome {
+  background: linear-gradient(180deg, var(--bg-canvas-deep) 0%, var(--bg-canvas) min(28%, 12rem), var(--bg-canvas) 100%);
+  margin-top: -1px;
 }
 
 .section-alt {
