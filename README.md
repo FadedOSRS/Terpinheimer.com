@@ -98,4 +98,4 @@ No build step is required beyond installing dependencies. If you use **Render**,
 - **Wise Old Man group:** `WOM_GROUP_ID` in `js/app.js`
 - **RuneProfile API:** requested via `/rp-api` when same-origin
 
-After changing Discord links, update the `https://discord.gg/` placeholders in `index.html` (see `data-discord-link`).
+Discord invite: `DISCORD_INVITE_URL` in `js/app.js` and matching `href` on `[data-discord-link]` in `index.html`.

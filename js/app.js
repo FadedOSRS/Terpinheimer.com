@@ -16,6 +16,8 @@
     if (toggle) toggle.setAttribute("aria-expanded", "false");
   }
 
+  const DISCORD_INVITE_URL = "https://discord.gg/NTWqmhSx4U";
+
   const WOM_GROUP_ID = 23745;
   const WOM_API = "https://api.wiseoldman.net/v2";
   /** Same-origin proxy on dev-server / Render (see dev-server.mjs). Falls back to direct API for file://. */
@@ -1195,10 +1197,9 @@
     )}</a> · +${escHtml(String(gained))} new${totalBit}`;
   }
 
-  function setDiscordLinks(url) {
-    if (!url) return;
+  function applyDiscordInviteLinks() {
     document.querySelectorAll("[data-discord-link]").forEach((a) => {
-      a.href = url;
+      a.href = DISCORD_INVITE_URL;
     });
   }
 
@@ -1420,7 +1421,7 @@
     }
     renderMembersListIfVisible();
 
-    setDiscordLinks(group.socialLinks?.discord);
+    applyDiscordInviteLinks();
 
     const tagline = document.getElementById("hero-tagline");
     if (tagline) {
@@ -2155,6 +2156,8 @@
       }
     });
   })();
+
+  applyDiscordInviteLinks();
 
   load().catch(async (e) => {
     cachedMemberships = [];
