@@ -704,6 +704,16 @@
 
   const MIN_ORGANIZER_CODE_LEN = 6;
 
+  /** Mobile browsers sometimes emit a space between date and time; Date.parse needs a T. */
+  function parseDatetimeLocalInput(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return NaN;
+    const normalized = s.includes("T") ? s : s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+    let ms = Date.parse(normalized);
+    if (Number.isNaN(ms)) ms = Date.parse(s);
+    return ms;
+  }
+
   function getOrganizerSecretInput() {
     return String(document.getElementById("event-organizer-secret")?.value || "").trim();
   }
@@ -718,7 +728,7 @@
     const secret = getOrganizerSecretInput();
     if (secret.length >= MIN_ORGANIZER_CODE_LEN) return { secret };
     try {
-      const r = await fetch("/api/event-session", { credentials: "same-origin" });
+      const r = await fetch("/api/event-session", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       if (j.unlocked) return { secret: "" };
     } catch {
@@ -729,7 +739,7 @@
 
   async function refreshEventUnlockState() {
     try {
-      const r = await fetch("/api/event-session", { credentials: "same-origin" });
+      const r = await fetch("/api/event-session", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       applyEventFormUnlocked(!!j.unlocked);
     } catch {
@@ -1239,7 +1249,7 @@
   }
 
   async function load() {
-    const customEventsPromise = fetch("/api/custom-events")
+    const customEventsPromise = fetch("/api/custom-events", { credentials: "include" })
       .then(async (r) => {
         if (!r.ok) return [];
         try {
@@ -1471,7 +1481,7 @@
     try {
       const r = await fetch(`/api/custom-events?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
-        credentials: "same-origin",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: code }),
       });
@@ -1480,7 +1490,7 @@
         window.alert(j.error || "Could not remove event.");
         return;
       }
-      const listR = await fetch("/api/custom-events");
+      const listR = await fetch("/api/custom-events", { credentials: "include" });
       let list = [];
       if (listR.ok) {
         try {
@@ -1516,7 +1526,7 @@
     try {
       const r = await fetch("/api/event-session", {
         method: "POST",
-        credentials: "same-origin",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: code }),
       });
@@ -1575,8 +1585,8 @@
     const title = String(fd.get("title") || "").trim();
     const startsRaw = String(fd.get("startsAt") || "");
     const endsRaw = String(fd.get("endsAt") || "");
-    const startMs = new Date(startsRaw).getTime();
-    const endMs = new Date(endsRaw).getTime();
+    const startMs = parseDatetimeLocalInput(startsRaw);
+    const endMs = parseDatetimeLocalInput(endsRaw);
     if (!title || Number.isNaN(startMs) || Number.isNaN(endMs)) {
       status.textContent = "Please fill in title and valid start/end times.";
       status.classList.remove("muted");
@@ -1602,7 +1612,7 @@
     try {
       const r = await fetch("/api/custom-events", {
         method: "POST",
-        credentials: "same-origin",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -1616,7 +1626,7 @@
       status.textContent = "Event added to the calendar.";
       status.classList.add("muted");
       form.reset();
-      const listR = await fetch("/api/custom-events");
+      const listR = await fetch("/api/custom-events", { credentials: "include" });
       let list = [];
       if (listR.ok) {
         try {
@@ -2028,7 +2038,7 @@
       errEl.textContent = `Failed to load Wise Old Man: ${e.message}`;
     }
     try {
-      const r = await fetch("/api/custom-events");
+      const r = await fetch("/api/custom-events", { credentials: "include" });
       const j = r.ok ? await r.json() : [];
       refreshEventCache([], Array.isArray(j) ? j : []);
     } catch {

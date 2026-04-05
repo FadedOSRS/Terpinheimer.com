@@ -500,6 +500,16 @@ function isHttpsUrl(s) {
   }
 }
 
+/** Some mobile `datetime-local` values use a space instead of `T` between date and time. */
+function parseClientEventInstant(s) {
+  const t = typeof s === "string" ? s.trim() : "";
+  if (!t) return NaN;
+  const normalized = t.includes("T") ? t : t.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+  let ms = Date.parse(normalized);
+  if (Number.isNaN(ms)) ms = Date.parse(t);
+  return ms;
+}
+
 function isCustomEventId(s) {
   return (
     typeof s === "string" &&
@@ -678,8 +688,8 @@ async function handleCustomEventsApi(req, res) {
 
   const startsAt = typeof body.startsAt === "string" ? body.startsAt.trim() : "";
   const endsAt = typeof body.endsAt === "string" ? body.endsAt.trim() : "";
-  const startMs = Date.parse(startsAt);
-  const endMs = Date.parse(endsAt);
+  const startMs = parseClientEventInstant(startsAt);
+  const endMs = parseClientEventInstant(endsAt);
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
     res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "Invalid start or end date." }));
