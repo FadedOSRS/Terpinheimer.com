@@ -20,6 +20,8 @@
   --bg-canvas: #161d26;
   --bg-canvas-mid: #131a22;
   --bg-canvas-deep: #10161d;
+  /* Alpha-0 same hue as canvas — avoids gray “transparent” halos in radial gradients (Safari/Chrome). */
+  --bg-fade-out: rgb(22 29 38 / 0%);
 }
 
 *,
@@ -42,7 +44,8 @@
 
 html {
   scroll-behavior: smooth;
-  background-color: var(--bg-canvas);
+  background-color: var(--bg-canvas-deep);
+  overflow-x: clip;
   /* Smoothed scroll-driven background (updated in app.js) */
   --bg-scroll: 0px;
   --scroll-progress: 0;
@@ -92,7 +95,7 @@ body::after {
   pointer-events: none;
   background: radial-gradient(
     ellipse 125% 115% at 50% 42%,
-    transparent 32%,
+    var(--bg-fade-out) 32%,
     rgba(14, 19, 25, calc(0.28 + var(--scroll-progress) * 0.18)) 100%
   );
 }
@@ -104,9 +107,9 @@ body::after {
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 55% 50% at 18% 28%, rgba(139, 30, 30, 0.14) 0%, transparent 58%),
-    radial-gradient(ellipse 50% 48% at 82% 62%, rgba(255, 159, 28, 0.055) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 55% at 48% 95%, rgba(36, 48, 56, 0.2) 0%, transparent 52%);
+    radial-gradient(ellipse 55% 50% at 18% 28%, rgba(139, 30, 30, 0.14) 0%, var(--bg-fade-out) 58%),
+    radial-gradient(ellipse 50% 48% at 82% 62%, rgba(255, 159, 28, 0.055) 0%, var(--bg-fade-out) 55%),
+    radial-gradient(ellipse 70% 55% at 48% 95%, rgba(36, 48, 56, 0.2) 0%, var(--bg-fade-out) 52%);
   transform: translate3d(
     calc(var(--bg-scroll) * -0.05),
     calc(var(--bg-scroll) * -0.2),
@@ -132,21 +135,258 @@ body::after {
   }
 
   body::after {
-    background: radial-gradient(ellipse 125% 115% at 50% 42%, transparent 32%, rgba(14, 19, 25, 0.42) 100%);
+    background: radial-gradient(ellipse 125% 115% at 50% 42%, var(--bg-fade-out) 32%, rgba(14, 19, 25, 0.42) 100%);
   }
 }
 
-/* Very light grain — blurred so it does not shimmer or read as pixels when scrolling */
+/* Light grain — no blur / blend-mode (those cause viewport-edge halos in WebKit and some Chromium GPUs). */
 .noise {
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 9999;
-  opacity: 0.022;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  filter: blur(1.1px);
-  transform: scale(1.08);
-  mix-blend-mode: overlay;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* Falling ember motes — full-viewport overlay on every route (pointer-events none); scroll burst in app.js */
+.ember-field {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translate3d(0, calc(var(--bg-scroll) * 0.035), 0);
+  will-change: transform;
+  opacity: calc(0.24 + var(--scroll-progress) * 0.22);
+  transition: opacity 0.55s ease;
+}
+
+html.ember-scrolling .ember-field {
+  opacity: calc(0.4 + var(--scroll-progress) * 0.3);
+}
+
+.ember-field .ember {
+  position: absolute;
+  top: -12vh;
+  width: 4px;
+  height: 5px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 80% 100% at 35% 22%,
+    #fff6e8 0%,
+    #ffb04a 38%,
+    #e85a1a 78%,
+    rgba(90, 18, 8, 0.95) 100%
+  );
+  box-shadow:
+    0 0 5px rgba(255, 185, 90, 0.95),
+    0 0 14px rgba(255, 100, 40, 0.45),
+    0 0 22px rgba(255, 60, 20, 0.12);
+  animation: ember-fall var(--ef, 19s) cubic-bezier(0.26, 0.02, 0.52, 1) infinite;
+  animation-delay: var(--ed, 0s);
+  will-change: transform, opacity;
+}
+
+html.ember-scrolling .ember-field .ember {
+  animation-duration: calc(var(--ef, 19s) * 0.58);
+}
+
+@keyframes ember-fall {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.45) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.95;
+  }
+  18% {
+    transform: translate3d(14px, 22vh, 0) scale(0.85) rotate(55deg);
+    opacity: 1;
+  }
+  38% {
+    transform: translate3d(-10px, 44vh, 0) scale(1) rotate(-30deg);
+    opacity: 0.88;
+  }
+  58% {
+    transform: translate3d(18px, 66vh, 0) scale(0.92) rotate(40deg);
+    opacity: 1;
+  }
+  78% {
+    transform: translate3d(-6px, 86vh, 0) scale(0.75) rotate(-20deg);
+    opacity: 0.72;
+  }
+  92% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate3d(8px, 118vh, 0) scale(0.35) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+.ember-field .ember:nth-child(1) {
+  left: 4%;
+  --ef: 17s;
+  --ed: -1s;
+}
+.ember-field .ember:nth-child(2) {
+  left: 9%;
+  --ef: 23s;
+  --ed: -7s;
+}
+.ember-field .ember:nth-child(3) {
+  left: 14%;
+  --ef: 20s;
+  --ed: -3s;
+}
+.ember-field .ember:nth-child(4) {
+  left: 19%;
+  --ef: 26s;
+  --ed: -11s;
+}
+.ember-field .ember:nth-child(5) {
+  left: 24%;
+  --ef: 18s;
+  --ed: -5s;
+}
+.ember-field .ember:nth-child(6) {
+  left: 30%;
+  --ef: 22s;
+  --ed: -14s;
+}
+.ember-field .ember:nth-child(7) {
+  left: 36%;
+  --ef: 16s;
+  --ed: -2s;
+}
+.ember-field .ember:nth-child(8) {
+  left: 42%;
+  --ef: 24s;
+  --ed: -9s;
+}
+.ember-field .ember:nth-child(9) {
+  left: 48%;
+  --ef: 21s;
+  --ed: -6s;
+}
+.ember-field .ember:nth-child(10) {
+  left: 54%;
+  --ef: 19s;
+  --ed: -12s;
+}
+.ember-field .ember:nth-child(11) {
+  left: 60%;
+  --ef: 25s;
+  --ed: -4s;
+}
+.ember-field .ember:nth-child(12) {
+  left: 66%;
+  --ef: 17.5s;
+  --ed: -8s;
+}
+.ember-field .ember:nth-child(13) {
+  left: 72%;
+  --ef: 22.5s;
+  --ed: -1.5s;
+}
+.ember-field .ember:nth-child(14) {
+  left: 77%;
+  --ef: 20.5s;
+  --ed: -10s;
+}
+.ember-field .ember:nth-child(15) {
+  left: 82%;
+  --ef: 18.5s;
+  --ed: -13s;
+}
+.ember-field .ember:nth-child(16) {
+  left: 87%;
+  --ef: 23.5s;
+  --ed: -5.5s;
+}
+.ember-field .ember:nth-child(17) {
+  left: 92%;
+  --ef: 19.5s;
+  --ed: -2.5s;
+}
+.ember-field .ember:nth-child(18) {
+  left: 97%;
+  --ef: 21.5s;
+  --ed: -15s;
+}
+.ember-field .ember:nth-child(19) {
+  left: 6%;
+  --ef: 20s;
+  --ed: -16s;
+}
+.ember-field .ember:nth-child(20) {
+  left: 22%;
+  --ef: 24.5s;
+  --ed: -0.5s;
+}
+.ember-field .ember:nth-child(21) {
+  left: 33%;
+  --ef: 15.5s;
+  --ed: -9.5s;
+}
+.ember-field .ember:nth-child(22) {
+  left: 45%;
+  --ef: 22s;
+  --ed: -4.5s;
+}
+.ember-field .ember:nth-child(23) {
+  left: 51%;
+  --ef: 18.2s;
+  --ed: -13.5s;
+}
+.ember-field .ember:nth-child(24) {
+  left: 63%;
+  --ef: 25.5s;
+  --ed: -6.5s;
+}
+.ember-field .ember:nth-child(25) {
+  left: 69%;
+  --ef: 16.8s;
+  --ed: -11.2s;
+}
+.ember-field .ember:nth-child(26) {
+  left: 75%;
+  --ef: 21.2s;
+  --ed: -3.2s;
+}
+.ember-field .ember:nth-child(27) {
+  left: 84%;
+  --ef: 19.8s;
+  --ed: -8.8s;
+}
+.ember-field .ember:nth-child(28) {
+  left: 91%;
+  --ef: 23.2s;
+  --ed: -1.2s;
+}
+.ember-field .ember:nth-child(29) {
+  left: 2%;
+  --ef: 26.2s;
+  --ed: -18s;
+}
+.ember-field .ember:nth-child(30) {
+  left: 50%;
+  --ef: 17.2s;
+  --ed: -7.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ember-field {
+    display: none !important;
+  }
+}
+
+/* Main content sits under ember overlay; header/footer stay readable above it */
+#app {
+  position: relative;
 }
 
 a {
@@ -590,8 +830,8 @@ a:hover {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.18) 0%, transparent 58%),
-    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.18) 0%, var(--bg-fade-out) 58%),
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.08) 0%, var(--bg-fade-out) 48%),
     linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
   transform: translate3d(0, calc(var(--bg-scroll) * 0.07), 0);
   will-change: transform;
@@ -602,7 +842,7 @@ a:hover {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 95% 85% at 50% 45%, transparent 20%, rgba(15, 21, 27, 0.35) 100%);
+  background: radial-gradient(ellipse 95% 85% at 50% 45%, var(--bg-fade-out) 20%, rgba(15, 21, 27, 0.35) 100%);
   opacity: 0.85;
   pointer-events: none;
 }
@@ -984,6 +1224,12 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-size: 0.95rem;
 }
 
+/* Above ember overlay (z-index 30); below sticky header (100) */
+.load-error--site {
+  position: relative;
+  z-index: 90;
+}
+
 .wom-link {
   color: var(--amber);
   font-weight: 600;
@@ -1195,6 +1441,8 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 }
 
 .site-footer {
+  position: relative;
+  z-index: 35;
   border-top: 3px solid var(--maroon-deep);
   background: var(--navy);
   padding: 1.5rem 0;
@@ -1689,6 +1937,7 @@ body.map-route-live {
 }
 
 body.map-route-live .bg-atmosphere,
+body.map-route-live .ember-field,
 body.map-route-live .noise,
 body.map-route-live .site-header,
 body.map-route-live .site-footer,
