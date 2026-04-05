@@ -1197,6 +1197,39 @@ http
       return;
     }
 
+    if (url.pathname.startsWith("/api/wom/")) {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+      const suffix = url.pathname.slice("/api/wom".length);
+      if (!suffix.startsWith("/v2/") || suffix.includes("..")) {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "Invalid Wise Old Man path" }));
+        return;
+      }
+      const upstream = `https://api.wiseoldman.net${suffix}${url.search}`;
+      try {
+        const r = await fetch(upstream, {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "TerpinheimerSite/1.0 (group roster; contact: site owner)",
+          },
+        });
+        const buf = Buffer.from(await r.arrayBuffer());
+        res.writeHead(r.status, {
+          "Content-Type": r.headers.get("content-type") || "application/json; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(buf);
+      } catch {
+        res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "Wise Old Man proxy failed" }));
+      }
+      return;
+    }
+
     if (url.pathname.startsWith("/rp-api/")) {
       const targetPath = url.pathname.slice("/rp-api".length) + url.search;
       const upstream = `https://api.runeprofile.com${targetPath}`;
@@ -1236,6 +1269,7 @@ http
   .listen(PORT, () => {
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
     console.log(`Clan events data file: ${CUSTOM_EVENTS_PATH}`);
+    console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST /api/event-session — browser unlock cookie for adding events");

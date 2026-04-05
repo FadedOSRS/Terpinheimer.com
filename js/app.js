@@ -18,6 +18,47 @@
 
   const WOM_GROUP_ID = 23745;
   const WOM_API = "https://api.wiseoldman.net/v2";
+  /** Same-origin proxy on dev-server / Render (see dev-server.mjs). Falls back to direct API for file://. */
+  function womFetchBase() {
+    try {
+      if (location.protocol === "http:" || location.protocol === "https:") {
+        return `${location.origin}/api/wom/v2`;
+      }
+    } catch {
+      /* ignore */
+    }
+    return WOM_API;
+  }
+
+  function womRetryDelay(attemptIndex) {
+    if (attemptIndex <= 0) return 0;
+    return attemptIndex === 1 ? 450 : 1100;
+  }
+
+  function womLoadErrorHint(err) {
+    try {
+      if (location.protocol === "file:") {
+        return "Open this site with npm start or your https URL — not a local file — so the Wise Old Man proxy can run.";
+      }
+    } catch {
+      /* ignore */
+    }
+    const m =
+      err && typeof err.message === "string"
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : "";
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) {
+      return "Could not reach the site server or Wise Old Man. Check your connection and try again.";
+    }
+    const http = m.match(/: (\d{3})$/);
+    if (http) {
+      return `Wise Old Man returned HTTP ${http[1]}. Try again in a moment.`;
+    }
+    return `Could not load Wise Old Man (${m || "error"}). Try again.`;
+  }
+
   const WOM_GROUP_URL = `https://wiseoldman.net/groups/${WOM_GROUP_ID}`;
   /** Matches WOM API Boss metric enum — each has group hiscores with per-player kill counts. */
   const WOM_BOSS_METRICS = [
@@ -985,11 +1026,37 @@
   }
 
   async function womGet(path) {
-    const r = await fetch(`${WOM_API}${path}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!r.ok) throw new Error(`${path}: ${r.status}`);
-    return r.json();
+    const base = womFetchBase();
+    const maxAttempts = 3;
+    let lastErr;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const wait = womRetryDelay(attempt);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      try {
+        const r = await fetch(`${base}${path}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!r.ok) {
+          const st = r.status;
+          lastErr = new Error(`${path}: ${st}`);
+          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+          throw lastErr;
+        }
+        return r.json();
+      } catch (e) {
+        lastErr = e;
+        const msg = e && typeof e.message === "string" ? e.message : "";
+        const http = msg.match(/: (\d{3})$/);
+        if (http) {
+          const st = Number(http[1]);
+          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+        } else if (attempt < maxAttempts - 1) {
+          continue;
+        }
+        throw lastErr;
+      }
+    }
+    throw lastErr;
   }
 
   /** Sum every roster member's delta for a metric/period (WOM gained has no max limit; paginate by offset). */
@@ -1322,7 +1389,7 @@
         errEl.hidden = false;
         errEl.textContent =
           results[0].status === "rejected"
-            ? `Could not load Wise Old Man data (${results[0].reason?.message || "error"}). Open this site over http(s), not file://.`
+            ? womLoadErrorHint(results[0].reason)
             : "Could not load group.";
       }
       const customEvents = await customEventsPromise;
@@ -2098,7 +2165,7 @@
     const errEl = document.getElementById("load-error");
     if (errEl) {
       errEl.hidden = false;
-      errEl.textContent = `Failed to load Wise Old Man: ${e.message}`;
+      errEl.textContent = womLoadErrorHint(e);
     }
     try {
       const r = await fetch("/api/custom-events", { credentials: "include" });
