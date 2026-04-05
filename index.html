@@ -310,19 +310,23 @@
     </section>
 
     <section class="section section-alt" id="clan-activity">
-      <div class="container two-col">
-        <div>
+      <div class="container clan-activity-grid">
+        <div class="clan-activity-titles">
           <h2 class="section-title">Collection log activity</h2>
-          <p class="section-note muted">
-            Recent drops and collection log entries from RuneProfile (similar to the RuneLite item feed). Pulled from players with Wise Old Man collection gains this month; falls back to slot totals if item data is unavailable.
-          </p>
-          <hr class="rule" />
-          <ul class="activity-log" id="activity"></ul>
-        </div>
-        <div>
           <h2 class="section-title">Recent Achievements</h2>
-          <hr class="rule" />
-          <ul class="achievement-list" id="achievements"></ul>
+        </div>
+        <p class="section-note muted clan-activity-intro">
+          Recent drops and collection log entries from RuneProfile (similar to the RuneLite item feed). Pulled from players with Wise Old Man collection gains this month; falls back to slot totals if item data is unavailable.
+        </p>
+        <div class="clan-activity-columns">
+          <div class="clan-activity-col">
+            <hr class="rule" />
+            <ul class="activity-log" id="activity"></ul>
+          </div>
+          <div class="clan-activity-col">
+            <hr class="rule" />
+            <ul class="achievement-list" id="achievements"></ul>
+          </div>
         </div>
       </div>
     </section>

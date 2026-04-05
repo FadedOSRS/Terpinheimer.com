@@ -880,6 +880,27 @@
     return r.json();
   }
 
+  /** Sum every roster member's delta for a metric/period (WOM gained has no max limit; paginate by offset). */
+  const WOM_GAINED_PAGE = 500;
+  async function womGetAllGroupGained(metric) {
+    const all = [];
+    let offset = 0;
+    for (;;) {
+      const q = new URLSearchParams({
+        metric,
+        period: "month",
+        limit: String(WOM_GAINED_PAGE),
+        offset: String(offset),
+      });
+      const data = await womGet(`/groups/${WOM_GROUP_ID}/gained?${q}`);
+      const page = unwrapList(data);
+      all.push(...page);
+      if (page.length < WOM_GAINED_PAGE) break;
+      offset += WOM_GAINED_PAGE;
+    }
+    return all;
+  }
+
   function sumGained(rows) {
     return rows.reduce((s, row) => s + (row.data && typeof row.data.gained === "number" ? row.data.gained : 0), 0);
   }
@@ -1105,22 +1126,18 @@
 
     const paths = {
       group: `/groups/${WOM_GROUP_ID}`,
-      gainedXp: `/groups/${WOM_GROUP_ID}/gained?metric=overall&period=month&limit=200`,
       hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
-      gainedClues: `/groups/${WOM_GROUP_ID}/gained?metric=clue_scrolls_all&period=month&limit=200`,
-      gainedColl: `/groups/${WOM_GROUP_ID}/gained?metric=collections_logged&period=month&limit=200`,
-      gainedEhb: `/groups/${WOM_GROUP_ID}/gained?metric=ehb&period=month&limit=200`,
       achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
       competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
     };
 
     const results = await Promise.allSettled([
       womGet(paths.group),
-      womGet(paths.gainedXp),
+      womGetAllGroupGained("overall"),
       womGet(paths.hiscores),
-      womGet(paths.gainedClues),
-      womGet(paths.gainedColl),
-      womGet(paths.gainedEhb),
+      womGetAllGroupGained("clue_scrolls_all"),
+      womGetAllGroupGained("collections_logged"),
+      womGetAllGroupGained("ehb"),
       womGet(paths.achievements),
       womGet(paths.competitions),
     ]);
