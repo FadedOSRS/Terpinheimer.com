@@ -1942,16 +1942,6 @@
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let smooth = window.scrollY || 0;
     let rafId = 0;
-    let emberScrollTimer = 0;
-
-    function pingEmberScrollBurst() {
-      if (reduced.matches) return;
-      root.classList.add("ember-scrolling");
-      window.clearTimeout(emberScrollTimer);
-      emberScrollTimer = window.setTimeout(() => {
-        root.classList.remove("ember-scrolling");
-      }, 520);
-    }
 
     function applyY(y) {
       const max = Math.max(1, root.scrollHeight - window.innerHeight);
@@ -1980,7 +1970,6 @@
     }
 
     function onScroll() {
-      pingEmberScrollBurst();
       if (reduced.matches) {
         applyY(window.scrollY || 0);
         return;

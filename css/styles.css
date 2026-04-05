@@ -86,30 +86,37 @@ body::before {
   will-change: transform;
 }
 
-/* Vignette — soft edges so the center stays calmer while scrolling */
+/* Top + bottom only — left/right linear fades read as full-height vertical lines when stacked */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse 125% 115% at 50% 42%,
-    var(--bg-fade-out) 32%,
-    rgba(14, 19, 25, calc(0.28 + var(--scroll-progress) * 0.18)) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      rgba(14, 19, 25, calc(0.2 + var(--scroll-progress) * 0.12)) 0%,
+      var(--bg-fade-out) min(32%, 14rem)
+    ),
+    linear-gradient(
+      0deg,
+      rgba(14, 19, 25, calc(0.26 + var(--scroll-progress) * 0.14)) 0%,
+      var(--bg-fade-out) min(40%, 18rem)
+    );
 }
 
-/* Large soft color pools — stronger parallax than base wash, no fine texture */
+/* Single vertical wash — any left→right gradient shows up as vertical seams */
 .bg-atmosphere {
   position: fixed;
   inset: -25% -15%;
   z-index: -2;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 55% 50% at 18% 28%, rgba(139, 30, 30, 0.14) 0%, var(--bg-fade-out) 58%),
-    radial-gradient(ellipse 50% 48% at 82% 62%, rgba(255, 159, 28, 0.055) 0%, var(--bg-fade-out) 55%),
-    radial-gradient(ellipse 70% 55% at 48% 95%, rgba(36, 48, 56, 0.2) 0%, var(--bg-fade-out) 52%);
+  background: linear-gradient(
+    180deg,
+    var(--bg-fade-out) 0%,
+    rgba(36, 48, 56, 0.12) 100%
+  );
   transform: translate3d(
     calc(var(--bg-scroll) * -0.05),
     calc(var(--bg-scroll) * -0.2),
@@ -135,7 +142,9 @@ body::after {
   }
 
   body::after {
-    background: radial-gradient(ellipse 125% 115% at 50% 42%, var(--bg-fade-out) 32%, rgba(14, 19, 25, 0.42) 100%);
+    background:
+      linear-gradient(180deg, rgba(14, 19, 25, 0.32) 0%, var(--bg-fade-out) min(32%, 14rem)),
+      linear-gradient(0deg, rgba(14, 19, 25, 0.4) 0%, var(--bg-fade-out) min(40%, 18rem));
   }
 }
 
@@ -147,24 +156,17 @@ body::after {
   z-index: 9999;
   opacity: 0.032;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
+  background-size: 256px 256px;
 }
 
-/* Falling ember motes — full-viewport overlay on every route (pointer-events none); scroll burst in app.js */
+/* Falling ember motes — fixed layer only; motion is per-ember keyframes (no parent transform / duration hacks while scrolling). */
 .ember-field {
   position: fixed;
   inset: 0;
   z-index: 30;
   pointer-events: none;
   overflow: hidden;
-  transform: translate3d(0, calc(var(--bg-scroll) * 0.035), 0);
-  will-change: transform;
   opacity: calc(0.24 + var(--scroll-progress) * 0.22);
-  transition: opacity 0.55s ease;
-}
-
-html.ember-scrolling .ember-field {
-  opacity: calc(0.4 + var(--scroll-progress) * 0.3);
 }
 
 .ember-field .ember {
@@ -188,10 +190,6 @@ html.ember-scrolling .ember-field {
   animation: ember-fall var(--ef, 19s) cubic-bezier(0.26, 0.02, 0.52, 1) infinite;
   animation-delay: var(--ed, 0s);
   will-change: transform, opacity;
-}
-
-html.ember-scrolling .ember-field .ember {
-  animation-duration: calc(var(--ef, 19s) * 0.58);
 }
 
 @keyframes ember-fall {
@@ -827,14 +825,11 @@ a:hover {
   overflow: hidden;
 }
 
-/* No strong center radial — Chromium/Opera often bloom it into a visible “halo” around the logo */
+/* Vertical base only — angled overlays can interact into visible vertical bands */
 .hero-bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 130% 95% at 50% 42%, rgba(139, 30, 30, 0.055) 0%, var(--bg-fade-out) 62%),
-    radial-gradient(ellipse 120% 70% at 50% 100%, rgba(193, 154, 107, 0.04) 0%, var(--bg-fade-out) 55%),
-    linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
+  background: linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
   transform: translate3d(0, calc(var(--bg-scroll) * 0.07), 0);
   will-change: transform;
   backface-visibility: hidden;
