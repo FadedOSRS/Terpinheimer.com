@@ -356,6 +356,74 @@ async function writeCustomEvents(events) {
   await fs.promises.rename(tmp, CUSTOM_EVENTS_PATH);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const DISCORD_WEBHOOK_MIN_INTERVAL_MS = Math.max(
+  0,
+  Number(process.env.DISCORD_WEBHOOK_MIN_INTERVAL_MS) || 2500
+);
+const DISCORD_WEBHOOK_MAX_RETRIES = Math.min(
+  12,
+  Math.max(1, Number(process.env.DISCORD_WEBHOOK_MAX_RETRIES) || 6)
+);
+
+let discordWebhookLastSent = 0;
+let discordWebhookQueue = Promise.resolve();
+
+function enqueueDiscordWebhook(task) {
+  discordWebhookQueue = discordWebhookQueue.then(task).catch((err) => {
+    console.warn("Discord webhook queue error:", err?.message || err);
+  });
+}
+
+/** Space out POSTs and retry 429s (Discord global / per-route limits). */
+async function postDiscordWebhookJson(webhook, payload) {
+  const now = Date.now();
+  const spacing = discordWebhookLastSent + DISCORD_WEBHOOK_MIN_INTERVAL_MS - now;
+  if (spacing > 0) await sleep(spacing);
+
+  let attempt = 0;
+  while (true) {
+    const r = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const text = await r.text();
+    discordWebhookLastSent = Date.now();
+
+    if (r.status === 429 && attempt < DISCORD_WEBHOOK_MAX_RETRIES) {
+      attempt += 1;
+      let delayMs = Math.min(300_000, 2500 * 2 ** (attempt - 1));
+      const raHdr = r.headers.get("retry-after");
+      if (raHdr) {
+        const sec = Number(raHdr);
+        if (Number.isFinite(sec) && sec > 0) delayMs = Math.max(delayMs, sec * 1000);
+      }
+      try {
+        const j = JSON.parse(text);
+        if (typeof j.retry_after === "number" && j.retry_after > 0) {
+          delayMs = Math.max(delayMs, j.retry_after * 1000);
+        }
+      } catch {
+        /* ignore */
+      }
+      console.warn(
+        `Discord webhook 429 — retry ${attempt}/${DISCORD_WEBHOOK_MAX_RETRIES} in ${Math.round(delayMs / 1000)}s`
+      );
+      await sleep(delayMs);
+      continue;
+    }
+
+    if (!r.ok) {
+      console.warn("Discord webhook failed:", r.status, text.slice(0, 300));
+    }
+    return;
+  }
+}
+
 /** Optional: post to a channel via Discord Incoming Webhook when a clan event is created on the site. */
 async function notifyDiscordNewClanEvent(entry) {
   const webhook = process.env.DISCORD_EVENTS_WEBHOOK_URL?.trim();
@@ -412,15 +480,7 @@ async function notifyDiscordNewClanEvent(entry) {
   const avatar = process.env.DISCORD_WEBHOOK_AVATAR_URL?.trim();
   if (avatar && /^https:\/\//i.test(avatar)) payload.avatar_url = avatar;
 
-  const r = await fetch(webhook, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    console.warn("Discord webhook failed:", r.status, t.slice(0, 300));
-  }
+  await postDiscordWebhookJson(webhook, payload);
 }
 
 function parseJsonBody(buf) {
@@ -666,9 +726,7 @@ async function handleCustomEventsApi(req, res) {
     return;
   }
 
-  void notifyDiscordNewClanEvent(entry).catch((err) => {
-    console.warn("Discord notify error:", err?.message || err);
-  });
+  enqueueDiscordWebhook(() => notifyDiscordNewClanEvent(entry));
 
   res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify({ ok: true, event: entry }));
