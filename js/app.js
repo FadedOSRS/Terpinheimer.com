@@ -687,10 +687,12 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -733,10 +735,12 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
     const mapv = document.getElementById("map-view");
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -826,10 +830,12 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
+    if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -970,10 +976,12 @@
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -1002,6 +1010,11 @@
 
     if (path === "/events") {
       showEventsCalendarView();
+      return;
+    }
+
+    if (path === "/plugin") {
+      showPluginView();
       return;
     }
 
@@ -1965,17 +1978,40 @@
     }, 1000);
   }
 
+  function showPluginView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const mapv = document.getElementById("map-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (plugv) plugv.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Plugin | Terpinheimer";
+    applyDiscordInviteLinks();
+  }
+
   function showMapView() {
     closeMobileNav();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = false;
     document.body.classList.add("map-route-live");
     window.scrollTo(0, 0);

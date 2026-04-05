@@ -43,6 +43,7 @@
         <a href="#/members">Members</a>
         <a href="#/events">Events</a>
         <a href="#/map">Map</a>
+        <a href="#/plugin">Plugin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
     </div>
@@ -204,6 +205,125 @@
       </div>
     </div>
 
+    <div id="plugin-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Plugin</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Terpinheimer RuneLite plugin</h1>
+          <hr class="rule" />
+          <p class="lead muted">
+            User guide: what the plugin does, how to open it, and how to connect it to this site, Wise Old Man, Discord, and the live map.
+          </p>
+        </header>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">What it does</h2>
+          <p class="muted plugin-panel-text">
+            <strong>Terpinheimer</strong> adds a <strong>clan hub panel</strong> in RuneLite’s sidebar. It can show Wise Old Man competitions, website calendar status, post your position to the
+            <a href="#/map" class="wom-link">live map</a>, and send optional <strong>Discord</strong> notifications when things happen in game.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Install</h2>
+          <p class="muted plugin-panel-text">
+            Get the plugin (Plugin Hub or jar) and detailed setup from
+            <a href="https://discord.gg/NTWqmhSx4U" class="wom-link" data-discord-link target="_blank" rel="noopener">Terpinheimer Discord</a>.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Opening the plugin</h2>
+          <ol class="plugin-guide-list plugin-guide-list--ol">
+            <li>Open RuneLite’s <strong>sidebar</strong> (plugin list).</li>
+            <li>Find <strong>Terpinheimer</strong> and click its icon to open the panel.</li>
+          </ol>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Home tab</h2>
+          <ul class="plugin-guide-list">
+            <li><strong>Announcements</strong> — short clan message. Only <strong>Owner / Deputy Owner</strong> (Jagex clan rank) can save changes to the text in RuneLite config.</li>
+            <li><strong>Quick links</strong> — Discord, website, Wise Old Man, live map, etc., if you filled those URLs under plugin <strong>Links</strong>.</li>
+            <li><strong>Skill of the Week / Boss of the Week</strong> — from your Wise Old Man group’s competitions; shows leaders, countdowns, and links to the competition on the web.</li>
+            <li><strong>Web events</strong> — reads your clan’s <strong>calendar summary API</strong> so upcoming or active events from this site can appear in the client.</li>
+          </ul>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Wise Old Man</h2>
+          <ul class="plugin-guide-list">
+            <li>Set your clan’s <strong>Wise Old Man group ID</strong> under <strong>General</strong> in the plugin config (<span class="plugin-code">0</span> uses the default Terpinheimer group).</li>
+            <li><strong>Refresh interval</strong> controls how often competition data updates.</li>
+            <li><strong>Update WOM profile on logout</strong> (optional) — on logout or world hop, if you gained enough XP or leveled, the plugin can refresh your stats on Wise Old Man.</li>
+          </ul>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">RuneProfile</h2>
+          <p class="muted plugin-panel-text">
+            Optional <strong>Update RuneProfile on logout</strong> uses the same XP/level idea as WOM and helps keep
+            <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a>
+            in sync so
+            <a href="#/members" class="wom-link">member pages</a>
+            on this site stay accurate. Full collection log still benefits from the official RuneProfile plugin and syncing there.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Live clan map</h2>
+          <ul class="plugin-guide-list">
+            <li>Enable <strong>Live clan map → Enable live map API</strong> in the plugin.</li>
+            <li>Under <strong>Links</strong>, set <strong>Live map API base URL</strong> to this site’s origin only (e.g. <span class="plugin-code">https://your-site.com</span>) — no path.</li>
+            <li>Set <strong>Live map API shared key</strong> to match <span class="plugin-code">LIVE_MAP_SECRET</span> on the server (same as in your host’s environment).</li>
+            <li>The client <strong>POSTs your position</strong> to <span class="plugin-code">{base}/post</span> on a schedule so the <a href="#/map" class="wom-link">website map</a> can show you.</li>
+            <li>You can hide your pin during events, skip sending in the <strong>Wilderness</strong>, or change how often updates are sent.</li>
+          </ul>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Discord notifications</h2>
+          <p class="muted plugin-panel-text">All optional. Paste one <strong>webhook URL</strong> under Discord → Webhook, then enable categories you want:</p>
+          <ul class="plugin-guide-list">
+            <li><strong>Loot</strong> — NPC/player drops (filters, minimum value, screenshots).</li>
+            <li><strong>Clue scrolls</strong> — treasure trail rewards.</li>
+            <li><strong>Pets</strong> — pet messages.</li>
+            <li><strong>Collection log</strong> — new collection log entries.</li>
+            <li><strong>Levels</strong> — level-ups (intervals, min level, virtual/combat levels, screenshots).</li>
+            <li><strong>Progression</strong> — deaths, quests, combat achievements.</li>
+          </ul>
+          <p class="muted plugin-guide-note">Leave the webhook empty and leaves sends off if you only want the sidebar — no Discord spam.</p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Clan event attendance</h2>
+          <p class="muted plugin-panel-text">
+            Optional tracker for who was present at a clan event (Jagex clan chat / area-based, similar in spirit to other attendance plugins). Open it from the plugin <strong>Home</strong> area (e.g. clan event tracker). Adjust present/late thresholds and copy options under <strong>Clan event attendance</strong> in config.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Links in config</h2>
+          <p class="muted plugin-panel-text">
+            Under <strong>Links</strong>, fill Discord invite, website, Wise Old Man group, live map page, clan calendar page, calendar summary API URL, and live map base URL + key as needed. Empty fields usually hide the related button in the panel.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Quick checklist</h2>
+          <ol class="plugin-guide-list plugin-guide-list--ol">
+            <li>Install <strong>Terpinheimer</strong> from the hub or your jar.</li>
+            <li><strong>General</strong> → confirm Wise Old Man group ID.</li>
+            <li><strong>Links</strong> → set website and Discord at minimum.</li>
+            <li>Optional: enable <strong>live map</strong> + base URL + shared key.</li>
+            <li>Optional: Discord webhook + turn on the notification types you want.</li>
+          </ol>
+        </section>
+      </div>
+    </div>
+
     <div id="map-view" class="map-view map-view--live-fullscreen" hidden>
       <div class="live-map-wrap">
         <div id="map-leaflet" class="live-map-canvas" role="application" aria-label="Terpinheimer OSRS live map"></div>
@@ -225,7 +345,7 @@
               <span class="live-map-player-heading">Online players:</span>
               <div class="live-map-player-list" id="map-live-player-buttons"></div>
             </div>
-            <a href="#" class="live-map-btn live-map-plugin leaflet-bar" id="map-plugin-link" data-discord-link>Install plugin</a>
+            <a href="#/plugin" class="live-map-btn live-map-plugin leaflet-bar" id="map-plugin-link">Plugin guide</a>
             <p class="live-map-hint muted" id="map-live-empty-hint" hidden>No players on this plane.</p>
           </div>
         </div>
