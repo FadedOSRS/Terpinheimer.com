@@ -16,10 +16,10 @@
   --font-body: "Source Sans 3", system-ui, sans-serif;
   --radius: 4px;
   --shadow-hard: 4px 4px 0 rgba(0, 0, 0, 0.35);
-  /* Page canvas — a touch lighter than pure black/navy-deep for less harsh contrast */
-  --bg-canvas: #151c24;
-  --bg-canvas-mid: #121920;
-  --bg-canvas-deep: #0f151c;
+  /* Page canvas — slightly softer mid-tones to ease long scroll sessions */
+  --bg-canvas: #161d26;
+  --bg-canvas-mid: #131a22;
+  --bg-canvas-deep: #10161d;
 }
 
 *,
@@ -59,24 +59,31 @@ body {
   position: relative;
 }
 
-/* Soft parallax atmosphere — shifts gently while scrolling */
+/* Base wash — smooth gradient only (detail lives in .bg-atmosphere) */
 body::before {
   content: "";
   position: fixed;
   inset: -30vh -12%;
-  z-index: -2;
+  z-index: -3;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 110% 85% at 50% 12%, rgba(139, 30, 30, 0.18) 0%, transparent 58%),
-    radial-gradient(ellipse 75% 65% at 88% 48%, rgba(255, 159, 28, 0.07) 0%, transparent 52%),
-    radial-gradient(ellipse 70% 60% at 8% 72%, rgba(36, 48, 56, 0.28) 0%, transparent 48%),
-    linear-gradient(172deg, var(--bg-canvas) 0%, var(--bg-canvas-mid) 38%, var(--navy) 72%, var(--bg-canvas-deep) 100%);
-  transform: translate3d(0, calc(var(--bg-scroll) * -0.1), 0) scale(1.06);
+  background: linear-gradient(
+    172deg,
+    var(--bg-canvas) 0%,
+    var(--bg-canvas-mid) 42%,
+    var(--navy) 68%,
+    var(--bg-canvas-deep) 100%
+  );
+  transform: translate3d(
+      calc(var(--bg-scroll) * -0.02),
+      calc(var(--bg-scroll) * -0.11),
+      0
+    )
+    scale(calc(1.05 + var(--scroll-progress) * 0.035));
   transform-origin: 50% 0%;
   will-change: transform;
 }
 
-/* Vignette tightens slightly as you move down the page */
+/* Vignette — soft edges so the center stays calmer while scrolling */
 body::after {
   content: "";
   position: fixed;
@@ -84,10 +91,29 @@ body::after {
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(
-    ellipse 130% 120% at 50% 45%,
-    transparent 38%,
-    rgba(16, 22, 28, calc(0.22 + var(--scroll-progress) * 0.2)) 100%
+    ellipse 125% 115% at 50% 42%,
+    transparent 32%,
+    rgba(14, 19, 25, calc(0.28 + var(--scroll-progress) * 0.18)) 100%
   );
+}
+
+/* Large soft color pools — stronger parallax than base wash, no fine texture */
+.bg-atmosphere {
+  position: fixed;
+  inset: -25% -15%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 50% at 18% 28%, rgba(139, 30, 30, 0.14) 0%, transparent 58%),
+    radial-gradient(ellipse 50% 48% at 82% 62%, rgba(255, 159, 28, 0.055) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 55% at 48% 95%, rgba(36, 48, 56, 0.2) 0%, transparent 52%);
+  transform: translate3d(
+    calc(var(--bg-scroll) * -0.05),
+    calc(var(--bg-scroll) * -0.2),
+    0
+  );
+  transform-origin: 50% 20%;
+  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -100,19 +126,27 @@ body::after {
     will-change: auto;
   }
 
+  .bg-atmosphere {
+    transform: none;
+    will-change: auto;
+  }
+
   body::after {
-    background: radial-gradient(ellipse 130% 120% at 50% 45%, transparent 38%, rgba(16, 22, 28, 0.38) 100%);
+    background: radial-gradient(ellipse 125% 115% at 50% 42%, transparent 32%, rgba(14, 19, 25, 0.42) 100%);
   }
 }
 
-/* Film grain / print texture */
+/* Very light grain — blurred so it does not shimmer or read as pixels when scrolling */
 .noise {
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 9999;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  filter: blur(1.1px);
+  transform: scale(1.08);
+  mix-blend-mode: overlay;
 }
 
 a {
@@ -556,23 +590,28 @@ a:hover {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.2) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.1) 0%, transparent 45%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 30, 30, 0.18) 0%, transparent 58%),
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(193, 154, 107, 0.08) 0%, transparent 48%),
     linear-gradient(180deg, var(--bg-canvas) 0%, var(--navy) 50%, var(--bg-canvas-deep) 100%);
+  transform: translate3d(0, calc(var(--bg-scroll) * 0.07), 0);
+  will-change: transform;
 }
 
+/* Soft vignette inside hero only — avoids tight diagonal lines that moiré while scrolling */
 .hero-bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 12px,
-    rgba(27, 38, 44, 0.25) 12px,
-    rgba(27, 38, 44, 0.25) 13px
-  );
-  opacity: 0.28;
+  background: radial-gradient(ellipse 95% 85% at 50% 45%, transparent 20%, rgba(15, 21, 27, 0.35) 100%);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg {
+    transform: none;
+    will-change: auto;
+  }
 }
 
 .hero-content {
@@ -661,10 +700,32 @@ a:hover {
 .section-alt {
   background: linear-gradient(
     180deg,
-    rgba(36, 48, 56, calc(0.38 + var(--scroll-progress) * 0.06)) 0%,
-    rgba(18, 24, 30, calc(0.62 + var(--scroll-progress) * 0.08)) 100%
+    rgba(36, 48, 56, calc(0.36 + var(--scroll-progress) * 0.05)) 0%,
+    rgba(18, 24, 30, calc(0.58 + var(--scroll-progress) * 0.07)) 100%
   );
   border-block: 1px solid var(--panel-edge);
+}
+
+/* Scroll-driven fade/slide on the home page (enabled from app.js via html.use-scroll-reveal) */
+html.use-scroll-reveal #home-view .section--scroll-reveal {
+  opacity: 0;
+  transform: translateY(1.35rem);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.use-scroll-reveal #home-view .section--scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
 }
 
 .section-title {
@@ -1627,6 +1688,7 @@ body.map-route-live {
   overflow: hidden;
 }
 
+body.map-route-live .bg-atmosphere,
 body.map-route-live .noise,
 body.map-route-live .site-header,
 body.map-route-live .site-footer,

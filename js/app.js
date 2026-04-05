@@ -19,6 +19,78 @@
   const WOM_GROUP_ID = 23745;
   const WOM_API = "https://api.wiseoldman.net/v2";
   const WOM_GROUP_URL = `https://wiseoldman.net/groups/${WOM_GROUP_ID}`;
+  /** Matches WOM API Boss metric enum — each has group hiscores with per-player kill counts. */
+  const WOM_BOSS_METRICS = [
+    "abyssal_sire",
+    "alchemical_hydra",
+    "amoxliatl",
+    "araxxor",
+    "artio",
+    "barrows_chests",
+    "brutus",
+    "bryophyta",
+    "callisto",
+    "calvarion",
+    "cerberus",
+    "chambers_of_xeric",
+    "chambers_of_xeric_challenge_mode",
+    "chaos_elemental",
+    "chaos_fanatic",
+    "commander_zilyana",
+    "corporeal_beast",
+    "crazy_archaeologist",
+    "dagannoth_prime",
+    "dagannoth_rex",
+    "dagannoth_supreme",
+    "deranged_archaeologist",
+    "doom_of_mokhaiotl",
+    "duke_sucellus",
+    "general_graardor",
+    "giant_mole",
+    "grotesque_guardians",
+    "hespori",
+    "kalphite_queen",
+    "king_black_dragon",
+    "kraken",
+    "kreearra",
+    "kril_tsutsaroth",
+    "lunar_chests",
+    "mimic",
+    "nex",
+    "nightmare",
+    "phosanis_nightmare",
+    "obor",
+    "phantom_muspah",
+    "sarachnis",
+    "scorpia",
+    "scurrius",
+    "shellbane_gryphon",
+    "skotizo",
+    "sol_heredit",
+    "spindel",
+    "tempoross",
+    "the_gauntlet",
+    "the_corrupted_gauntlet",
+    "the_hueycoatl",
+    "the_leviathan",
+    "the_royal_titans",
+    "the_whisperer",
+    "theatre_of_blood",
+    "theatre_of_blood_hard_mode",
+    "thermonuclear_smoke_devil",
+    "tombs_of_amascut",
+    "tombs_of_amascut_expert",
+    "tzkal_zuk",
+    "tztok_jad",
+    "vardorvis",
+    "venenatis",
+    "vetion",
+    "vorkath",
+    "wintertodt",
+    "yama",
+    "zalcano",
+    "zulrah",
+  ];
   const MS_DAY = 86400000;
   const RP_BASES = ["https://api.runeprofile.com", "/rp-api"];
   const JAGEX_ITEM_API = "https://secure.runescape.com/m=itemdb_oldschool/api/catalogue/detail.json";
@@ -901,8 +973,63 @@
     return all;
   }
 
-  function sumGained(rows) {
-    return rows.reduce((s, row) => s + (row.data && typeof row.data.gained === "number" ? row.data.gained : 0), 0);
+  /** Full group hiscores for one metric (no max limit; paginate). Used for clan-wide lifetime clue / collection totals. */
+  const WOM_HISCORES_PAGE = 500;
+  async function womGetAllGroupHiscores(metric) {
+    const all = [];
+    let offset = 0;
+    for (;;) {
+      const q = new URLSearchParams({
+        metric,
+        limit: String(WOM_HISCORES_PAGE),
+        offset: String(offset),
+      });
+      const data = await womGet(`/groups/${WOM_GROUP_ID}/hiscores?${q}`);
+      const page = unwrapList(data);
+      all.push(...page);
+      if (page.length < WOM_HISCORES_PAGE) break;
+      offset += WOM_HISCORES_PAGE;
+    }
+    return all;
+  }
+
+  function sumMembershipTotalExp(memberships) {
+    return memberships.reduce((s, m) => {
+      const x = m.player?.exp;
+      return s + (typeof x === "number" ? x : 0);
+    }, 0);
+  }
+
+  function sumGroupBossKills(rows) {
+    return rows.reduce((s, row) => {
+      const k = row.data?.kills;
+      return s + (typeof k === "number" ? k : 0);
+    }, 0);
+  }
+
+  /** Sum kill counts for every boss WOM tracks, across the full roster (paginated hiscores per boss). */
+  async function womGetClanTotalBossKills() {
+    let total = 0;
+    const batchSize = 12;
+    for (let i = 0; i < WOM_BOSS_METRICS.length; i += batchSize) {
+      const batch = WOM_BOSS_METRICS.slice(i, i + batchSize);
+      const parts = await Promise.all(
+        batch.map((metric) => womGetAllGroupHiscores(metric).then(sumGroupBossKills).catch(() => 0))
+      );
+      total += parts.reduce((a, b) => a + b, 0);
+    }
+    return total;
+  }
+
+  /** Activity hiscores use data.score; skills use data.experience. */
+  function sumGroupHiscoreValues(rows) {
+    return rows.reduce((s, row) => {
+      const d = row.data;
+      if (!d) return s;
+      if (typeof d.score === "number") return s + d.score;
+      if (typeof d.experience === "number") return s + d.experience;
+      return s;
+    }, 0);
   }
 
   function fmtCompact(n) {
@@ -1135,9 +1262,10 @@
       womGet(paths.group),
       womGetAllGroupGained("overall"),
       womGet(paths.hiscores),
-      womGetAllGroupGained("clue_scrolls_all"),
       womGetAllGroupGained("collections_logged"),
-      womGetAllGroupGained("ehb"),
+      womGetAllGroupHiscores("clue_scrolls_all"),
+      womGetAllGroupHiscores("collections_logged"),
+      womGetClanTotalBossKills(),
       womGet(paths.achievements),
       womGet(paths.competitions),
     ]);
@@ -1168,11 +1296,13 @@
 
     const gainedXp = results[1].status === "fulfilled" ? unwrapList(results[1].value) : [];
     const hiscores = results[2].status === "fulfilled" ? unwrapList(results[2].value) : [];
-    const gainedClues = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
-    const gainedColl = results[4].status === "fulfilled" ? unwrapList(results[4].value) : [];
-    const gainedEhb = results[5].status === "fulfilled" ? unwrapList(results[5].value) : [];
-    const achievements = results[6].status === "fulfilled" ? unwrapList(results[6].value) : [];
-    const competitions = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
+    const gainedColl = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
+    const clueHiscores = results[4].status === "fulfilled" ? results[4].value : [];
+    const collectionsHiscores = results[5].status === "fulfilled" ? results[5].value : [];
+    const clanBossKills =
+      results[6].status === "fulfilled" && typeof results[6].value === "number" ? results[6].value : 0;
+    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
+    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
 
     const memberships = group.memberships || [];
     cachedMemberships = memberships;
@@ -1205,10 +1335,10 @@
     };
 
     stat("members", String(group.memberCount ?? memberships.length));
-    stat("xp", fmtCompact(sumGained(gainedXp)));
-    stat("bosses", sumGained(gainedEhb).toFixed(1));
-    stat("clues", String(Math.round(sumGained(gainedClues))));
-    stat("collections", String(Math.round(sumGained(gainedColl))));
+    stat("xp", fmtCompact(sumMembershipTotalExp(memberships)));
+    stat("bosses", fmtCompact(clanBossKills));
+    stat("clues", String(Math.round(sumGroupHiscoreValues(clueHiscores))));
+    stat("collections", String(Math.round(sumGroupHiscoreValues(collectionsHiscores))));
 
     const monthEl = document.getElementById("top-month");
     if (monthEl) {
@@ -1828,7 +1958,7 @@
         rafId = 0;
         return;
       }
-      smooth += (target - smooth) * 0.14;
+      smooth += (target - smooth) * 0.11;
       applyY(smooth);
       if (Math.abs(target - smooth) > 0.4) {
         rafId = requestAnimationFrame(step);
@@ -1849,6 +1979,41 @@
 
     window.addEventListener("scroll", onScroll, { passive: true });
     applyY(window.scrollY || 0);
+  })();
+
+  /** Home sections: fade/slide in when they enter the viewport (css/styles.css). */
+  (function initHomeScrollReveal() {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const els = document.querySelectorAll("#home-view .section--scroll-reveal");
+    if (!els.length || reduced.matches) return;
+
+    const root = document.documentElement;
+    root.classList.add("use-scroll-reveal");
+
+    const mark = (el) => el.classList.add("section--scroll-reveal--visible");
+    const vh = () => window.innerHeight;
+
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            mark(e.target);
+            obs.unobserve(e.target);
+          }
+        }
+      },
+      { root: null, rootMargin: "0px 0px -7% 0px", threshold: 0.06 }
+    );
+
+    const h = vh();
+    els.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.top < h * 0.94 && r.bottom > h * 0.06) {
+        mark(el);
+      } else {
+        io.observe(el);
+      }
+    });
   })();
 
   load().catch(async (e) => {
