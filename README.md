@@ -81,7 +81,7 @@ GitHub may ask you to sign in: use a **Personal Access Token** as the password (
 4. **Start:** `npm start`
 5. Let the host set **`PORT`** (already read in `dev-server.mjs`).
 
-No build step is required beyond installing dependencies. If you use **Render**, you can connect the repo and use the included `render.yaml` (optional auto-config).
+No build step is required beyond installing dependencies. If you use **Render**, you can connect the repo and use the included `render.yaml` (optional auto-config). That blueprint attaches a **persistent disk** at `/var/data` and sets **`CUSTOM_EVENTS_DIR`** so clan calendar events survive redeploys. If your plan does not support disks, set up equivalent persistence or events will reset when the instance filesystem is replaced.
 
 ## Project layout
 

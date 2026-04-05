@@ -7,17 +7,20 @@
 # Optional: DISCORD_EVENTS_WEBHOOK_URL (Incoming Webhook URL) posts new events to Discord.
 # Optional: PUBLIC_SITE_URL for calendar link in the embed. See DISCORD_EVENTS.md.
 #
-# Clan events file: on Render the filesystem is ephemeral unless you use a persistent disk (paid
-# web services) or point CUSTOM_EVENTS_DIR at a mounted path. Free tier: add a disk after upgrading,
-# or use an external DB / KV store. Node app path for repo _data is usually:
-#   /opt/render/project/src/_data
-# Dashboard → your service → Disks → add disk with that mount path (then redeploy).
+# Clan calendar events are stored in custom-events.json. This blueprint mounts a persistent disk at
+# /var/data and sets CUSTOM_EVENTS_DIR so redeploys keep that file. Persistent disks require a
+# compatible Render plan (see https://render.com/docs/disks). If you create the service manually,
+# add a disk with the same mount path and set CUSTOM_EVENTS_DIR in the dashboard.
 services:
   - type: web
     name: terpinheimer-site
     runtime: node
     buildCommand: npm install
     startCommand: npm start
+    disk:
+      name: clan-calendar-events
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: LIVE_MAP_SECRET
         sync: false
@@ -30,3 +33,5 @@ services:
         sync: false
       - key: DISCORD_WEBHOOK_USERNAME
         value: Terpinheimer.com
+      - key: CUSTOM_EVENTS_DIR
+        value: /var/data
