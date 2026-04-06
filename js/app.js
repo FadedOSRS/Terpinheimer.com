@@ -61,6 +61,93 @@
     return `Could not load Wise Old Man (${m || "error"}). Try again.`;
   }
 
+  const WOM_HOME_CACHE_KEY = "terpinheimer_wom_home_v1";
+  const WOM_HOME_CACHE_MAX_MS = 5 * 60 * 1000;
+
+  function readWomHomeCache() {
+    try {
+      const raw = sessionStorage.getItem(WOM_HOME_CACHE_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || typeof o.t !== "number" || !o.group) return null;
+      if (Date.now() - o.t > WOM_HOME_CACHE_MAX_MS) return null;
+      return {
+        group: o.group,
+        gainedXp: Array.isArray(o.gainedXp) ? o.gainedXp : [],
+        hiscores: Array.isArray(o.hiscores) ? o.hiscores : [],
+        gainedColl: Array.isArray(o.gainedColl) ? o.gainedColl : [],
+        clueHiscores: Array.isArray(o.clueHiscores) ? o.clueHiscores : [],
+        collectionsHiscores: Array.isArray(o.collectionsHiscores) ? o.collectionsHiscores : [],
+        clanBossKills: typeof o.clanBossKills === "number" ? o.clanBossKills : 0,
+        achievements: Array.isArray(o.achievements) ? o.achievements : [],
+        competitions: Array.isArray(o.competitions) ? o.competitions : [],
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function writeWomHomeCache(bundle) {
+    try {
+      sessionStorage.setItem(
+        WOM_HOME_CACHE_KEY,
+        JSON.stringify({
+          t: Date.now(),
+          group: bundle.group,
+          gainedXp: bundle.gainedXp,
+          hiscores: bundle.hiscores,
+          gainedColl: bundle.gainedColl,
+          clueHiscores: bundle.clueHiscores,
+          collectionsHiscores: bundle.collectionsHiscores,
+          clanBossKills: bundle.clanBossKills,
+          achievements: bundle.achievements,
+          competitions: bundle.competitions,
+        })
+      );
+    } catch {
+      /* storage full or unavailable */
+    }
+  }
+
+  /** Caps parallel WOM HTTP requests; large bursts were returning HTTP 403 from the API edge. */
+  let womThrottleBusy = 0;
+  const WOM_THROTTLE_CAP = 2;
+  const WOM_THROTTLE_GAP_MS = 120;
+  let womThrottleNextStart = 0;
+  const womThrottleWaiters = [];
+
+  function womThrottleEnter() {
+    return new Promise((resolve) => {
+      function attempt() {
+        if (womThrottleBusy < WOM_THROTTLE_CAP) {
+          womThrottleBusy++;
+          resolve();
+        } else {
+          womThrottleWaiters.push(attempt);
+        }
+      }
+      attempt();
+    });
+  }
+
+  function womThrottleLeave() {
+    womThrottleBusy--;
+    const next = womThrottleWaiters.shift();
+    if (next) next();
+  }
+
+  async function womWithThrottle(fn) {
+    await womThrottleEnter();
+    const gap = Math.max(0, womThrottleNextStart - Date.now());
+    if (gap) await new Promise((r) => setTimeout(r, gap));
+    womThrottleNextStart = Date.now() + WOM_THROTTLE_GAP_MS;
+    try {
+      return await fn();
+    } finally {
+      womThrottleLeave();
+    }
+  }
+
   const WOM_GROUP_URL = `https://wiseoldman.net/groups/${WOM_GROUP_ID}`;
   /** Matches WOM API Boss metric enum — each has group hiscores with per-player kill counts. */
   const WOM_BOSS_METRICS = [
@@ -1041,37 +1128,39 @@
   }
 
   async function womGet(path) {
-    const base = womFetchBase();
-    const maxAttempts = 3;
-    let lastErr;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const wait = womRetryDelay(attempt);
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-      try {
-        const r = await fetch(`${base}${path}`, {
-          headers: { Accept: "application/json" },
-        });
-        if (!r.ok) {
-          const st = r.status;
-          lastErr = new Error(`${path}: ${st}`);
-          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+    return womWithThrottle(async () => {
+      const base = womFetchBase();
+      const maxAttempts = 3;
+      let lastErr;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const wait = womRetryDelay(attempt);
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        try {
+          const r = await fetch(`${base}${path}`, {
+            headers: { Accept: "application/json" },
+          });
+          if (!r.ok) {
+            const st = r.status;
+            lastErr = new Error(`${path}: ${st}`);
+            if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+            throw lastErr;
+          }
+          return r.json();
+        } catch (e) {
+          lastErr = e;
+          const msg = e && typeof e.message === "string" ? e.message : "";
+          const http = msg.match(/: (\d{3})$/);
+          if (http) {
+            const st = Number(http[1]);
+            if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+          } else if (attempt < maxAttempts - 1) {
+            continue;
+          }
           throw lastErr;
         }
-        return r.json();
-      } catch (e) {
-        lastErr = e;
-        const msg = e && typeof e.message === "string" ? e.message : "";
-        const http = msg.match(/: (\d{3})$/);
-        if (http) {
-          const st = Number(http[1]);
-          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
-        } else if (attempt < maxAttempts - 1) {
-          continue;
-        }
-        throw lastErr;
       }
-    }
-    throw lastErr;
+      throw lastErr;
+    });
   }
 
   /** Sum every roster member's delta for a metric/period (WOM gained has no max limit; paginate by offset). */
@@ -1132,7 +1221,7 @@
   /** Sum kill counts for every boss WOM tracks, across the full roster (paginated hiscores per boss). */
   async function womGetClanTotalBossKills() {
     let total = 0;
-    const batchSize = 12;
+    const batchSize = 2;
     for (let i = 0; i < WOM_BOSS_METRICS.length; i += batchSize) {
       const batch = WOM_BOSS_METRICS.slice(i, i + batchSize);
       const parts = await Promise.all(
@@ -1359,71 +1448,21 @@
     grid.innerHTML = html;
   }
 
-  async function load() {
-    const customEventsPromise = fetch("/api/custom-events", { credentials: "include" })
-      .then(async (r) => {
-        if (!r.ok) return [];
-        try {
-          const j = await r.json();
-          return Array.isArray(j) ? j : [];
-        } catch {
-          return [];
-        }
-      })
-      .catch(() => []);
-
-    const paths = {
-      group: `/groups/${WOM_GROUP_ID}`,
-      hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
-      achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
-      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
-    };
-
-    const results = await Promise.allSettled([
-      womGet(paths.group),
-      womGetAllGroupGained("overall"),
-      womGet(paths.hiscores),
-      womGetAllGroupGained("collections_logged"),
-      womGetAllGroupHiscores("clue_scrolls_all"),
-      womGetAllGroupHiscores("collections_logged"),
-      womGetClanTotalBossKills(),
-      womGet(paths.achievements),
-      womGet(paths.competitions),
-    ]);
-
+  async function applyHomeBundle(bundle, customEventsPromise) {
     const errEl = document.getElementById("load-error");
-    const group = results[0].status === "fulfilled" ? results[0].value : null;
-    if (!group) {
-      cachedMemberships = [];
-      cachedCompetitions = [];
-      const membersMeta = document.getElementById("members-list-meta");
-      if (membersMeta) membersMeta.textContent = "Could not load roster from Wise Old Man.";
-      renderMembersListIfVisible();
-      if (errEl) {
-        errEl.hidden = false;
-        errEl.textContent =
-          results[0].status === "rejected"
-            ? womLoadErrorHint(results[0].reason)
-            : "Could not load group.";
-      }
-      const customEvents = await customEventsPromise;
-      refreshEventCache([], customEvents);
-      await refreshHomeLiveMapPresence();
-      startHomeLiveMapPoll();
-      return;
-    }
-
     if (errEl) errEl.hidden = true;
 
-    const gainedXp = results[1].status === "fulfilled" ? unwrapList(results[1].value) : [];
-    const hiscores = results[2].status === "fulfilled" ? unwrapList(results[2].value) : [];
-    const gainedColl = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
-    const clueHiscores = results[4].status === "fulfilled" ? results[4].value : [];
-    const collectionsHiscores = results[5].status === "fulfilled" ? results[5].value : [];
-    const clanBossKills =
-      results[6].status === "fulfilled" && typeof results[6].value === "number" ? results[6].value : 0;
-    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
-    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
+    const {
+      group,
+      gainedXp,
+      hiscores,
+      gainedColl,
+      clueHiscores,
+      collectionsHiscores,
+      clanBossKills,
+      achievements,
+      competitions,
+    } = bundle;
 
     const memberships = group.memberships || [];
     cachedMemberships = memberships;
@@ -1528,6 +1567,110 @@
 
     await refreshHomeLiveMapPresence();
     startHomeLiveMapPoll();
+  }
+
+  async function load() {
+    const customEventsPromise = fetch("/api/custom-events", { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) return [];
+        try {
+          const j = await r.json();
+          return Array.isArray(j) ? j : [];
+        } catch {
+          return [];
+        }
+      })
+      .catch(() => []);
+
+    const errEl = document.getElementById("load-error");
+    const staleBundle = readWomHomeCache();
+    let paintedFromCache = false;
+    if (staleBundle) {
+      paintedFromCache = true;
+      await applyHomeBundle(staleBundle, customEventsPromise);
+    }
+
+    const paths = {
+      group: `/groups/${WOM_GROUP_ID}`,
+      hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
+      achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
+      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
+    };
+
+    const results = await Promise.allSettled([
+      womGet(paths.group),
+      womGetAllGroupGained("overall"),
+      womGet(paths.hiscores),
+      womGetAllGroupGained("collections_logged"),
+      womGetAllGroupHiscores("clue_scrolls_all"),
+      womGetAllGroupHiscores("collections_logged"),
+      womGetClanTotalBossKills(),
+      womGet(paths.achievements),
+      womGet(paths.competitions),
+    ]);
+
+    const group = results[0].status === "fulfilled" ? results[0].value : null;
+    if (!group) {
+      if (!paintedFromCache) {
+        cachedMemberships = [];
+        cachedCompetitions = [];
+        const membersMeta = document.getElementById("members-list-meta");
+        if (membersMeta) membersMeta.textContent = "Could not load roster from Wise Old Man.";
+        renderMembersListIfVisible();
+        if (errEl) {
+          errEl.hidden = false;
+          errEl.textContent =
+            results[0].status === "rejected"
+              ? womLoadErrorHint(results[0].reason)
+              : "Could not load group.";
+        }
+        const customEvents = await customEventsPromise;
+        refreshEventCache([], customEvents);
+      } else {
+        const customEvents = await customEventsPromise;
+        refreshEventCache(staleBundle.competitions || [], customEvents);
+      }
+      await refreshHomeLiveMapPresence();
+      startHomeLiveMapPoll();
+      return;
+    }
+
+    const gainedXp = results[1].status === "fulfilled" ? unwrapList(results[1].value) : [];
+    const hiscores = results[2].status === "fulfilled" ? unwrapList(results[2].value) : [];
+    const gainedColl = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
+    const clueHiscores = results[4].status === "fulfilled" ? results[4].value : [];
+    const collectionsHiscores = results[5].status === "fulfilled" ? results[5].value : [];
+    const clanBossKills =
+      results[6].status === "fulfilled" && typeof results[6].value === "number" ? results[6].value : 0;
+    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
+    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
+
+    writeWomHomeCache({
+      group,
+      gainedXp,
+      hiscores,
+      gainedColl,
+      clueHiscores,
+      collectionsHiscores,
+      clanBossKills,
+      achievements,
+      competitions,
+    });
+
+    await applyHomeBundle(
+      {
+        group,
+        gainedXp,
+        hiscores,
+        gainedColl,
+        clueHiscores,
+        collectionsHiscores,
+        clanBossKills,
+        achievements,
+        competitions,
+      },
+      customEventsPromise
+    );
   }
 
   const toggle = document.querySelector(".nav-toggle");
