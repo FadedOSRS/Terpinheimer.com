@@ -138,6 +138,7 @@
   const RP_BASES = ["https://api.runeprofile.com", "/rp-api"];
   const JAGEX_ITEM_API = "https://secure.runescape.com/m=itemdb_oldschool/api/catalogue/detail.json";
   const itemNameCache = new Map();
+  const itemIconCache = new Map();
   const SKILL_SORT = [
     "Attack",
     "Defence",
@@ -519,6 +520,60 @@
         root.querySelectorAll(`[data-osrs-item="${id}"]`).forEach((el) => {
           el.textContent = label;
         });
+      })
+    );
+  }
+
+  /** Catalogue `icon` / `icon_large` URL from Jagex (or proxied /rs-item). */
+  async function resolveOsrsItemIcon(itemId) {
+    const key = String(itemId);
+    if (itemIconCache.has(key)) return itemIconCache.get(key);
+    const urls = [`/rs-item/${key}`, `${JAGEX_ITEM_API}?item=${encodeURIComponent(key)}`];
+    for (const u of urls) {
+      try {
+        const r = await fetch(u);
+        const txt = await r.text();
+        if (!txt.trim().startsWith("{")) continue;
+        const j = JSON.parse(txt);
+        const icon = j.item && (j.item.icon_large || j.item.icon);
+        if (icon && typeof icon === "string") {
+          itemIconCache.set(key, icon);
+          return icon;
+        }
+      } catch (_) {
+        /* CORS, parse error, or network */
+      }
+    }
+    itemIconCache.set(key, "");
+    return "";
+  }
+
+  async function hydrateOsrsPetIcons(root) {
+    if (!root) return;
+    const slots = root.querySelectorAll(".member-pet-icon-slot[data-item-id]");
+    await Promise.all(
+      [...slots].map(async (slot) => {
+        const id = slot.getAttribute("data-item-id");
+        const img = slot.querySelector(".member-pet-icon");
+        const fb = slot.querySelector(".member-pet-fallback");
+        if (!id || !img) return;
+        const showIcon = () => {
+          img.hidden = false;
+          if (fb) fb.hidden = true;
+        };
+        const showFallback = () => {
+          img.hidden = true;
+          if (fb) fb.hidden = false;
+        };
+        const url = await resolveOsrsItemIcon(id);
+        if (!url) {
+          showFallback();
+          return;
+        }
+        img.onload = showIcon;
+        img.onerror = showFallback;
+        img.src = url;
+        if (img.complete && img.naturalWidth > 0) showIcon();
       })
     );
   }
@@ -968,8 +1023,18 @@
           : [];
       const petRows = mergeManualPetEntries(manual, fromClog);
       if (petRows.length) {
-        const chips = petRows.map((p) => `<span class="member-pet-chip">${escHtml(p.name)}</span>`).join("");
+        const chips = petRows
+          .map((p) => {
+            const title = escHtml(p.name);
+            if (p.id != null) {
+              const idAttr = escHtml(String(p.id));
+              return `<span class="member-pet-chip member-pet-chip--icon" title="${title}"><span class="member-pet-icon-slot" data-item-id="${idAttr}"><img class="member-pet-icon" alt="" width="32" height="32" loading="lazy" decoding="async" hidden /><span class="member-pet-fallback" hidden>${title}</span></span></span>`;
+            }
+            return `<span class="member-pet-chip member-pet-chip--text" title="${title}">${title}</span>`;
+          })
+          .join("");
         petEl.innerHTML = `<div class="member-pets-strip">${chips}</div>`;
+        await hydrateOsrsPetIcons(petEl);
       } else {
         petEl.innerHTML =
           '<p class="muted member-diary-empty">No pets found in synced collection log yet.</p>';
