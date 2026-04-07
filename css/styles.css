@@ -3211,6 +3211,26 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   margin-top: 1.25rem;
 }
 
+.member-pets {
+  min-height: 2.5rem;
+}
+
+.member-pets-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.45rem;
+}
+
+.member-pet-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--navy-deep);
+  border: 1px solid var(--panel-edge);
+  color: var(--cream);
+}
+
 .member-skills {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

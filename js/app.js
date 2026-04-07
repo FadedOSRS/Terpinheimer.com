@@ -342,6 +342,24 @@
     return `/public/skill-capes/${encodeURIComponent("Quest_point_cape_(t).png")}`;
   }
 
+  function maxCapeIconSrc() {
+    return `/public/skill-capes/${encodeURIComponent("Max_cape.png")}`;
+  }
+
+  /** True when every skill on the stats tab (incl. Sailing) is level 99+ from synced XP. */
+  function allStatsTabSkillsAtLeast99(skillsRows) {
+    const byName = new Map();
+    for (const s of skillsRows || []) {
+      const k = normalizeSkillName(s.name);
+      byName.set(k, s.xp || 0);
+    }
+    for (const name of SKILL_STATS_TAB_ORDER) {
+      const xp = byName.get(name) ?? 0;
+      if (levelFromXp(xp) < 99) return false;
+    }
+    return true;
+  }
+
   /** Every main quest (RuneProfile type !== 2) finished; excludes miniquests. */
   function allMainQuestsComplete(mainQuests) {
     if (!mainQuests || !mainQuests.length) return false;
@@ -778,20 +796,30 @@
     const clanB = document.getElementById("member-clan-body");
     if (profile.clan && profile.clan.name && clanP && clanB) {
       clanP.hidden = false;
+      const maxCapeUnlocked = allStatsTabSkillsAtLeast99(skills);
       const maxed = skills.filter((s) => levelFromXp(s.xp || 0) >= 99);
-      const badges = maxed
-        .map((s) => {
-          const skillName = normalizeSkillName(s.name);
-          const src = skillCapeIconSrc(skillName);
-          if (!src) return "";
-          const lv = levelFromXp(s.xp || 0);
-          const tip = `${skillName} (${lv})`;
-          return `<span class="member-skill-cape-badge" title="${escHtml(tip)}"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
-            src
-          )}" alt="${escHtml(skillName)} skillcape" loading="lazy" decoding="async" /></span></span>`;
-        })
-        .filter(Boolean)
-        .join("");
+      const badges = maxCapeUnlocked
+        ? (() => {
+            const src = maxCapeIconSrc();
+            return src
+              ? `<span class="member-skill-cape-badge member-skill-cape-badge--max" title="Max cape"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+                  src
+                )}" alt="Max cape" loading="lazy" decoding="async" /></span></span>`
+              : "";
+          })()
+        : maxed
+            .map((s) => {
+              const skillName = normalizeSkillName(s.name);
+              const src = skillCapeIconSrc(skillName);
+              if (!src) return "";
+              const lv = levelFromXp(s.xp || 0);
+              const tip = `${skillName} (${lv})`;
+              return `<span class="member-skill-cape-badge" title="${escHtml(tip)}"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+                src
+              )}" alt="${escHtml(skillName)} skillcape" loading="lazy" decoding="async" /></span></span>`;
+            })
+            .filter(Boolean)
+            .join("");
       const combatTip = combatTierTop ? `Combat achievements — ${combatTierTop}` : "";
       const combatHiltSrc = combatTierTop ? combatHiltIconSrc(combatTierTop) : "";
       const combatBadge = combatHiltSrc
@@ -813,7 +841,7 @@
         : "";
       const capeStrip = `${badges}${combatBadge}${questPointBadge}${diaryBadge}`;
       const badgesBlock = capeStrip
-        ? `<span class="member-skill-capes" aria-label="Skill capes, combat tier, quest point, and diary milestones">${capeStrip}</span>`
+        ? `<span class="member-skill-capes" aria-label="Skill capes or max cape, combat, quest point, and diary milestones">${capeStrip}</span>`
         : "";
       clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
@@ -841,6 +869,32 @@
     if (skEl) skEl.innerHTML = skillHtml || '<p class="muted">No skills.</p>';
     const totEl = document.getElementById("member-total-level");
     if (totEl) totEl.textContent = skills.length ? `Total level: ${totalLvl}` : "";
+
+    const petEl = document.getElementById("member-pets");
+    if (petEl) {
+      const petList = Array.isArray(profile.pets)
+        ? profile.pets
+        : Array.isArray(profile.collectionLogPets)
+          ? profile.collectionLogPets
+          : null;
+      if (petList && petList.length) {
+        const chips = petList
+          .map((p) => {
+            const name =
+              typeof p === "string"
+                ? p
+                : p.name ?? p.petName ?? p.title ?? (p.itemId != null ? `Pet #${p.itemId}` : "");
+            const label = String(name || "").trim();
+            if (!label) return "";
+            return `<span class="member-pet-chip">${escHtml(label)}</span>`;
+          })
+          .filter(Boolean)
+          .join("");
+        petEl.innerHTML = chips ? `<div class="member-pets-strip">${chips}</div>` : '<p class="muted member-diary-empty">No pet data.</p>';
+      } else {
+        petEl.innerHTML = '<p class="muted member-diary-empty">No pet data.</p>';
+      }
+    }
 
     const quests = profile.quests || [];
     const done = mainQuests.filter((q) => q.state === 2);
