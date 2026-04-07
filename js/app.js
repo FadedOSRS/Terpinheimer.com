@@ -524,7 +524,34 @@
     );
   }
 
-  /** Catalogue `icon` / `icon_large` URL from Jagex (or proxied /rs-item). */
+  /** Jagex catalogue often returns relative icon URLs; img.src needs an absolute or data URL. */
+  function absolutizeRunescapeCatalogueIcon(icon) {
+    if (!icon || typeof icon !== "string") return "";
+    const t = icon.trim();
+    if (!t) return "";
+    if (t.startsWith("data:") || /^https?:\/\//i.test(t)) return t;
+    if (t.startsWith("//")) return `https:${t}`;
+    if (t.startsWith("/")) return `https://secure.runescape.com${t}`;
+    return t;
+  }
+
+  /** OSRSBox item JSON includes base64 PNG (works when Jagex/CORS and /rs-item name-only fallbacks omit icons). */
+  async function resolveOsrsItemIconFromOsrsbox(itemId) {
+    const key = String(itemId);
+    const url = `https://raw.githubusercontent.com/osrsbox/osrsbox-db/master/docs/items-json/${key}.json`;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return "";
+      const j = await r.json();
+      const b64 = j && typeof j.icon === "string" ? j.icon.replace(/\s/g, "") : "";
+      if (b64.length > 40) return `data:image/png;base64,${b64}`;
+    } catch (_) {
+      /* network */
+    }
+    return "";
+  }
+
+  /** Catalogue `icon` / `icon_large`, then OSRSBox embedded icon. */
   async function resolveOsrsItemIcon(itemId) {
     const key = String(itemId);
     if (itemIconCache.has(key)) return itemIconCache.get(key);
@@ -535,14 +562,20 @@
         const txt = await r.text();
         if (!txt.trim().startsWith("{")) continue;
         const j = JSON.parse(txt);
-        const icon = j.item && (j.item.icon_large || j.item.icon);
-        if (icon && typeof icon === "string") {
+        const raw = j.item && (j.item.icon_large || j.item.icon);
+        const icon = absolutizeRunescapeCatalogueIcon(raw);
+        if (icon) {
           itemIconCache.set(key, icon);
           return icon;
         }
       } catch (_) {
         /* CORS, parse error, or network */
       }
+    }
+    const fromBox = await resolveOsrsItemIconFromOsrsbox(key);
+    if (fromBox) {
+      itemIconCache.set(key, fromBox);
+      return fromBox;
     }
     itemIconCache.set(key, "");
     return "";
