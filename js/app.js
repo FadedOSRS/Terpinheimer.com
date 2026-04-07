@@ -583,13 +583,14 @@
 
   async function hydrateOsrsPetIcons(root) {
     if (!root) return;
-    const slots = root.querySelectorAll(".member-pet-icon-slot[data-item-id]");
+    const slots = root.querySelectorAll(".member-pet-icon-slot[data-pet-name], .member-pet-icon-slot[data-item-id]");
     await Promise.all(
       [...slots].map(async (slot) => {
         const id = slot.getAttribute("data-item-id");
+        const displayName = slot.getAttribute("data-pet-name") || "";
         const img = slot.querySelector(".member-pet-icon");
         const fb = slot.querySelector(".member-pet-fallback");
-        if (!id || !img) return;
+        if (!img || (!id && !displayName)) return;
         const showIcon = () => {
           img.hidden = false;
           if (fb) fb.hidden = true;
@@ -598,7 +599,7 @@
           img.hidden = true;
           if (fb) fb.hidden = false;
         };
-        const url = await resolveOsrsItemIcon(id);
+        const url = await resolveMemberPetIcon(id, displayName);
         if (!url) {
           showFallback();
           return;
@@ -691,11 +692,42 @@
     return osrsPetClogMetaPromise;
   }
 
+  let petLocalIconsMapCache = null;
+  let petLocalIconsPromise = null;
+
+  /** PNGs in /public/pets/ keyed by normalizeClogItemNameForPet (see osrs-pet-local-icons.json). */
+  function loadPetLocalIconsManifest() {
+    if (petLocalIconsMapCache) return Promise.resolve(petLocalIconsMapCache);
+    if (!petLocalIconsPromise) {
+      petLocalIconsPromise = fetch("/public/data/osrs-pet-local-icons.json")
+        .then((r) => (r.ok ? r.json() : { icons: {} }))
+        .then((j) => {
+          petLocalIconsMapCache = j.icons && typeof j.icons === "object" ? j.icons : {};
+          return petLocalIconsMapCache;
+        })
+        .catch(() => {
+          petLocalIconsMapCache = {};
+          return petLocalIconsMapCache;
+        });
+    }
+    return petLocalIconsPromise;
+  }
+
   function normalizeClogItemNameForPet(name) {
     return String(name || "")
       .trim()
       .replace(/\u2019/g, "'")
       .toLowerCase();
+  }
+
+  async function resolveMemberPetIcon(itemId, displayName) {
+    const icons = await loadPetLocalIconsManifest();
+    const key = normalizeClogItemNameForPet(displayName);
+    const localFile = key && icons[key];
+    if (localFile) return `/public/pets/${encodeURIComponent(localFile)}`;
+    const idStr = itemId != null && itemId !== "" ? String(itemId) : "";
+    if (idStr) return resolveOsrsItemIcon(idStr);
+    return "";
   }
 
   /** RuneProfile `items[]`: collection log rows `{ id, name, quantity?, createdAt? }`. */
@@ -1059,11 +1091,10 @@
         const chips = petRows
           .map((p) => {
             const title = escHtml(p.name);
-            if (p.id != null) {
-              const idAttr = escHtml(String(p.id));
-              return `<span class="member-pet-chip member-pet-chip--icon" title="${title}"><span class="member-pet-icon-slot" data-item-id="${idAttr}"><img class="member-pet-icon" alt="" width="32" height="32" loading="lazy" decoding="async" hidden /><span class="member-pet-fallback" hidden>${title}</span></span></span>`;
-            }
-            return `<span class="member-pet-chip member-pet-chip--text" title="${title}">${title}</span>`;
+            const nameAttr = title;
+            const idAttr = p.id != null ? escHtml(String(p.id)) : "";
+            const idPart = idAttr ? ` data-item-id="${idAttr}"` : "";
+            return `<span class="member-pet-chip member-pet-chip--icon" title="${title}"><span class="member-pet-icon-slot" data-pet-name="${nameAttr}"${idPart}><img class="member-pet-icon" alt="" width="32" height="32" loading="lazy" decoding="async" hidden /><span class="member-pet-fallback" hidden>${title}</span></span></span>`;
           })
           .join("");
         petEl.innerHTML = `<div class="member-pets-strip">${chips}</div>`;
