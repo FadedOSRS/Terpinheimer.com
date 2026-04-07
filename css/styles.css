@@ -1619,6 +1619,49 @@ a:hover {
   max-height: 2.6rem;
 }
 
+.bingo-tile-team-items {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bingo-tile-team-items-label {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.bingo-tile-team-got-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.bingo-tile-team-got {
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0.14rem 0.36rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--cream-soft);
+  cursor: pointer;
+}
+
+.bingo-tile-team-got:hover {
+  border-color: var(--amber);
+  color: var(--cream);
+}
+
+.bingo-tile-team-got--on {
+  background: rgba(110, 180, 130, 0.28);
+  border-color: rgba(110, 180, 130, 0.55);
+  color: var(--cream);
+}
+
 .bingo-tile-thumb-wrap {
   border-radius: 4px;
   overflow: hidden;

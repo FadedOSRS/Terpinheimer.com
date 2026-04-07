@@ -1615,6 +1615,7 @@
     const cols = bingoClampDim(grid.dataset.bingoCols);
     const boardId = String(grid.dataset.boardId || "").trim() || bingoNewBoardId();
     const tiles = [];
+    const teamTileDoneRaw = {};
     let i = 0;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -1648,22 +1649,29 @@
         const imgUrlInp = tile.querySelector(".bingo-tile-image-url");
         const imgAltInp = tile.querySelector(".bingo-tile-image-alt");
         const togg = tile.querySelector(".bingo-tile-toggle");
-        tiles.push(
-          normalizeBingoTile(
-            {
-              text: (task && task.value) || "",
-              item: itemVal,
-              boss: (boss && boss.value) || "",
-              notes: (notes && notes.value) || "",
-              tint,
-              done: togg && togg.getAttribute("aria-pressed") === "true",
-              imageUrl: (imgUrlInp && imgUrlInp.value) || "",
-              imageAlt: (imgAltInp && imgAltInp.value) || "",
-            },
-            r,
-            c
-          )
+        const normTile = normalizeBingoTile(
+          {
+            text: (task && task.value) || "",
+            item: itemVal,
+            boss: (boss && boss.value) || "",
+            notes: (notes && notes.value) || "",
+            tint,
+            done: togg && togg.getAttribute("aria-pressed") === "true",
+            imageUrl: (imgUrlInp && imgUrlInp.value) || "",
+            imageAlt: (imgAltInp && imgAltInp.value) || "",
+          },
+          r,
+          c
         );
+        tiles.push(normTile);
+        const teamBtns = tile.querySelectorAll(".bingo-tile-team-got");
+        if (teamBtns.length) {
+          const arr = [];
+          teamBtns.forEach((btn) => {
+            arr.push(btn.getAttribute("aria-pressed") === "true");
+          });
+          teamTileDoneRaw[normTile.id] = arr;
+        }
         i++;
       }
     }
@@ -1682,7 +1690,11 @@
       cols,
       tiles,
       ...teams,
-      teamTileDone: bingoNormalizeTeamTileDone({ teamTileDone: prev.teamTileDone }, tiles, teams.teamCount),
+      teamTileDone: bingoNormalizeTeamTileDone(
+        { teamTileDone: { ...(prev.teamTileDone || {}), ...teamTileDoneRaw } },
+        tiles,
+        teams.teamCount
+      ),
     };
   }
 
@@ -1860,6 +1872,8 @@
     if (rowsSel) rowsSel.value = String(state.rows);
     if (colsSel) colsSel.value = String(state.cols);
 
+    const teamsMeta = normalizeBingoTeams(state);
+    const teamTileDoneMap = bingoNormalizeTeamTileDone(state, state.tiles || [], teamsMeta.teamCount);
     const total = state.rows * state.cols;
     grid.classList.toggle("bingo-grid--many", total > 36);
     grid.style.gridTemplateColumns = `repeat(${state.cols}, minmax(0, 1fr))`;
@@ -1882,6 +1896,19 @@
         const imgUrlEsc = bingoEscapeAttr(t.imageUrl);
         const imgAltEsc = bingoEscapeAttr(t.imageAlt);
         const itemListSize = total > 36 ? 3 : 5;
+        let teamPickerBlock = "";
+        if (teamsMeta.teamCount > 0) {
+          const arr = teamTileDoneMap[t.id] || [];
+          let teamBtns = "";
+          for (let ti = 0; ti < teamsMeta.teamCount; ti++) {
+            const got = !!arr[ti];
+            teamBtns += `<button type="button" class="bingo-tile-team-got${got ? " bingo-tile-team-got--on" : ""}" data-bingo-team-tile="${bingoEscapeAttr(t.id)}" data-bingo-team-idx="${ti}" aria-pressed="${got ? "true" : "false"}" title="Team ${ti + 1} has this tile's items">T${ti + 1}</button>`;
+          }
+          teamPickerBlock = `<div class="bingo-tile-team-items" role="group" aria-label="Teams with items for ${bingoEscapeAttr(t.id)}">
+            <span class="bingo-tile-team-items-label">Teams with items</span>
+            <div class="bingo-tile-team-got-row">${teamBtns}</div>
+          </div>`;
+        }
         html += `<div class="bingo-tile bingo-tile--${tint}${done ? " bingo-tile--done" : ""}" data-bingo-index="${i}">
           <div class="bingo-tile-head">
             <span class="bingo-tile-id">${bingoEscapeAttr(t.id)}</span>
@@ -1905,6 +1932,7 @@
           <select id="bingo-item-${i}" class="bingo-tile-item bingo-tile-item--multi" multiple size="${itemListSize}" aria-label="Items for tile ${bingoEscapeAttr(t.id)}. Hold Ctrl or Command while clicking to select several." title="Ctrl or ⌘ + click to select multiple items">${itemOpts}</select>
           <p class="muted bingo-tile-item-hint">Ctrl / ⌘ + click to select multiple items.</p>
           <p class="bingo-tile-item-picked muted" hidden></p>
+          ${teamPickerBlock}
           <label class="sr-only" for="bingo-boss-${i}">Boss or source</label>
           <select id="bingo-boss-${i}" class="bingo-tile-boss" aria-label="Boss or source for ${bingoEscapeAttr(t.id)}">${bossOpts}</select>
           <label class="sr-only" for="bingo-notes-${i}">Notes</label>
@@ -2632,6 +2660,15 @@
         }
         return;
       }
+      const teamBtn = e.target.closest(".bingo-tile-team-got");
+      if (teamBtn) {
+        const on = teamBtn.getAttribute("aria-pressed") === "true";
+        const next = !on;
+        teamBtn.setAttribute("aria-pressed", next ? "true" : "false");
+        teamBtn.classList.toggle("bingo-tile-team-got--on", next);
+        scheduleBingoSave();
+        return;
+      }
       const btn = e.target.closest(".bingo-tile-toggle");
       if (!btn) return;
       const tile = btn.closest(".bingo-tile");
@@ -2666,7 +2703,9 @@
       bingoClampSignupsToTeamCount(s0.boardId, merged.teamCount);
       renderBingoTeamColumns(merged);
       bingoRenderTeamsSignups({ ...s0, ...merged });
-      scheduleBingoSave();
+      const stNow = collectBingoFromDom();
+      writeBingoState(stNow);
+      renderBingoGridFromState(stNow);
     });
 
     document.getElementById("bingo-team-names")?.addEventListener("input", (e) => {
