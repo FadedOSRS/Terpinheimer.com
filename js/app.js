@@ -573,6 +573,92 @@
     return (quests || []).filter((q) => q && q.type !== 2);
   }
 
+  let osrsPetClogMetaCache = null;
+  let osrsPetClogMetaPromise = null;
+
+  /** Loads pet item IDs + display names for matching RuneProfile collection log `items`. */
+  function loadOsrsPetCollectionLogMeta() {
+    if (osrsPetClogMetaCache) return Promise.resolve(osrsPetClogMetaCache);
+    if (!osrsPetClogMetaPromise) {
+      osrsPetClogMetaPromise = fetch("/public/data/osrs-pet-collection-log.json")
+        .then((r) => (r.ok ? r.json() : { itemIds: [], names: [] }))
+        .then((j) => {
+          const itemIds = new Set((j.itemIds || []).map(Number));
+          const names = new Set(
+            (j.names || []).map((n) =>
+              String(n || "")
+                .trim()
+                .replace(/\u2019/g, "'")
+                .toLowerCase()
+            )
+          );
+          osrsPetClogMetaCache = { itemIds, names };
+          return osrsPetClogMetaCache;
+        })
+        .catch(() => {
+          osrsPetClogMetaCache = { itemIds: new Set(), names: new Set() };
+          return osrsPetClogMetaCache;
+        });
+    }
+    return osrsPetClogMetaPromise;
+  }
+
+  function normalizeClogItemNameForPet(name) {
+    return String(name || "")
+      .trim()
+      .replace(/\u2019/g, "'")
+      .toLowerCase();
+  }
+
+  /** RuneProfile `items[]`: collection log rows `{ id, name, quantity?, createdAt? }`. */
+  function petsFromRuneProfileCollectionItems(items, petMeta) {
+    const { itemIds, names } = petMeta;
+    const out = [];
+    const seen = new Set();
+    for (const it of items || []) {
+      const id = Number(it.id ?? it.itemId);
+      const rawName = String(it.name || "").trim();
+      const nm = normalizeClogItemNameForPet(rawName);
+      const byId = Number.isFinite(id) && itemIds.has(id);
+      const byName = nm && names.has(nm);
+      if (!byId && !byName) continue;
+      const key = Number.isFinite(id) ? `i:${id}` : `n:${nm}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        name: rawName || (Number.isFinite(id) ? `Pet (#${id})` : "Pet"),
+        id: Number.isFinite(id) ? id : null,
+      });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    return out;
+  }
+
+  function mergeManualPetEntries(manualList, fromClog) {
+    if (!manualList || !manualList.length) return fromClog;
+    const seen = new Set();
+    for (const p of fromClog) {
+      if (p.id != null) seen.add(`i:${p.id}`);
+      seen.add(`n:${normalizeClogItemNameForPet(p.name)}`);
+    }
+    const extra = [];
+    for (const p of manualList) {
+      const label =
+        typeof p === "string" ? String(p).trim() : String(p.name ?? p.petName ?? p.title ?? "").trim();
+      if (!label) continue;
+      const rawId = typeof p === "object" && p != null ? p.itemId : undefined;
+      const id = rawId != null ? Number(rawId) : NaN;
+      const kId = Number.isFinite(id) ? `i:${id}` : "";
+      const kName = `n:${normalizeClogItemNameForPet(label)}`;
+      if (kId && seen.has(kId)) continue;
+      if (seen.has(kName)) continue;
+      if (kId) seen.add(kId);
+      seen.add(kName);
+      extra.push({ name: label, id: Number.isFinite(id) ? id : null });
+    }
+    return [...fromClog, ...extra].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }
+
   function formatRpActivity(row, ctx) {
     const raw = row.createdAt ? String(row.createdAt).replace(" ", "T") : "";
     const when = raw ? new Date(raw).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
@@ -784,6 +870,8 @@
     const rpA = document.getElementById("member-rp-link");
     if (rpA) rpA.href = rpPage;
 
+    const petClogMeta = await loadOsrsPetCollectionLogMeta();
+
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     const diaries = profile.achievementDiaryTiers || [];
     const ca = profile.combatAchievementTiers || [];
@@ -872,27 +960,19 @@
 
     const petEl = document.getElementById("member-pets");
     if (petEl) {
-      const petList = Array.isArray(profile.pets)
+      const fromClog = petsFromRuneProfileCollectionItems(profile.items, petClogMeta);
+      const manual = Array.isArray(profile.pets)
         ? profile.pets
         : Array.isArray(profile.collectionLogPets)
           ? profile.collectionLogPets
-          : null;
-      if (petList && petList.length) {
-        const chips = petList
-          .map((p) => {
-            const name =
-              typeof p === "string"
-                ? p
-                : p.name ?? p.petName ?? p.title ?? (p.itemId != null ? `Pet #${p.itemId}` : "");
-            const label = String(name || "").trim();
-            if (!label) return "";
-            return `<span class="member-pet-chip">${escHtml(label)}</span>`;
-          })
-          .filter(Boolean)
-          .join("");
-        petEl.innerHTML = chips ? `<div class="member-pets-strip">${chips}</div>` : '<p class="muted member-diary-empty">No pet data.</p>';
+          : [];
+      const petRows = mergeManualPetEntries(manual, fromClog);
+      if (petRows.length) {
+        const chips = petRows.map((p) => `<span class="member-pet-chip">${escHtml(p.name)}</span>`).join("");
+        petEl.innerHTML = `<div class="member-pets-strip">${chips}</div>`;
       } else {
-        petEl.innerHTML = '<p class="muted member-diary-empty">No pet data.</p>';
+        petEl.innerHTML =
+          '<p class="muted member-diary-empty">No pets found in synced collection log yet.</p>';
       }
     }
 
