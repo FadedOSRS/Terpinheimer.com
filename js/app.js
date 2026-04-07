@@ -279,7 +279,7 @@
   function skillCapeIconSrc(name) {
     const n = normalizeSkillName(name);
     if (!n) return "";
-    return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(n)}_cape.png`;
+    return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(n)}_cape_(t).png`;
   }
 
   const DIARY_TIER_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master"];
@@ -672,7 +672,14 @@
           const src = skillCapeIconSrc(skillName);
           if (!src) return "";
           const lv = levelFromXp(s.xp || 0);
-          return `<img class="member-skill-cape-icon" src="${escHtml(src)}" alt="${escHtml(skillName)} skillcape" title="${escHtml(skillName)} (${lv})" loading="lazy" decoding="async" />`;
+          const tip = `${skillName} (${lv})`;
+          const pairSkill = skillIconSrc(s.name);
+          const pairHtml = pairSkill
+            ? `<img class="member-skill-cape-pair-skill" src="${escHtml(pairSkill)}" alt="" width="24" height="24" loading="lazy" decoding="async" />`
+            : "";
+          return `<span class="member-skill-cape-badge" title="${escHtml(tip)}">${pairHtml}<span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+            src
+          )}" alt="${escHtml(skillName)} skillcape" loading="lazy" decoding="async" /></span></span>`;
         })
         .filter(Boolean)
         .join("");
