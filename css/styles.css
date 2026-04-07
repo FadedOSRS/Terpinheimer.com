@@ -3119,6 +3119,25 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   min-width: 0;
 }
 
+.member-clan-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  vertical-align: middle;
+}
+
+.member-clan-rank-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+}
+
+.member-clan-rank-text {
+  color: inherit;
+}
+
 .member-skill-capes {
   display: flex;
   flex-wrap: wrap;

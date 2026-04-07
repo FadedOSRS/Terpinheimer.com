@@ -54,6 +54,45 @@
     }
   }
 
+  /** OSRS clan rank titles → filename in public/clan-ranks/ (RuneLite / Discord art). */
+  const CLAN_RANK_ICON_FILE = {
+    administrator: "Administrator.png",
+    admiral: "Admiral.png",
+    armadylean: "Armadylean.png",
+    bandosian: "Bandosian.png",
+    brigadier: "Brigadier.png",
+    cadet: "Cadet.png",
+    captain: "Captain.png",
+    colonel: "Colonel.png",
+    commander: "Commander.png",
+    corporal: "Corporal.png",
+    "deputy owner": "Deputy Owner.png",
+    general: "General.png",
+    guthixian: "Guthixian.png",
+    lieutenant: "Lieutenant.png",
+    marshal: "Marshal.png",
+    novice: "Novice.png",
+    officer: "Officer.png",
+    owner: "Owner.png",
+    recruit: "Recruit.png",
+    saradominist: "Saradominist.png",
+    serenist: "Serenist.png",
+    sergeant: "Sergeant.png",
+    xerician: "Xerician.png",
+    zamorakian: "Zamorakian.png",
+    zarosian: "Zarosian.png",
+  };
+
+  function clanRankIconSrc(rankTitle) {
+    const k = String(rankTitle || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\u2019/g, "'");
+    const file = CLAN_RANK_ICON_FILE[k];
+    if (!file) return "";
+    return publicAssetUrl(`public/clan-ranks/${encodeURIComponent(file)}`);
+  }
+
   function womRetryDelay(attemptIndex) {
     if (attemptIndex <= 0) return 0;
     return attemptIndex === 1 ? 450 : 1100;
@@ -1077,7 +1116,12 @@
       const badgesBlock = capeStrip
         ? `<span class="member-skill-capes" aria-label="Skill capes or max cape, combat, quest point, and diary milestones">${capeStrip}</span>`
         : "";
-      clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
+      const rankTitleRaw = profile.clan.title || "Member";
+      const rankIconSrc = clanRankIconSrc(rankTitleRaw);
+      const rankBlock = rankIconSrc
+        ? `<span class="member-clan-rank"><img class="member-clan-rank-icon" src="${escHtml(rankIconSrc)}" alt="${escHtml(rankTitleRaw)} rank" width="22" height="22" decoding="async" /><span class="member-clan-rank-text">${escHtml(rankTitleRaw)}</span></span>`
+        : escHtml(rankTitleRaw);
+      clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${rankBlock}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
     let totalLvl = 0;
     const skillHtml = skills
