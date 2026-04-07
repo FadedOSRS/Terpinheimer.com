@@ -677,9 +677,9 @@
         .filter(Boolean)
         .join("");
       const badgesBlock = badges
-        ? `<div class="member-skill-capes" aria-label="Maxed skill capes">${badges}</div>`
+        ? `<span class="member-skill-capes" aria-label="Maxed skill capes">${badges}</span>`
         : "";
-      clanB.innerHTML = `<strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}${badgesBlock}`;
+      clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
     let totalLvl = 0;
     const skillHtml = skills
