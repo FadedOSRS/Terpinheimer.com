@@ -367,6 +367,19 @@
     return `/public/combat-hilts/${encodeURIComponent(file)}`;
   }
 
+  /** Highest tier fully complete (Easy→Grandmaster); one badge upgrades as higher tiers are finished. */
+  function highestCompletedCombatTierName(combatTiers) {
+    if (!combatTiers || !combatTiers.length) return "";
+    const sorted = [...combatTiers].sort((a, b) => combatTierSortKey(a.name) - combatTierSortKey(b.name));
+    let last = "";
+    for (const t of sorted) {
+      const tc = t.tasksCount || 0;
+      const cc = t.completedCount || 0;
+      if (tc > 0 && cc >= tc) last = String(t.name || "").trim();
+    }
+    return last;
+  }
+
   /**
    * One diary-style region card: title, aggregate bar, tier pills. `nameField` is `tierName` or `name`.
    * @param {(label: string) => string} [tierIconSrcForLabel] If set, prepends an icon (e.g. combat hilts).
@@ -740,7 +753,9 @@
 
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     const diaries = profile.achievementDiaryTiers || [];
+    const ca = profile.combatAchievementTiers || [];
     const diaryCapeUnlocked = allAchievementDiaryTiersComplete(diaries);
+    const combatTierTop = highestCompletedCombatTierName(ca);
 
     const clanP = document.getElementById("member-clan-panel");
     const clanB = document.getElementById("member-clan-body");
@@ -760,15 +775,22 @@
         })
         .filter(Boolean)
         .join("");
+      const combatTip = combatTierTop ? `Combat achievements — ${combatTierTop}` : "";
+      const combatHiltSrc = combatTierTop ? combatHiltIconSrc(combatTierTop) : "";
+      const combatBadge = combatHiltSrc
+        ? `<span class="member-skill-cape-badge member-skill-cape-badge--combat" title="${escHtml(combatTip)}"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+            combatHiltSrc
+          )}" alt="${escHtml(combatTierTop)} combat tier" loading="lazy" decoding="async" /></span></span>`
+        : "";
       const diarySrc = achievementDiaryCapeIconSrc();
       const diaryBadge = diaryCapeUnlocked
         ? `<span class="member-skill-cape-badge member-skill-cape-badge--diary" title="Achievement diary cape (t)"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
             diarySrc
           )}" alt="Achievement diary cape (t)" loading="lazy" decoding="async" /></span></span>`
         : "";
-      const capeStrip = `${badges}${diaryBadge}`;
+      const capeStrip = `${badges}${combatBadge}${diaryBadge}`;
       const badgesBlock = capeStrip
-        ? `<span class="member-skill-capes" aria-label="Maxed skill capes and achievement diary">${capeStrip}</span>`
+        ? `<span class="member-skill-capes" aria-label="Skill capes, combat tier, and diary milestones">${capeStrip}</span>`
         : "";
       clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
@@ -824,7 +846,6 @@
       }
     }
 
-    const ca = profile.combatAchievementTiers || [];
     const caEl = document.getElementById("member-combat");
     if (caEl) {
       if (!ca.length) {
