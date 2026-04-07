@@ -512,7 +512,7 @@
   async function resolveOsrsItemName(itemId) {
     const key = String(itemId);
     if (itemNameCache.has(key)) return itemNameCache.get(key);
-    const urls = [`/rs-item/${key}`, `${JAGEX_ITEM_API}?item=${encodeURIComponent(key)}`];
+    const urls = [publicAssetUrl(`rs-item/${key}`), `${JAGEX_ITEM_API}?item=${encodeURIComponent(key)}`];
     for (const u of urls) {
       try {
         const r = await fetch(u);
@@ -577,7 +577,7 @@
   async function resolveOsrsItemIcon(itemId) {
     const key = String(itemId);
     if (itemIconCache.has(key)) return itemIconCache.get(key);
-    const urls = [`/rs-item/${key}`, `${JAGEX_ITEM_API}?item=${encodeURIComponent(key)}`];
+    const urls = [publicAssetUrl(`rs-item/${key}`), `${JAGEX_ITEM_API}?item=${encodeURIComponent(key)}`];
     for (const u of urls) {
       try {
         const r = await fetch(u);
@@ -621,15 +621,19 @@
           img.hidden = true;
           if (fb) fb.hidden = false;
         };
-        const url = await resolveMemberPetIcon(id, displayName);
-        if (!url) {
+        try {
+          const url = await resolveMemberPetIcon(id, displayName);
+          if (!url) {
+            showFallback();
+            return;
+          }
+          img.onload = showIcon;
+          img.onerror = showFallback;
+          img.src = url;
+          if (img.complete && img.naturalWidth > 0) showIcon();
+        } catch (_) {
           showFallback();
-          return;
         }
-        img.onload = showIcon;
-        img.onerror = showFallback;
-        img.src = url;
-        if (img.complete && img.naturalWidth > 0) showIcon();
       })
     );
   }
@@ -1116,7 +1120,7 @@
             const nameAttr = title;
             const idAttr = p.id != null ? escHtml(String(p.id)) : "";
             const idPart = idAttr ? ` data-item-id="${idAttr}"` : "";
-            return `<span class="member-pet-chip member-pet-chip--icon" title="${title}"><span class="member-pet-icon-slot" data-pet-name="${nameAttr}"${idPart}><img class="member-pet-icon" alt="" width="32" height="32" loading="lazy" decoding="async" hidden /><span class="member-pet-fallback" hidden>${title}</span></span></span>`;
+            return `<span class="member-pet-chip member-pet-chip--icon" title="${title}"><span class="member-pet-icon-slot" data-pet-name="${nameAttr}"${idPart}><img class="member-pet-icon" alt="" width="32" height="32" decoding="async" hidden /><span class="member-pet-fallback" hidden>${title}</span></span></span>`;
           })
           .join("");
         petEl.innerHTML = `<div class="member-pets-strip">${chips}</div>`;
