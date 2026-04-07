@@ -319,15 +319,59 @@
     return i === -1 ? 50 : i;
   }
 
+  /** True when every achievement diary tier row with tasks is fully complete (all regions / tiers like Easy–Elite). */
+  function allAchievementDiaryTiersComplete(diaries) {
+    if (!diaries || !diaries.length) return false;
+    let anyTasks = false;
+    for (const d of diaries) {
+      const tc = d.tasksCount || 0;
+      const cc = d.completedCount || 0;
+      if (tc > 0) {
+        anyTasks = true;
+        if (cc < tc) return false;
+      }
+    }
+    return anyTasks;
+  }
+
+  function achievementDiaryCapeIconSrc() {
+    return `/public/skill-capes/${encodeURIComponent("Achievement_diary_cape_(t).png")}`;
+  }
+
   const COMBAT_TIER_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master", "Grandmaster"];
 
   function combatTierSortKey(name) {
-    const i = COMBAT_TIER_ORDER.indexOf(String(name || "").trim());
+    const raw = String(name || "").trim();
+    let i = COMBAT_TIER_ORDER.indexOf(raw);
+    if (i === -1) {
+      const lower = raw.toLowerCase();
+      i = COMBAT_TIER_ORDER.findIndex((t) => t.toLowerCase() === lower);
+    }
     return i === -1 ? 50 : i;
   }
 
-  /** One diary-style region card: title, aggregate bar, tier pills. `nameField` is `tierName` or `name`. */
-  function buildDiaryStyleRegionHtml(title, tierRows, nameField) {
+  const COMBAT_HILT_FILES = {
+    easy: "easy.png",
+    medium: "medium.png",
+    hard: "hard.png",
+    elite: "elite.png",
+    master: "master.png",
+    grandmaster: "grandmaster.png",
+  };
+
+  /** Ghommal hilt art per combat achievement tier (matches `combatAchievementTiers[].name`). */
+  function combatHiltIconSrc(tierLabel) {
+    const k = String(tierLabel || "").trim().toLowerCase();
+    const file = COMBAT_HILT_FILES[k];
+    if (!file) return "";
+    return `/public/combat-hilts/${encodeURIComponent(file)}`;
+  }
+
+  /**
+   * One diary-style region card: title, aggregate bar, tier pills. `nameField` is `tierName` or `name`.
+   * @param {(label: string) => string} [tierIconSrcForLabel] If set, prepends an icon (e.g. combat hilts).
+   */
+  function buildDiaryStyleRegionHtml(title, tierRows, nameField, tierIconSrcForLabel) {
     let done = 0;
     let total = 0;
     for (const t of tierRows) {
@@ -341,7 +385,12 @@
         const cc = t.completedCount || 0;
         const complete = tc > 0 && cc >= tc;
         const label = t[nameField] ?? "?";
-        return `<span class="member-diary-tier-pill${complete ? " is-complete" : ""}">${escHtml(String(label))} ${cc}/${tc}</span>`;
+        const iconSrc = tierIconSrcForLabel ? tierIconSrcForLabel(String(label)) : "";
+        const iconHtml = iconSrc
+          ? `<img class="member-diary-tier-icon" src="${escHtml(iconSrc)}" alt="" width="22" height="22" loading="lazy" decoding="async" />`
+          : "";
+        const pillExtra = iconHtml ? " member-diary-tier-pill--with-icon" : "";
+        return `<span class="member-diary-tier-pill${complete ? " is-complete" : ""}${pillExtra}">${iconHtml}${escHtml(String(label))} ${cc}/${tc}</span>`;
       })
       .join("");
     return `<article class="member-diary-region">
@@ -690,6 +739,8 @@
     if (rpA) rpA.href = rpPage;
 
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
+    const diaries = profile.achievementDiaryTiers || [];
+    const diaryCapeUnlocked = allAchievementDiaryTiersComplete(diaries);
 
     const clanP = document.getElementById("member-clan-panel");
     const clanB = document.getElementById("member-clan-body");
@@ -709,8 +760,15 @@
         })
         .filter(Boolean)
         .join("");
-      const badgesBlock = badges
-        ? `<span class="member-skill-capes" aria-label="Maxed skill capes">${badges}</span>`
+      const diarySrc = achievementDiaryCapeIconSrc();
+      const diaryBadge = diaryCapeUnlocked
+        ? `<span class="member-skill-cape-badge member-skill-cape-badge--diary" title="Achievement diary cape (t)"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+            diarySrc
+          )}" alt="Achievement diary cape (t)" loading="lazy" decoding="async" /></span></span>`
+        : "";
+      const capeStrip = `${badges}${diaryBadge}`;
+      const badgesBlock = capeStrip
+        ? `<span class="member-skill-capes" aria-label="Maxed skill capes and achievement diary">${capeStrip}</span>`
         : "";
       clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
@@ -745,7 +803,6 @@
     const qpEl = document.getElementById("member-qp");
     if (qpEl) qpEl.textContent = `${done.length} / ${quests.length} quests · ${qp} Quest points`;
 
-    const diaries = profile.achievementDiaryTiers || [];
     const dEl = document.getElementById("member-diaries");
     if (dEl) {
       if (!diaries.length) {
@@ -778,7 +835,7 @@
           if (d !== 0) return d;
           return String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" });
         });
-        caEl.innerHTML = buildDiaryStyleRegionHtml("Overall", sorted, "name");
+        caEl.innerHTML = buildDiaryStyleRegionHtml("Overall", sorted, "name", combatHiltIconSrc);
       }
     }
 

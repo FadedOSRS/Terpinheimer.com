@@ -3367,6 +3367,20 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   white-space: nowrap;
 }
 
+.member-diary-tier-pill--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.member-diary-tier-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+  image-rendering: crisp-edges;
+}
+
 .member-diary-tier-pill.is-complete {
   color: var(--cream);
   border-color: rgba(255, 159, 28, 0.28);
