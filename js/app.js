@@ -1084,6 +1084,7 @@
   const BINGO_TEAM_CAPTAIN_MAX = 80;
   const BINGO_TEAM_MEMBERS_MAX = 2000;
   const BINGO_SIGNUPS_STORAGE_KEY = "terpinheimer_bingo_signups_v1";
+  const BINGO_ADVANCED_OPEN_KEY = "terpinheimer_bingo_advanced_open_v1";
   const BINGO_SIGNUP_NAME_MAX = 32;
   const BINGO_MAX_IMAGE_CHARS = 480000;
   const BINGO_BOARD_STATUSES = ["development", "active", "finished"];
@@ -1547,6 +1548,36 @@
     }
   }
 
+  function bingoReadAdvancedOpen() {
+    try {
+      return localStorage.getItem(BINGO_ADVANCED_OPEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function bingoWriteAdvancedOpen(on) {
+    try {
+      localStorage.setItem(BINGO_ADVANCED_OPEN_KEY, on ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function bingoApplyAdvancedToggleUi() {
+    const grid = document.getElementById("bingo-grid");
+    const btn = document.getElementById("bingo-toggle-advanced");
+    const on = bingoReadAdvancedOpen();
+    if (btn) {
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.textContent = on ? "Hide advanced fields" : "Show advanced fields";
+    }
+    if (!grid) return;
+    grid.querySelectorAll(".bingo-tile-advanced").forEach((d) => {
+      d.open = on;
+    });
+  }
+
   function resizeBingoState(state, newRows, newCols) {
     const oldRows = state.rows;
     const oldCols = state.cols;
@@ -1854,6 +1885,22 @@
     grid.querySelectorAll(".bingo-tile").forEach((tile) => bingoSyncItemMultiVisuals(tile));
   }
 
+  function bingoSyncTeamToggleAvailability(tile) {
+    if (!tile) return;
+    const sel = tile.querySelector("select.bingo-tile-item--multi");
+    const hasItems = !!(sel && Array.from(sel.selectedOptions || []).some((o) => String(o.value || "").trim()));
+    tile.querySelectorAll(".bingo-tile-team-got").forEach((btn) => {
+      btn.disabled = !hasItems;
+      btn.setAttribute("aria-disabled", hasItems ? "false" : "true");
+      if (!hasItems) btn.title = "Pick at least one item for this tile first";
+    });
+  }
+
+  function bingoRefreshAllTeamToggleAvailability(grid) {
+    if (!grid) return;
+    grid.querySelectorAll(".bingo-tile").forEach((tile) => bingoSyncTeamToggleAvailability(tile));
+  }
+
   function renderBingoGridFromState(state) {
     const grid = document.getElementById("bingo-grid");
     const titleEl = document.getElementById("bingo-board-title");
@@ -1896,13 +1943,18 @@
         const imgUrlEsc = bingoEscapeAttr(t.imageUrl);
         const imgAltEsc = bingoEscapeAttr(t.imageAlt);
         const itemListSize = total > 36 ? 3 : 5;
+        const advancedOpen = bingoReadAdvancedOpen();
         let teamPickerBlock = "";
+        const hasItemsForTeams = String(t.item || "").trim().length > 0;
         if (teamsMeta.teamCount > 0) {
           const arr = teamTileDoneMap[t.id] || [];
           let teamBtns = "";
           for (let ti = 0; ti < teamsMeta.teamCount; ti++) {
             const got = !!arr[ti];
-            teamBtns += `<button type="button" class="bingo-tile-team-got${got ? " bingo-tile-team-got--on" : ""}" data-bingo-team-tile="${bingoEscapeAttr(t.id)}" data-bingo-team-idx="${ti}" aria-pressed="${got ? "true" : "false"}" title="Team ${ti + 1} has this tile's items">T${ti + 1}</button>`;
+            const title = hasItemsForTeams
+              ? `Team ${ti + 1} has this tile's items`
+              : "Pick at least one item for this tile first";
+            teamBtns += `<button type="button" class="bingo-tile-team-got${got ? " bingo-tile-team-got--on" : ""}" data-bingo-team-tile="${bingoEscapeAttr(t.id)}" data-bingo-team-idx="${ti}" aria-pressed="${got ? "true" : "false"}" aria-label="Toggle Team ${ti + 1} item ownership for ${bingoEscapeAttr(t.id)}" ${hasItemsForTeams ? "" : 'disabled aria-disabled="true"'} title="${bingoEscapeAttr(title)}">T${ti + 1}</button>`;
           }
           teamPickerBlock = `<div class="bingo-tile-team-items" role="group" aria-label="Teams with items for ${bingoEscapeAttr(t.id)}">
             <span class="bingo-tile-team-items-label">Teams with items</span>
@@ -1933,20 +1985,27 @@
           <p class="muted bingo-tile-item-hint">Ctrl / ⌘ + click to select multiple items.</p>
           <p class="bingo-tile-item-picked muted" hidden></p>
           ${teamPickerBlock}
-          <label class="sr-only" for="bingo-boss-${i}">Boss or source</label>
-          <select id="bingo-boss-${i}" class="bingo-tile-boss" aria-label="Boss or source for ${bingoEscapeAttr(t.id)}">${bossOpts}</select>
-          <label class="sr-only" for="bingo-notes-${i}">Notes</label>
-          <textarea id="bingo-notes-${i}" class="bingo-tile-notes" maxlength="1200" rows="2" placeholder="Extra notes (optional)…">${notesEsc}</textarea>
-          <label class="sr-only" for="bingo-imgurl-${i}">Image URL</label>
-          <input id="bingo-imgurl-${i}" class="bingo-tile-image-url" maxlength="2000" placeholder="Image URL (https:// or paste data URL)" value="${imgUrlEsc}" />
-          <label class="sr-only" for="bingo-imgalt-${i}">Image description</label>
-          <input id="bingo-imgalt-${i}" class="bingo-tile-image-alt" maxlength="200" placeholder="Image description (optional)" value="${imgAltEsc}" />
+          <details class="bingo-tile-advanced"${advancedOpen ? " open" : ""}>
+            <summary class="bingo-tile-advanced-summary">More options</summary>
+            <div class="bingo-tile-advanced-body">
+              <label class="sr-only" for="bingo-boss-${i}">Boss or source</label>
+              <select id="bingo-boss-${i}" class="bingo-tile-boss" aria-label="Boss or source for ${bingoEscapeAttr(t.id)}">${bossOpts}</select>
+              <label class="sr-only" for="bingo-notes-${i}">Notes</label>
+              <textarea id="bingo-notes-${i}" class="bingo-tile-notes" maxlength="1200" rows="2" placeholder="Extra notes (optional)…">${notesEsc}</textarea>
+              <label class="sr-only" for="bingo-imgurl-${i}">Image URL</label>
+              <input id="bingo-imgurl-${i}" class="bingo-tile-image-url" maxlength="2000" placeholder="Image URL (https:// or paste data URL)" value="${imgUrlEsc}" />
+              <label class="sr-only" for="bingo-imgalt-${i}">Image description</label>
+              <input id="bingo-imgalt-${i}" class="bingo-tile-image-alt" maxlength="200" placeholder="Image description (optional)" value="${imgAltEsc}" />
+            </div>
+          </details>
         </div>`;
         i++;
       }
     }
     grid.innerHTML = html;
+    bingoApplyAdvancedToggleUi();
     bingoRefreshAllItemMultiVisuals(grid);
+    bingoRefreshAllTeamToggleAvailability(grid);
     bingoUpdateProgress();
     renderBingoTeamsUi(state);
   }
@@ -2624,7 +2683,9 @@
     grid.addEventListener("change", (e) => {
       const t = e.target;
       if (t && t.classList && t.classList.contains("bingo-tile-item--multi")) {
-        bingoSyncItemMultiVisuals(t.closest(".bingo-tile"));
+        const tile = t.closest(".bingo-tile");
+        bingoSyncItemMultiVisuals(tile);
+        bingoSyncTeamToggleAvailability(tile);
       }
       const sel = e.target && e.target.closest && e.target.closest(".bingo-tile-tint");
       if (sel) {
@@ -2662,10 +2723,17 @@
       }
       const teamBtn = e.target.closest(".bingo-tile-team-got");
       if (teamBtn) {
+        if (teamBtn.disabled) return;
         const on = teamBtn.getAttribute("aria-pressed") === "true";
         const next = !on;
         teamBtn.setAttribute("aria-pressed", next ? "true" : "false");
         teamBtn.classList.toggle("bingo-tile-team-got--on", next);
+        const tileId = teamBtn.getAttribute("data-bingo-team-tile");
+        const teamIdx = parseInt(teamBtn.getAttribute("data-bingo-team-idx") || "-1", 10);
+        if (tileId && Number.isFinite(teamIdx) && teamIdx >= 0) {
+          const stateWord = next ? "has" : "does not have";
+          teamBtn.title = `Team ${teamIdx + 1} ${stateWord} this tile's items`;
+        }
         scheduleBingoSave();
         return;
       }
@@ -2684,6 +2752,12 @@
     document.getElementById("bingo-board-title")?.addEventListener("input", () => scheduleBingoSave());
 
     document.getElementById("bingo-board-status")?.addEventListener("change", () => scheduleBingoSave());
+
+    document.getElementById("bingo-toggle-advanced")?.addEventListener("click", () => {
+      const on = !bingoReadAdvancedOpen();
+      bingoWriteAdvancedOpen(on);
+      bingoApplyAdvancedToggleUi();
+    });
 
     document.getElementById("bingo-team-count")?.addEventListener("change", () => {
       const s0 = readBingoState();

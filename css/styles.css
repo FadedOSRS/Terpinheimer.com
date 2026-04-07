@@ -670,6 +670,14 @@ a:hover {
 
 .bingo-public-preview {
   margin-top: 0.5rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.7rem;
+}
+
+.bingo-public-preview,
+.bingo-panel,
+.bingo-teams-panel {
+  border-radius: 10px;
 }
 
 .bingo-public-preview-head {
@@ -678,7 +686,7 @@ a:hover {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.4rem;
 }
 
 .bingo-public-preview-head-main {
@@ -688,7 +696,7 @@ a:hover {
 
 .bingo-public-preview-head-actions {
   flex-shrink: 0;
-  padding-top: 0.2rem;
+  padding-top: 0;
 }
 
 .bingo-public-preview-head-main .bingo-public-lead {
@@ -702,10 +710,12 @@ a:hover {
 }
 
 .bingo-public-board-name {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.2rem;
   font-size: 1.35rem;
   font-weight: 600;
   color: var(--cream);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
 }
 
 .bingo-public-board-status-wrap {
@@ -715,6 +725,8 @@ a:hover {
   gap: 0.5rem 0.65rem;
   margin: 0 0 1rem;
   font-size: 0.9rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .bingo-public-board-status-label {
@@ -798,6 +810,7 @@ a:hover {
 
 .bingo-public-grid {
   margin-bottom: 1.5rem;
+  gap: 0.65rem;
 }
 
 .bingo-public-grid.bingo-grid--many .bingo-pub-tile {
@@ -808,10 +821,10 @@ a:hover {
 .bingo-pub-tile {
   border-radius: 6px;
   border: 1px solid var(--panel-edge);
-  padding: 0.55rem 0.6rem;
+  padding: 0.62rem 0.62rem 0.58rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.42rem;
   min-width: 0;
   min-height: 5rem;
   text-align: left;
@@ -890,8 +903,8 @@ a:hover {
 
 .bingo-pub-task {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: 0.83rem;
+  line-height: 1.4;
   color: var(--cream-soft);
   white-space: pre-wrap;
   word-break: break-word;
@@ -905,7 +918,7 @@ a:hover {
 .bingo-pub-meta {
   margin: 0;
   font-size: 0.72rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text-muted);
 }
 
@@ -915,8 +928,8 @@ a:hover {
 }
 
 .bingo-pub-team-items {
-  margin-top: 0.4rem;
-  padding-top: 0.35rem;
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -1230,7 +1243,9 @@ a:hover {
 }
 
 .bingo-board-meta {
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .bingo-board-meta-top {
@@ -1274,7 +1289,7 @@ a:hover {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.65rem 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.15rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--panel-edge);
 }
@@ -1295,7 +1310,8 @@ a:hover {
 .bingo-dim-select {
   min-width: 4.5rem;
   font-size: 0.95rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.55rem;
+  min-height: 2.1rem;
   border-radius: 4px;
   border: 1px solid var(--panel-edge);
   background: var(--navy-deep);
@@ -1312,9 +1328,11 @@ a:hover {
 .bingo-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .bingo-title-label {
@@ -1334,6 +1352,7 @@ a:hover {
 .bingo-title-input {
   width: 100%;
   max-width: 420px;
+  min-height: 2.1rem;
 }
 
 .bingo-board-status-field {
@@ -1344,14 +1363,15 @@ a:hover {
 .bingo-progress {
   margin: 0;
   font-size: 0.95rem;
-  align-self: center;
+  align-self: end;
+  line-height: 1.4;
 }
 
 .bingo-toolbar-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  align-items: center;
+  align-items: stretch;
 }
 
 .bingo-btn-danger {
@@ -1407,15 +1427,15 @@ a:hover {
 
 .bingo-grid {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.62rem;
 }
 
 .bingo-grid--many {
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .bingo-grid--many .bingo-tile {
-  padding: 0.4rem 0.35rem;
+  padding: 0.42rem 0.38rem;
   min-height: 0;
   font-size: 0.72rem;
 }
@@ -1449,17 +1469,64 @@ a:hover {
   min-height: 2rem;
 }
 
+.bingo-grid--many .bingo-tile-advanced-summary {
+  font-size: 0.62rem;
+}
+
 .bingo-grid--many .bingo-tile-thumb-wrap {
   max-height: 44px;
 }
 
 @media (max-width: 900px) {
+  .bingo-toolbar {
+    gap: 0.75rem 1rem;
+  }
+
+  .bingo-toolbar-actions {
+    width: 100%;
+  }
+
+  .bingo-progress {
+    order: 4;
+    width: 100%;
+  }
+
   .bingo-grid:not(.bingo-grid--many) {
     grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 
 @media (max-width: 520px) {
+  .bingo-board-meta-top {
+    align-items: flex-start;
+  }
+
+  .bingo-dim-row {
+    gap: 0.55rem 0.7rem;
+  }
+
+  .bingo-toolbar {
+    gap: 0.7rem;
+  }
+
+  .bingo-board-status-field {
+    flex: 1 1 100%;
+  }
+
+  .bingo-toolbar-actions {
+    gap: 0.42rem;
+  }
+
+  .bingo-toolbar-actions .btn {
+    font-size: 0.78rem;
+    padding: 0.36rem 0.58rem;
+  }
+
+  .bingo-pub-tile {
+    padding: 0.5rem 0.5rem 0.48rem;
+    gap: 0.34rem;
+  }
+
   .bingo-grid:not(.bingo-grid--many) {
     grid-template-columns: repeat(2, 1fr) !important;
   }
@@ -1472,13 +1539,18 @@ a:hover {
 .bingo-tile {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.5rem 0.45rem;
+  gap: 0.4rem;
+  padding: 0.56rem 0.52rem;
   min-height: 6rem;
   border-radius: 6px;
   border: 1px solid var(--panel-edge);
   background: var(--navy-mid, #1a2233);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bingo-tile:focus-within {
+  border-color: rgba(255, 159, 28, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 159, 28, 0.22);
 }
 
 .bingo-tile--neutral {
@@ -1509,7 +1581,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
 
 .bingo-tile-id {
@@ -1572,9 +1644,10 @@ a:hover {
 }
 
 .bingo-tile-item-hint {
-  margin: 0.2rem 0 0;
-  font-size: 0.68rem;
+  margin: 0.18rem 0 0;
+  font-size: 0.67rem;
   line-height: 1.35;
+  opacity: 0.88;
 }
 
 .bingo-grid--many .bingo-tile-item-hint {
@@ -1619,16 +1692,27 @@ a:hover {
   max-height: 2.6rem;
 }
 
+.bingo-grid--many .bingo-tile-team-got {
+  min-height: 1.45rem;
+  padding: 0.14rem 0.34rem;
+  font-size: 0.62rem;
+}
+
+.bingo-grid--many .bingo-tile-team-items-label {
+  font-size: 0.6rem;
+}
+
 .bingo-tile-team-items {
-  margin-top: 0.25rem;
-  padding-top: 0.25rem;
+  margin-top: 0.3rem;
+  padding-top: 0.34rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .bingo-tile-team-items-label {
   display: block;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.28rem;
   font-size: 0.64rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -1641,9 +1725,10 @@ a:hover {
 }
 
 .bingo-tile-team-got {
-  font-size: 0.66rem;
+  font-size: 0.67rem;
   font-weight: 600;
-  padding: 0.14rem 0.36rem;
+  padding: 0.18rem 0.42rem;
+  min-height: 1.6rem;
   border-radius: 4px;
   border: 1px solid var(--panel-edge);
   background: rgba(0, 0, 0, 0.24);
@@ -1660,6 +1745,22 @@ a:hover {
   background: rgba(110, 180, 130, 0.28);
   border-color: rgba(110, 180, 130, 0.55);
   color: var(--cream);
+}
+
+.bingo-tile-team-got:disabled,
+.bingo-tile-team-got[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.bingo-tile-team-got:focus-visible,
+.bingo-tile-upload-btn:focus-visible,
+.bingo-tile-clear-img:focus-visible,
+.bingo-dim-select:focus-visible,
+.bingo-title-input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 
 .bingo-tile-thumb-wrap {
@@ -1697,7 +1798,8 @@ a:hover {
 .bingo-tile-upload-btn,
 .bingo-tile-clear-img {
   font-size: 0.72rem;
-  padding: 0.2rem 0.45rem;
+  padding: 0.24rem 0.48rem;
+  min-height: 1.65rem;
   border-radius: 4px;
   border: 1px solid var(--panel-edge);
   background: var(--navy-deep);
@@ -1715,7 +1817,7 @@ a:hover {
 .bingo-tile-image-url {
   width: 100%;
   font-size: 0.78rem;
-  padding: 0.28rem 0.35rem;
+  padding: 0.32rem 0.38rem;
   border-radius: 4px;
   border: 1px solid var(--panel-edge);
   background: rgba(0, 0, 0, 0.2);
@@ -1733,6 +1835,31 @@ a:hover {
 .bingo-tile-image-url::placeholder {
   color: var(--text-muted);
   opacity: 0.85;
+}
+
+.bingo-tile-advanced {
+  margin-top: 0.2rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.14);
+  padding-top: 0.28rem;
+}
+
+.bingo-tile-advanced-summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--cream-soft);
+}
+
+.bingo-tile-advanced-summary::marker {
+  color: var(--text-muted);
+}
+
+.bingo-tile-advanced-body {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .plugin-panel-text {

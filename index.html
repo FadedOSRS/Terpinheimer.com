@@ -353,10 +353,6 @@
         <section class="member-panel member-wide bingo-public-preview" id="bingo-public-preview" hidden>
           <div class="bingo-public-preview-head">
             <div class="bingo-public-preview-head-main">
-              <h2 class="member-section-title bingo-public-preview-title">Board preview</h2>
-              <p class="muted bingo-public-lead">
-                Preview of the bingo saved in <strong>this browser</strong> — team rosters (if any) and the tile grid appear here before you unlock to edit. For tiles that list items, <strong>T1</strong> / <strong>T2</strong> / … show which teams have them; indicators are <strong>read-only</strong> on the site and are updated by the <strong>Terpinheimer RuneLite</strong> plugin when configured (same browser storage).
-              </p>
             </div>
             <div class="bingo-public-preview-head-actions">
               <button type="button" class="btn btn-primary" id="bingo-signup-open-btn">Sign up</button>
@@ -465,6 +461,7 @@
             </label>
             <p class="bingo-progress muted" id="bingo-progress" aria-live="polite">0 / 0 complete</p>
             <div class="bingo-toolbar-actions">
+              <button type="button" class="btn btn-ghost" id="bingo-toggle-advanced" aria-pressed="false">Show advanced fields</button>
               <button type="button" class="btn btn-ghost" id="bingo-clear-done">Clear checkmarks</button>
               <button type="button" class="btn btn-ghost" id="bingo-export">Export JSON</button>
               <button type="button" class="btn btn-ghost" id="bingo-import-btn">Import JSON</button>
