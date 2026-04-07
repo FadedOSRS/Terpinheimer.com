@@ -540,6 +540,11 @@
     return map;
   }
 
+  /** RuneProfile `quests[].type`: 0 = F2P quest, 1 = members quest, 2 = miniquest (exclude from main quest totals). */
+  function runeProfileMainQuestsOnly(quests) {
+    return (quests || []).filter((q) => q && q.type !== 2);
+  }
+
   function formatRpActivity(row, ctx) {
     const raw = row.createdAt ? String(row.createdAt).replace(" ", "T") : "";
     const when = raw ? new Date(raw).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
@@ -820,10 +825,11 @@
     if (totEl) totEl.textContent = skills.length ? `Total level: ${totalLvl}` : "";
 
     const quests = profile.quests || [];
-    const done = quests.filter((q) => q.state === 2);
+    const mainQuests = runeProfileMainQuestsOnly(quests);
+    const done = mainQuests.filter((q) => q.state === 2);
     const qp = done.reduce((s, q) => s + (q.points || 0), 0);
     const qpEl = document.getElementById("member-qp");
-    if (qpEl) qpEl.textContent = `${done.length} / ${quests.length} quests · ${qp} Quest points`;
+    if (qpEl) qpEl.textContent = `${done.length} / ${mainQuests.length} quests · ${qp} Quest points`;
 
     const dEl = document.getElementById("member-diaries");
     if (dEl) {
