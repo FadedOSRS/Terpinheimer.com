@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/public/bingo-plugin-contract.json",
+  "title": "Terpinheimer bingo — RuneLite embedded browser contract",
+  "description": "Machine-readable description of window.TerpinheimerBingo for Terpinheimer or other clients using the site's embedded browser (same origin). Board data lives in the user's browser localStorage; there is no server-side bingo API.",
+  "contractVersion": 2,
+  "siteImplementation": {
+    "sourceFile": "js/app.js",
+    "initFunction": "attachTerpinheimerBingoApi",
+    "initOrder": "Called once before applyRoute() on DOM ready."
+  },
+  "recommendedNavigation": {
+    "hash": "#/bingo",
+    "reason": "saveState() returns false unless the bingo layout root (#bingo-view) is visible. Opening this hash shows that root."
+  },
+  "globalApi": {
+    "windowProperty": "TerpinheimerBingo",
+    "API_VERSION": 1,
+    "methods": {
+      "getState": {
+        "returns": "BingoStateV2",
+        "notes": "If the bingo designer is active (bingo-view visible and editor unlocked), returns collectBingoFromDom(); otherwise readBingoState() from localStorage."
+      },
+      "getStateJson": {
+        "returns": "string",
+        "notes": "JSON.stringify(getState())."
+      },
+      "getPluginState": {
+        "returns": "BingoPluginSnapshot",
+        "notes": "Enriched snapshot: apiVersion, boardStatusLabel, progress, plus full v2 fields."
+      },
+      "getPluginStateJson": {
+        "returns": "string",
+        "notes": "JSON.stringify(getPluginState())."
+      },
+      "subscribe": {
+        "arguments": [{ "name": "callback", "type": "function", "arg0": "BingoPluginSnapshot" }],
+        "returns": "unsubscribe:function",
+        "notes": "Invokes callback immediately with current snapshot, then after each successful writeBingoState (saves, import, saveState, tile toggles, etc.)."
+      },
+      "saveState": {
+        "arguments": [{ "name": "state", "type": "BingoStateV2" }],
+        "returns": "boolean",
+        "notes": "true if persisted. Requires #bingo-view not hidden. Validates v===2, tile array length === rows*cols. Refreshes designer or public preview."
+      },
+      "setTeamTileGot": {
+        "arguments": [
+          { "name": "tileId", "type": "string", "pattern": "^r\\d+c\\d+$" },
+          { "name": "teamIndex", "type": "integer", "minimum": 0 },
+          { "name": "got", "type": "boolean" }
+        ],
+        "returns": "boolean",
+        "notes": "Sets one team’s “has items” flag for a tile that lists OSRS items. Site visitors cannot toggle these in the public preview (read-only UI). Requires #bingo-view visible. Returns false if tileId invalid, team index out of range, or tile has no item list."
+      },
+      "reloadFromStorage": {
+        "arguments": [],
+        "returns": "void",
+        "notes": "Re-renders designer or public preview from localStorage."
+      }
+    }
+  },
+  "storage": {
+    "localStorageKey": "terpinheimer_bingo_board_v2",
+    "shape": "BingoStateV2"
+  },
+  "boardStatus": {
+    "enum": ["development", "active", "finished"],
+    "labels": {
+      "development": "In development",
+      "active": "Active",
+      "finished": "Finished"
+    }
+  },
+  "$defs": {
+    "BingoStateV2": {
+      "type": "object",
+      "required": ["v", "boardId", "title", "boardStatus", "rows", "cols", "tiles"],
+      "properties": {
+        "v": { "const": 2 },
+        "boardId": { "type": "string", "minLength": 6 },
+        "title": { "type": "string", "maxLength": 120 },
+        "boardStatus": { "enum": ["development", "active", "finished"] },
+        "rows": { "type": "integer", "minimum": 3, "maximum": 10 },
+        "cols": { "type": "integer", "minimum": 3, "maximum": 10 },
+        "tiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/BingoTile" }
+        },
+        "teamCount": { "type": "integer" },
+        "teamNames": { "type": "array", "items": { "type": "string" } },
+        "teamTints": { "type": "array" },
+        "teamCaptains": { "type": "array" },
+        "teamMembers": { "type": "array" },
+        "teamTileDone": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "boolean" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "BingoTile": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+        "text": { "type": "string" },
+        "item": { "type": "string" },
+        "boss": { "type": "string" },
+        "notes": { "type": "string" },
+        "tint": { "enum": ["neutral", "easy", "mass", "hard"] },
+        "done": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "imageAlt": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "BingoPluginSnapshot": {
+      "type": "object",
+      "required": ["apiVersion", "boardStatus", "boardStatusLabel", "progress"],
+      "properties": {
+        "apiVersion": { "const": 1 },
+        "v": { "const": 2 },
+        "boardId": { "type": "string" },
+        "title": { "type": "string" },
+        "boardStatus": { "enum": ["development", "active", "finished"] },
+        "boardStatusLabel": { "type": "string" },
+        "rows": { "type": "integer" },
+        "cols": { "type": "integer" },
+        "tiles": { "type": "array" },
+        "progress": {
+          "type": "object",
+          "required": ["done", "total", "percent"],
+          "properties": {
+            "done": { "type": "integer", "minimum": 0 },
+            "total": { "type": "integer", "minimum": 0 },
+            "percent": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "javascriptExamples": {
+    "readSnapshot": "JSON.parse(window.TerpinheimerBingo.getPluginStateJson())",
+    "readStatusOnly": "window.TerpinheimerBingo.getPluginState().boardStatus",
+    "subscribe": "const off = window.TerpinheimerBingo.subscribe((snap) => { console.log(snap.boardStatusLabel, snap.progress); });",
+    "teamGotDrop": "window.TerpinheimerBingo.setTeamTileGot(\"r0c1\", 0, true)"
+  },
+  "changelog": {
+    "2": "Public preview T1/T2 indicators are read-only; use setTeamTileGot or saveState to update team item flags from RuneLite."
+  }
+}

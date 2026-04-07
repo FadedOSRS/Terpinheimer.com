@@ -313,10 +313,17 @@
         </section>
 
         <section class="member-panel member-wide plugin-panel">
-          <h2 class="member-section-title">Clan bingo (website)</h2>
+          <h2 class="member-section-title">Clan bingo (RuneLite / embedded browser)</h2>
           <p class="muted plugin-panel-text">
-            Design bingo boards on the site at <a href="#/bingo" class="wom-link">Bingo</a> (custom grid, tiles, images, export JSON). Anyone can <strong>view</strong> the board saved in the browser; editing is <strong>locked</strong> behind the same <span class="plugin-code">CLAN_EVENTS_SECRET</span> session as Events. When the Terpinheimer RuneLite bingo integration ships, the page can expose
-            <span class="plugin-code">window.TerpinheimerBingo.getState()</span> / <span class="plugin-code">saveState()</span> after unlock.
+            Design boards at <a href="#/bingo" class="wom-link">Bingo</a> (grid, tiles, team items, export JSON). The site exposes <span class="plugin-code">window.TerpinheimerBingo</span> on every page load for the Terpinheimer plugin or any embedded browser on this origin:
+            <span class="plugin-code">getPluginState()</span> / <span class="plugin-code">getPluginStateJson()</span> — full v2 state plus <strong>boardStatus</strong> (<span class="plugin-code">development</span> | <span class="plugin-code">active</span> | <span class="plugin-code">finished</span>), <strong>boardStatusLabel</strong>, and <strong>progress</strong> (done/total/percent);
+            <span class="plugin-code">getState()</span> — raw stored shape (same fields, no progress label);
+            <span class="plugin-code">subscribe(fn)</span> — called with the plugin snapshot whenever the board is saved (returns unsubscribe);
+            <span class="plugin-code">saveState(state)</span> — persists when the Bingo view is open (<span class="plugin-code">#/bingo</span>), refreshes preview or designer UI;
+            <span class="plugin-code">setTeamTileGot(tileId, teamIndex, got)</span> — plugin-only updates for “teams with items” on a tile (<span class="plugin-code">tileId</span> e.g. <span class="plugin-code">r1c2</span>, 0-based team index, boolean); public T1/T2 pills are read-only in the browser;
+            <span class="plugin-code">reloadFromStorage()</span> — re-render from disk.
+            Point the in-game panel at this site (ideally <span class="plugin-code">#/bingo</span>) so <span class="plugin-code">saveState</span> is allowed. Moderator edits still use the same <span class="plugin-code">CLAN_EVENTS_SECRET</span> session as Events.
+            <span class="plugin-contract-link-wrap">Machine-readable contract: <a href="/public/bingo-plugin-contract.json" class="wom-link">/public/bingo-plugin-contract.json</a></span>
           </p>
         </section>
 
@@ -348,7 +355,7 @@
             <div class="bingo-public-preview-head-main">
               <h2 class="member-section-title bingo-public-preview-title">Board preview</h2>
               <p class="muted bingo-public-lead">
-                Preview of the bingo saved in <strong>this browser</strong> — team rosters (if any) and the tile grid appear here before you unlock to edit. On tiles that list items, tap <strong>T1</strong>, <strong>T2</strong>, … to show which teams have those items (stored in this browser).
+                Preview of the bingo saved in <strong>this browser</strong> — team rosters (if any) and the tile grid appear here before you unlock to edit. For tiles that list items, <strong>T1</strong> / <strong>T2</strong> / … show which teams have them; indicators are <strong>read-only</strong> on the site and are updated by the <strong>Terpinheimer RuneLite</strong> plugin when configured (same browser storage).
               </p>
             </div>
             <div class="bingo-public-preview-head-actions">

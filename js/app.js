@@ -491,6 +491,68 @@
   const ITEM_FEED_TYPES = new Set(["valuable_drop", "new_item_obtained"]);
   /** Max rows for home + member drops / collection log lists. */
   const CLAN_ITEM_FEED_LIMIT = 12;
+  const ITEM_FEED_SELECTION_STORAGE_KEY = "th_item_feed_selected";
+
+  function itemFeedRowKey(row) {
+    const d = row.data || {};
+    return `${row.type}:${String(row.createdAt ?? "")}:${String(d.itemId ?? "")}:${String(d.value ?? "")}`;
+  }
+
+  function readItemFeedSelectionMap() {
+    try {
+      const raw = sessionStorage.getItem(ITEM_FEED_SELECTION_STORAGE_KEY);
+      if (!raw) return {};
+      const o = JSON.parse(raw);
+      return o && typeof o === "object" ? o : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistItemFeedSelection(ulId, key) {
+    try {
+      const m = readItemFeedSelectionMap();
+      if (key == null || key === "") delete m[ulId];
+      else m[ulId] = key;
+      sessionStorage.setItem(ITEM_FEED_SELECTION_STORAGE_KEY, JSON.stringify(m));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function restoreActivityLogSelectionForUl(ul) {
+    if (!ul || !ul.id) return;
+    ul.querySelectorAll("li.activity-log__item--selected").forEach((li) => li.classList.remove("activity-log__item--selected"));
+    const key = readItemFeedSelectionMap()[ul.id];
+    if (!key) return;
+    for (const li of ul.querySelectorAll("li[data-item-feed-key]")) {
+      if (li.getAttribute("data-item-feed-key") === key) {
+        li.classList.add("activity-log__item--selected");
+        break;
+      }
+    }
+  }
+
+  let activityLogSelectionBound = false;
+  function bindActivityLogSelectionOnce() {
+    if (activityLogSelectionBound) return;
+    activityLogSelectionBound = true;
+    document.addEventListener("click", (e) => {
+      const li = e.target.closest("ul.activity-log > li");
+      if (!li) return;
+      const ul = li.closest("ul.activity-log");
+      if (!ul || !ul.id) return;
+      if (!li.querySelector(".osrs-item-name")) return;
+      const key = li.getAttribute("data-item-feed-key");
+      if (!key) return;
+
+      if (li.classList.contains("activity-log__item--selected")) return;
+
+      ul.querySelectorAll("li.activity-log__item--selected").forEach((x) => x.classList.remove("activity-log__item--selected"));
+      li.classList.add("activity-log__item--selected");
+      persistItemFeedSelection(ul.id, key);
+    });
+  }
 
   /** Deduped drops + collection log rows from RuneProfile (excludes level-ups, quests, etc.). */
   function mergeItemActivitiesFromProfile(profile) {
@@ -558,17 +620,21 @@
     const top = flat.slice(0, CLAN_ITEM_FEED_LIMIT);
     if (!top.length) {
       actEl.innerHTML = womFallbackHtml;
+      restoreActivityLogSelectionForUl(actEl);
       return;
     }
     actEl.innerHTML = top
       .map(({ row, display, href }) => {
         const line = formatHomeItemActivityRow(row, display, href);
-        return line ? `<li>${line}</li>` : "";
+        if (!line) return "";
+        const k = escHtml(itemFeedRowKey(row));
+        return `<li data-item-feed-key="${k}">${line}</li>`;
       })
       .filter(Boolean)
       .join("");
     const root = document.getElementById("clan-activity");
     await hydrateOsrsItemNames(root);
+    restoreActivityLogSelectionForUl(actEl);
   }
 
   let memberReqId = 0;
@@ -668,8 +734,14 @@
     const rEl = document.getElementById("member-recent");
     if (rEl) {
       rEl.innerHTML = itemMerged.length
-        ? itemMerged.map((r) => `<li>${formatMemberItemRow(r, { questNamesById })}</li>`).join("")
+        ? itemMerged
+            .map((r) => {
+              const k = escHtml(itemFeedRowKey(r));
+              return `<li data-item-feed-key="${k}">${formatMemberItemRow(r, { questNamesById })}</li>`;
+            })
+            .join("")
         : '<li class="muted">No recent drops or collection log entries. Sync RuneProfile from RuneLite to see items here (level-ups and quests are hidden).</li>';
+      restoreActivityLogSelectionForUl(rEl);
     }
     const itemsSec = document.getElementById("member-items-section");
     if (itemsSec) itemsSec.hidden = true;
@@ -1027,6 +1099,7 @@
   let bingoImageTargetIndex = null;
   let bingoOsrsItemsCache = null;
   let bingoOsrsItemsLoadPromise = null;
+  const bingoPluginListeners = new Set();
 
   function bingoWomBossDisplayName(metric) {
     const M = {
@@ -1236,6 +1309,46 @@
     return BINGO_BOARD_STATUSES.includes(s) ? s : "development";
   }
 
+  function bingoPluginSnapshot(state) {
+    if (!state || state.v !== 2 || !Array.isArray(state.tiles)) {
+      const bs = "development";
+      return {
+        apiVersion: 1,
+        boardStatus: bs,
+        boardStatusLabel: BINGO_BOARD_STATUS_LABELS[bs],
+        progress: { done: 0, total: 0, percent: 0 },
+      };
+    }
+    const rows = bingoClampDim(state.rows);
+    const cols = bingoClampDim(state.cols);
+    const total = rows * cols;
+    const tiles = state.tiles;
+    let done = 0;
+    for (let i = 0; i < total; i++) {
+      if (tiles[i] && tiles[i].done) done++;
+    }
+    const bs = normalizeBingoBoardStatus(state.boardStatus);
+    return {
+      apiVersion: 1,
+      ...state,
+      boardStatus: bs,
+      boardStatusLabel: BINGO_BOARD_STATUS_LABELS[bs],
+      progress: { done, total, percent: total ? Math.round((done / total) * 1000) / 10 : 0 },
+    };
+  }
+
+  function bingoNotifyPluginListeners(rawState) {
+    if (!bingoPluginListeners.size) return;
+    const snap = bingoPluginSnapshot(rawState);
+    bingoPluginListeners.forEach((fn) => {
+      try {
+        fn(snap);
+      } catch {
+        /* external plugin callback */
+      }
+    });
+  }
+
   function normalizeBingoTile(t, r, c) {
     const tint = BINGO_TINTS.includes(t && t.tint) ? t.tint : "neutral";
     const id = t && typeof t.id === "string" && /^r\d+c\d+$/.test(t.id) ? t.id : `r${r}c${c}`;
@@ -1428,6 +1541,7 @@
     try {
       const payload = { ...state, boardStatus: normalizeBingoBoardStatus(state.boardStatus) };
       localStorage.setItem(BINGO_STORAGE_KEY, JSON.stringify(payload));
+      bingoNotifyPluginListeners(payload);
     } catch {
       /* quota */
     }
@@ -1704,6 +1818,30 @@
     img.src = dataUrl;
   }
 
+  function bingoSyncItemMultiVisuals(tile) {
+    if (!tile) return;
+    const sel = tile.querySelector("select.bingo-tile-item--multi");
+    const out = tile.querySelector(".bingo-tile-item-picked");
+    if (!sel || !out) return;
+    const names = Array.from(sel.selectedOptions || [])
+      .map((o) => String(o.textContent || o.value || "").replace(/\s*\(not in list\)\s*$/i, "").trim())
+      .filter(Boolean);
+    if (!names.length) {
+      out.textContent = "";
+      out.hidden = true;
+      sel.classList.remove("bingo-tile-item--has-picks");
+      return;
+    }
+    out.hidden = false;
+    out.textContent = `Selected: ${names.join(", ")}`;
+    sel.classList.add("bingo-tile-item--has-picks");
+  }
+
+  function bingoRefreshAllItemMultiVisuals(grid) {
+    if (!grid) return;
+    grid.querySelectorAll(".bingo-tile").forEach((tile) => bingoSyncItemMultiVisuals(tile));
+  }
+
   function renderBingoGridFromState(state) {
     const grid = document.getElementById("bingo-grid");
     const titleEl = document.getElementById("bingo-board-title");
@@ -1766,6 +1904,7 @@
           <label class="sr-only" for="bingo-item-${i}">Items</label>
           <select id="bingo-item-${i}" class="bingo-tile-item bingo-tile-item--multi" multiple size="${itemListSize}" aria-label="Items for tile ${bingoEscapeAttr(t.id)}. Hold Ctrl or Command while clicking to select several." title="Ctrl or ⌘ + click to select multiple items">${itemOpts}</select>
           <p class="muted bingo-tile-item-hint">Ctrl / ⌘ + click to select multiple items.</p>
+          <p class="bingo-tile-item-picked muted" hidden></p>
           <label class="sr-only" for="bingo-boss-${i}">Boss or source</label>
           <select id="bingo-boss-${i}" class="bingo-tile-boss" aria-label="Boss or source for ${bingoEscapeAttr(t.id)}">${bossOpts}</select>
           <label class="sr-only" for="bingo-notes-${i}">Notes</label>
@@ -1779,6 +1918,7 @@
       }
     }
     grid.innerHTML = html;
+    bingoRefreshAllItemMultiVisuals(grid);
     bingoUpdateProgress();
     renderBingoTeamsUi(state);
   }
@@ -2161,9 +2301,10 @@
         let gotBtns = "";
         for (let ti = 0; ti < teamsMeta.teamCount; ti++) {
           const got = !!arr[ti];
-          gotBtns += `<button type="button" class="bingo-pub-team-got${got ? " bingo-pub-team-got--on" : ""}" data-bingo-tile="${bingoEscapeAttr(t.id)}" data-bingo-team="${ti}" aria-pressed="${got ? "true" : "false"}" title="Team ${ti + 1} has these items">T${ti + 1}</button>`;
+          const a11y = `Team ${ti + 1} ${got ? "has" : "does not have"} these items`;
+          gotBtns += `<span class="bingo-pub-team-got bingo-pub-team-got--display${got ? " bingo-pub-team-got--on" : ""}" data-bingo-tile="${bingoEscapeAttr(t.id)}" data-bingo-team="${ti}" aria-label="${bingoEscapeAttr(a11y)}" title="${bingoEscapeAttr(a11y)} (Terpinheimer plugin)">T${ti + 1}</span>`;
         }
-        teamItemsBlock = `<div class="bingo-pub-team-items" role="group" aria-label="Which teams have these items for ${bingoEscapeAttr(t.id)}">
+        teamItemsBlock = `<div class="bingo-pub-team-items" role="group" aria-label="Which teams have these items for ${bingoEscapeAttr(t.id)} (read-only on site; plugin can update)">
           <span class="bingo-pub-team-items-label">Teams with items</span>
           <div class="bingo-pub-team-got-row">${gotBtns}</div>
         </div>`;
@@ -2332,24 +2473,99 @@
     const pubGrid = document.getElementById("bingo-public-grid");
     if (!pubGrid) return;
     bingoPublicPreviewGridBound = true;
-    pubGrid.addEventListener("click", (e) => {
-      const btn = e.target.closest(".bingo-pub-team-got");
-      if (!btn) return;
-      const tileId = btn.getAttribute("data-bingo-tile");
-      const teamIdx = parseInt(btn.getAttribute("data-bingo-team"), 10);
-      if (tileId == null || tileId === "" || Number.isNaN(teamIdx)) return;
-      let st = readBingoState();
-      const nt = normalizeBingoTeams(st);
-      if (teamIdx < 0 || teamIdx >= nt.teamCount) return;
-      st.teamTileDone = bingoNormalizeTeamTileDone({ teamTileDone: st.teamTileDone }, st.tiles, nt.teamCount);
-      const arr = (st.teamTileDone[tileId] && st.teamTileDone[tileId].slice()) || [];
-      while (arr.length < nt.teamCount) arr.push(false);
-      if (arr.length > nt.teamCount) arr.length = nt.teamCount;
-      arr[teamIdx] = !arr[teamIdx];
-      st.teamTileDone[tileId] = arr;
-      writeBingoState(st);
-      renderBingoPublicPreview(st);
-    });
+  }
+
+  /** Updates team “has items” flags for one tile; used by TerpinheimerBingo.setTeamTileGot (RuneLite). */
+  function bingoApplyTeamTileGot(tileId, teamIndex, got) {
+    const id = typeof tileId === "string" ? tileId.trim() : "";
+    if (!id || !/^r\d+c\d+$/.test(id)) return false;
+    const ti = Number(teamIndex);
+    if (!Number.isInteger(ti) || ti < 0) return false;
+    const want = !!got;
+    const st = readBingoState();
+    const nt = normalizeBingoTeams(st);
+    if (ti >= nt.teamCount) return false;
+    const tile = (st.tiles || []).find((t) => t && t.id === id);
+    if (!tile || !String(tile.item || "").trim()) return false;
+    st.teamTileDone = bingoNormalizeTeamTileDone({ teamTileDone: st.teamTileDone }, st.tiles, nt.teamCount);
+    const arr = (st.teamTileDone[id] && st.teamTileDone[id].slice()) || [];
+    while (arr.length < nt.teamCount) arr.push(false);
+    if (arr.length > nt.teamCount) arr.length = nt.teamCount;
+    arr[ti] = want;
+    st.teamTileDone[id] = arr;
+    writeBingoState(st);
+    const main = document.getElementById("bingo-access-main");
+    if (main && !main.hidden) renderBingoGridFromState(st);
+    else renderBingoPublicPreview(st);
+    return true;
+  }
+
+  function attachTerpinheimerBingoApi() {
+    if (window.TerpinheimerBingo) return;
+    window.TerpinheimerBingo = {
+      API_VERSION: 1,
+      getState() {
+        const v = document.getElementById("bingo-view");
+        const main = document.getElementById("bingo-access-main");
+        if (v && !v.hidden && main && !main.hidden) return collectBingoFromDom();
+        return readBingoState();
+      },
+      getStateJson() {
+        return JSON.stringify(window.TerpinheimerBingo.getState());
+      },
+      getPluginState() {
+        return bingoPluginSnapshot(window.TerpinheimerBingo.getState());
+      },
+      getPluginStateJson() {
+        return JSON.stringify(window.TerpinheimerBingo.getPluginState());
+      },
+      subscribe(callback) {
+        if (typeof callback !== "function") return () => {};
+        bingoPluginListeners.add(callback);
+        try {
+          callback(bingoPluginSnapshot(window.TerpinheimerBingo.getState()));
+        } catch {
+          /* ignore */
+        }
+        return () => {
+          bingoPluginListeners.delete(callback);
+        };
+      },
+      saveState(state) {
+        const bingoRoot = document.getElementById("bingo-view");
+        if (!bingoRoot || bingoRoot.hidden) return false;
+        if (!state || state.v !== 2 || !Array.isArray(state.tiles)) return false;
+        const rows = bingoClampDim(state.rows);
+        const cols = bingoClampDim(state.cols);
+        if (state.tiles.length !== rows * cols) return false;
+        const teamsSv = normalizeBingoTeams(state);
+        writeBingoState({
+          ...state,
+          boardStatus: normalizeBingoBoardStatus(state.boardStatus),
+          ...teamsSv,
+          teamTileDone: bingoNormalizeTeamTileDone(state, state.tiles, teamsSv.teamCount),
+        });
+        const main = document.getElementById("bingo-access-main");
+        const stored = readBingoState();
+        if (main && !main.hidden) renderBingoGridFromState(stored);
+        else renderBingoPublicPreview(stored);
+        return true;
+      },
+      setTeamTileGot(tileId, teamIndex, got) {
+        const bingoRoot = document.getElementById("bingo-view");
+        if (!bingoRoot || bingoRoot.hidden) return false;
+        return bingoApplyTeamTileGot(tileId, teamIndex, got);
+      },
+      reloadFromStorage() {
+        const main = document.getElementById("bingo-access-main");
+        const stored = readBingoState();
+        if (main && main.hidden) {
+          renderBingoPublicPreview(stored);
+          return;
+        }
+        renderBingoGridFromState(stored);
+      },
+    };
   }
 
   function bindBingoPageOnce() {
@@ -2378,6 +2594,10 @@
     });
 
     grid.addEventListener("change", (e) => {
+      const t = e.target;
+      if (t && t.classList && t.classList.contains("bingo-tile-item--multi")) {
+        bingoSyncItemMultiVisuals(t.closest(".bingo-tile"));
+      }
       const sel = e.target && e.target.closest && e.target.closest(".bingo-tile-tint");
       if (sel) {
         const tile = sel.closest(".bingo-tile");
@@ -2663,44 +2883,6 @@
       };
       reader.readAsDataURL(f);
     });
-
-    window.TerpinheimerBingo = {
-      getState() {
-        const v = document.getElementById("bingo-view");
-        const main = document.getElementById("bingo-access-main");
-        if (v && !v.hidden && main && !main.hidden) return collectBingoFromDom();
-        return readBingoState();
-      },
-      getStateJson() {
-        return JSON.stringify(window.TerpinheimerBingo.getState());
-      },
-      saveState(state) {
-        const main = document.getElementById("bingo-access-main");
-        if (main && main.hidden) return false;
-        if (!state || state.v !== 2 || !Array.isArray(state.tiles)) return false;
-        const rows = bingoClampDim(state.rows);
-        const cols = bingoClampDim(state.cols);
-        if (state.tiles.length !== rows * cols) return false;
-        const teamsSv = normalizeBingoTeams(state);
-        writeBingoState({
-          ...state,
-          boardStatus: normalizeBingoBoardStatus(state.boardStatus),
-          ...teamsSv,
-          teamTileDone: bingoNormalizeTeamTileDone(state, state.tiles, teamsSv.teamCount),
-        });
-        const v = document.getElementById("bingo-view");
-        if (v && !v.hidden && main && !main.hidden) renderBingoGridFromState(readBingoState());
-        return true;
-      },
-      reloadFromStorage() {
-        const main = document.getElementById("bingo-access-main");
-        if (main && main.hidden) {
-          renderBingoPublicPreview(readBingoState());
-          return;
-        }
-        renderBingoGridFromState(readBingoState());
-      },
-    };
 
     document.getElementById("bingo-unlock-btn")?.addEventListener("click", async () => {
       const inp = document.getElementById("bingo-unlock-code");
@@ -3901,6 +4083,8 @@
   window.TerpinheimerLiveMap.getPlane = () => liveMapPlane;
 
   window.addEventListener("hashchange", applyRoute);
+  attachTerpinheimerBingoApi();
+  bindActivityLogSelectionOnce();
   applyRoute();
 
   /** Coarse pointer or narrow view: skip parallax RAF (fixes mobile scroll jank). */
