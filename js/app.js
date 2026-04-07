@@ -279,7 +279,8 @@
   function skillCapeIconSrc(name) {
     const n = normalizeSkillName(name);
     if (!n) return "";
-    return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(n)}_cape_(t).png`;
+    // Wiki files are named `Prayer_cape(t).png` (no `_` before `(t)`), not `..._cape_(t).png`.
+    return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(`${n}_cape(t).png`)}`;
   }
 
   const DIARY_TIER_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master"];
