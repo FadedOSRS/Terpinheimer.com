@@ -32,6 +32,28 @@
     return WOM_API;
   }
 
+  /**
+   * Root-absolute `/public/...` breaks subdirectory deploys (e.g. GitHub Pages project sites).
+   * Resolve `public/...` against the directory of the current document (handles `/repo`, `/repo/`, `/repo/index.html`).
+   */
+  function publicAssetUrl(pathFromSiteRoot) {
+    const rel = String(pathFromSiteRoot || "").replace(/^\/+/, "");
+    try {
+      const u = new URL(location.href);
+      let pathname = u.pathname;
+      const segments = pathname.split("/").filter(Boolean);
+      const lastSeg = segments[segments.length - 1] || "";
+      if (pathname !== "/" && !pathname.endsWith("/") && /\.(html?|php|aspx|json)$/i.test(lastSeg)) {
+        pathname = pathname.slice(0, pathname.lastIndexOf("/") + 1);
+      } else if (pathname !== "/" && !pathname.endsWith("/")) {
+        pathname = `${pathname}/`;
+      }
+      return new URL(rel, `${u.origin}${pathname}`).href;
+    } catch {
+      return `/${rel}`;
+    }
+  }
+
   function womRetryDelay(attemptIndex) {
     if (attemptIndex <= 0) return 0;
     return attemptIndex === 1 ? 450 : 1100;
@@ -308,7 +330,7 @@
     const n = normalizeSkillName(name);
     if (!n) return "";
     const localFile = LOCAL_SKILL_CAPE_FILE[n];
-    if (localFile) return `/public/skill-capes/${encodeURIComponent(localFile)}`;
+    if (localFile) return publicAssetUrl(`public/skill-capes/${encodeURIComponent(localFile)}`);
     // Fallback to wiki naming.
     return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(`${n}_cape(t).png`)}`;
   }
@@ -336,15 +358,15 @@
   }
 
   function achievementDiaryCapeIconSrc() {
-    return `/public/skill-capes/${encodeURIComponent("Achievement_diary_cape_(t).png")}`;
+    return publicAssetUrl(`public/skill-capes/${encodeURIComponent("Achievement_diary_cape_(t).png")}`);
   }
 
   function questPointCapeIconSrc() {
-    return `/public/skill-capes/${encodeURIComponent("Quest_point_cape_(t).png")}`;
+    return publicAssetUrl(`public/skill-capes/${encodeURIComponent("Quest_point_cape_(t).png")}`);
   }
 
   function maxCapeIconSrc() {
-    return `/public/skill-capes/${encodeURIComponent("Max_cape.png")}`;
+    return publicAssetUrl(`public/skill-capes/${encodeURIComponent("Max_cape.png")}`);
   }
 
   /** True when every skill on the stats tab (incl. Sailing) is level 99+ from synced XP. */
@@ -393,7 +415,7 @@
     const k = String(tierLabel || "").trim().toLowerCase();
     const file = COMBAT_HILT_FILES[k];
     if (!file) return "";
-    return `/public/combat-hilts/${encodeURIComponent(file)}`;
+    return publicAssetUrl(`public/combat-hilts/${encodeURIComponent(file)}`);
   }
 
   /** Highest tier fully complete (Easy→Grandmaster); one badge upgrades as higher tiers are finished. */
@@ -669,7 +691,7 @@
   function loadOsrsPetCollectionLogMeta() {
     if (osrsPetClogMetaCache) return Promise.resolve(osrsPetClogMetaCache);
     if (!osrsPetClogMetaPromise) {
-      osrsPetClogMetaPromise = fetch("/public/data/osrs-pet-collection-log.json")
+      osrsPetClogMetaPromise = fetch(publicAssetUrl("public/data/osrs-pet-collection-log.json"))
         .then((r) => (r.ok ? r.json() : { itemIds: [], names: [] }))
         .then((j) => {
           const itemIds = new Set((j.itemIds || []).map(Number));
@@ -699,7 +721,7 @@
   function loadPetLocalIconsManifest() {
     if (petLocalIconsMapCache) return Promise.resolve(petLocalIconsMapCache);
     if (!petLocalIconsPromise) {
-      petLocalIconsPromise = fetch("/public/data/osrs-pet-local-icons.json")
+      petLocalIconsPromise = fetch(publicAssetUrl("public/data/osrs-pet-local-icons.json"))
         .then((r) => (r.ok ? r.json() : { icons: {} }))
         .then((j) => {
           petLocalIconsMapCache = j.icons && typeof j.icons === "object" ? j.icons : {};
@@ -724,7 +746,7 @@
     const icons = await loadPetLocalIconsManifest();
     const key = normalizeClogItemNameForPet(displayName);
     const localFile = key && icons[key];
-    if (localFile) return `/public/pets/${encodeURIComponent(localFile)}`;
+    if (localFile) return publicAssetUrl(`public/pets/${encodeURIComponent(localFile)}`);
     const idStr = itemId != null && itemId !== "" ? String(itemId) : "";
     if (idStr) return resolveOsrsItemIcon(idStr);
     return "";
