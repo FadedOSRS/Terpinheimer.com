@@ -3132,21 +3132,12 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 .member-skill-cape-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
   flex-shrink: 0;
-}
-
-.member-skill-cape-pair-skill {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
 .member-skill-cape-frame {
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: 999px;
   overflow: hidden;
@@ -3154,11 +3145,11 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   align-items: center;
   justify-content: center;
   background: radial-gradient(circle at 50% 38%, rgba(252, 248, 238, 0.45) 0%, rgba(200, 185, 155, 0.16) 55%, rgba(28, 36, 48, 0.35) 100%);
-  border: 2px solid rgba(255, 196, 114, 0.9);
+  border: 1px solid rgba(255, 196, 114, 0.9);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     0 0 0 1px rgba(10, 16, 24, 0.65),
-    0 4px 12px rgba(0, 0, 0, 0.35);
+    0 3px 9px rgba(0, 0, 0, 0.35);
 }
 
 .member-skill-cape-icon {
