@@ -149,6 +149,17 @@ async function handleEventSessionApi(req, res) {
     return;
   }
 
+  if (req.method === "DELETE") {
+    const secure = cookieSecureDirective(req);
+    const clearCookie = `${EVENT_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Set-Cookie": clearCookie,
+    });
+    res.end(JSON.stringify({ ok: true, unlocked: false }));
+    return;
+  }
+
   if (req.method !== "POST") {
     res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "Method not allowed" }));
@@ -1272,7 +1283,7 @@ http
     console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
-    console.log("GET/POST /api/event-session — browser unlock cookie for adding events");
+    console.log("GET/POST/DELETE /api/event-session — browser unlock cookie; DELETE clears session");
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );

@@ -43,6 +43,7 @@
         <a href="#/members">Members</a>
         <a href="#/events">Events</a>
         <a href="#/map">Map</a>
+        <a href="#/bingo">Bingo</a>
         <a href="#/plugin">Plugin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
@@ -312,6 +313,14 @@
         </section>
 
         <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Clan bingo (website)</h2>
+          <p class="muted plugin-panel-text">
+            Design bingo boards on the site at <a href="#/bingo" class="wom-link">Bingo</a> (custom grid, tiles, images, export JSON). Anyone can <strong>view</strong> the board saved in the browser; editing is <strong>locked</strong> behind the same <span class="plugin-code">CLAN_EVENTS_SECRET</span> session as Events. When the Terpinheimer RuneLite bingo integration ships, the page can expose
+            <span class="plugin-code">window.TerpinheimerBingo.getState()</span> / <span class="plugin-code">saveState()</span> after unlock.
+          </p>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
           <h2 class="member-section-title">Quick checklist</h2>
           <ol class="plugin-guide-list plugin-guide-list--ol">
             <li>Install <strong>Terpinheimer</strong> from the hub or your jar.</li>
@@ -321,6 +330,184 @@
             <li>Optional: Discord webhook + turn on the notification types you want.</li>
           </ol>
         </section>
+      </div>
+    </div>
+
+    <div id="bingo-view" class="bingo-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Bingo</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Clan bingo designer</h1>
+          <hr class="rule" />
+        </header>
+
+        <section class="member-panel member-wide bingo-public-preview" id="bingo-public-preview" hidden>
+          <div class="bingo-public-preview-head">
+            <div class="bingo-public-preview-head-main">
+              <h2 class="member-section-title bingo-public-preview-title">Board preview</h2>
+              <p class="muted bingo-public-lead">
+                Preview of the bingo saved in <strong>this browser</strong> — team rosters (if any) and the tile grid appear here before you unlock to edit. On tiles that list items, tap <strong>T1</strong>, <strong>T2</strong>, … to show which teams have those items (stored in this browser).
+              </p>
+            </div>
+            <div class="bingo-public-preview-head-actions">
+              <button type="button" class="btn btn-primary" id="bingo-signup-open-btn">Sign up</button>
+            </div>
+          </div>
+          <p class="bingo-public-board-name" id="bingo-public-board-name" aria-live="polite">—</p>
+          <p class="bingo-public-board-status-wrap" id="bingo-public-board-status-wrap" hidden>
+            <span class="bingo-public-board-status-label muted">Status</span>
+            <span class="bingo-public-board-status" id="bingo-public-board-status" role="status"></span>
+          </p>
+          <div class="bingo-public-teams" id="bingo-public-teams" hidden>
+            <h3 class="bingo-public-selections-title">Teams preview</h3>
+            <ul class="bingo-public-teams-cards" id="bingo-public-teams-list"></ul>
+          </div>
+          <p class="muted bingo-public-empty" id="bingo-public-empty" hidden>
+            Nothing configured yet. After a moderator unlocks and fills the board, details will appear here.
+          </p>
+          <div id="bingo-public-grid" class="bingo-grid bingo-public-grid" role="group" aria-label="Bingo board preview"></div>
+          <dialog class="bingo-signup-dialog" id="bingo-signup-dialog" aria-labelledby="bingo-signup-dialog-title">
+            <form class="bingo-signup-dialog-form" id="bingo-signup-form">
+              <h3 id="bingo-signup-dialog-title" class="bingo-signup-dialog-title">Sign up</h3>
+              <p class="muted bingo-signup-dialog-lead">
+                Enter your Old School RuneScape display name (as shown in-game). A moderator can assign you to a team after unlocking the bingo designer.
+              </p>
+              <label class="event-add-label" for="bingo-signup-name-input">
+                <span>OSRS name</span>
+                <input
+                  id="bingo-signup-name-input"
+                  type="text"
+                  class="event-add-input"
+                  maxlength="32"
+                  autocomplete="username"
+                  required
+                />
+              </label>
+              <div class="bingo-signup-dialog-actions">
+                <button type="button" class="btn btn-ghost" id="bingo-signup-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="bingo-signup-submit">Add name</button>
+              </div>
+            </form>
+          </dialog>
+        </section>
+
+        <section class="member-panel member-wide bingo-gate-panel" id="bingo-access-gate">
+          <h2 class="member-section-title">Unlock bingo designer</h2>
+          <p class="muted bingo-gate-lead">
+            Use the same <strong>clan events / leadership secret</strong> you set in hosting as <span class="plugin-code">CLAN_EVENTS_SECRET</span> (Unlock on <a href="#/events" class="wom-link">Events</a> also unlocks here in this browser).
+          </p>
+          <label class="event-add-label" for="bingo-unlock-code">
+            <span>Clan events secret</span>
+            <input id="bingo-unlock-code" type="password" class="event-add-input" autocomplete="off" />
+          </label>
+          <button type="button" class="btn btn-primary" id="bingo-unlock-btn">Unlock</button>
+          <p id="bingo-unlock-status" class="event-add-status muted" role="status"></p>
+        </section>
+
+        <div id="bingo-access-main" class="bingo-access-main" hidden>
+        <section class="member-panel member-wide bingo-panel">
+          <div class="bingo-board-meta">
+            <div class="bingo-board-meta-top">
+              <button type="button" class="btn btn-ghost bingo-btn-tiny" id="bingo-exit-designer" aria-label="Leave editor and return to board preview">
+                Back
+              </button>
+              <p class="muted bingo-board-id-line bingo-board-id-line--main">
+                <span class="bingo-board-id-label">Board ID</span>
+                <code class="plugin-code bingo-board-id" id="bingo-board-id" title="Stable id for plugin / API sync">—</code>
+                <button type="button" class="btn btn-ghost bingo-btn-tiny" id="bingo-copy-id">Copy</button>
+              </p>
+            </div>
+          </div>
+
+          <div class="bingo-dim-row">
+            <label class="bingo-dim-field">
+              <span class="bingo-toolbar-label">Rows</span>
+              <select id="bingo-rows" class="bingo-dim-select" aria-label="Board rows"></select>
+            </label>
+            <span class="bingo-dim-x muted" aria-hidden="true">×</span>
+            <label class="bingo-dim-field">
+              <span class="bingo-toolbar-label">Columns</span>
+              <select id="bingo-cols" class="bingo-dim-select" aria-label="Board columns"></select>
+            </label>
+            <button type="button" class="btn btn-primary" id="bingo-apply-dims">Apply size</button>
+            <p class="muted bingo-dim-hint">Changing size keeps the <strong>top-left</strong> region; shrinking drops bottom-right tiles (you’ll be asked to confirm).</p>
+          </div>
+
+          <div class="bingo-toolbar">
+            <label class="bingo-title-label">
+              <span class="bingo-toolbar-label">Event / board name</span>
+              <input type="text" id="bingo-board-title" class="bingo-title-input event-add-input" maxlength="120" placeholder="e.g. CoX bingo night" autocomplete="off" />
+            </label>
+            <label class="bingo-dim-field bingo-board-status-field" for="bingo-board-status">
+              <span class="bingo-toolbar-label">Board status</span>
+              <select id="bingo-board-status" class="bingo-dim-select" aria-label="Board status">
+                <option value="development">In development</option>
+                <option value="active">Active</option>
+                <option value="finished">Finished</option>
+              </select>
+            </label>
+            <p class="bingo-progress muted" id="bingo-progress" aria-live="polite">0 / 0 complete</p>
+            <div class="bingo-toolbar-actions">
+              <button type="button" class="btn btn-ghost" id="bingo-clear-done">Clear checkmarks</button>
+              <button type="button" class="btn btn-ghost" id="bingo-export">Export JSON</button>
+              <button type="button" class="btn btn-ghost" id="bingo-import-btn">Import JSON</button>
+              <button type="button" class="btn btn-ghost bingo-btn-danger" id="bingo-reset-board">Reset board</button>
+            </div>
+            <input type="file" id="bingo-import-file" class="sr-only" accept="application/json,.json" tabindex="-1" aria-hidden="true" />
+            <input type="file" id="bingo-tile-image-file" class="sr-only" accept="image/*" tabindex="-1" aria-hidden="true" />
+          </div>
+
+          <p class="bingo-legend muted">
+            <span class="bingo-leg"><span class="bingo-leg-swatch bingo-leg-swatch--neutral"></span> General</span>
+            <span class="bingo-leg"><span class="bingo-leg-swatch bingo-leg-swatch--easy"></span> Easy / solo</span>
+            <span class="bingo-leg"><span class="bingo-leg-swatch bingo-leg-swatch--mass"></span> Team mass</span>
+            <span class="bingo-leg"><span class="bingo-leg-swatch bingo-leg-swatch--hard"></span> Hard / specific</span>
+          </p>
+          <div id="bingo-grid" class="bingo-grid" role="group" aria-label="Bingo tiles"></div>
+        </section>
+
+        <section class="member-panel member-wide bingo-teams-panel" id="bingo-teams-panel" aria-labelledby="bingo-teams-heading">
+          <h2 class="member-section-title" id="bingo-teams-heading">Teams</h2>
+          <p class="muted bingo-teams-lead">
+            Choose how many teams you want — each column has the team name, a team captain, and a members list (one name per line). Board-preview sign-ups appear below; assign each to a team with the dropdown next to their name.
+          </p>
+          <div class="bingo-teams-count-row">
+            <label class="bingo-dim-field" for="bingo-team-count">
+              <span class="bingo-toolbar-label">Number of teams</span>
+              <select id="bingo-team-count" class="bingo-dim-select" aria-label="Number of teams">
+                <option value="0">No teams</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+          </div>
+          <div id="bingo-team-names" class="bingo-team-names-root"></div>
+          <div class="bingo-teams-signups" id="bingo-teams-signups">
+            <div class="bingo-teams-signups-head">
+              <h3 class="bingo-public-selections-title bingo-teams-signups-title">Bingo sign-ups (this browser)</h3>
+              <button type="button" class="btn btn-ghost bingo-btn-tiny" id="bingo-teams-signups-reset" aria-label="Clear all bingo sign-ups for this board">
+                Reset
+              </button>
+            </div>
+            <p class="muted bingo-teams-signups-lead">
+              Players who used <strong>Sign up</strong> on the board preview. Use the menu next to each name to place them on <strong>Team 1</strong>, <strong>Team 2</strong>, etc. (matches <strong>Number of teams</strong> above), or leave them not on a roster.
+            </p>
+            <ul class="bingo-teams-signups-list" id="bingo-teams-signups-list"></ul>
+          </div>
+        </section>
+        </div>
       </div>
     </div>
 

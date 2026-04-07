@@ -43,6 +43,7 @@
 }
 
 html {
+  color-scheme: dark;
   scroll-behavior: smooth;
   background-color: var(--bg-canvas-deep);
   overflow-x: clip;
@@ -633,6 +634,1001 @@ a:hover {
   scroll-margin-top: 5.5rem;
   padding: 1.25rem 0 3rem;
   min-height: 60vh;
+}
+
+.bingo-view {
+  scroll-margin-top: 5.5rem;
+  padding: 1.25rem 0 3rem;
+  min-height: 60vh;
+}
+
+.bingo-gate-panel {
+  margin-top: 0.75rem;
+}
+
+.bingo-gate-panel .bingo-gate-lead {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
+
+.bingo-access-main {
+  margin-top: 0.5rem;
+}
+
+.bingo-public-preview {
+  margin-top: 0.5rem;
+}
+
+.bingo-public-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.bingo-public-preview-head-main {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.bingo-public-preview-head-actions {
+  flex-shrink: 0;
+  padding-top: 0.2rem;
+}
+
+.bingo-public-preview-head-main .bingo-public-lead {
+  margin: 0.45rem 0 0;
+  line-height: 1.55;
+}
+
+.bingo-public-lead {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
+
+.bingo-public-board-name {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.bingo-public-board-status-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.bingo-public-board-status-label {
+  font-weight: 600;
+}
+
+.bingo-public-board-status {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cream-soft);
+}
+
+.bingo-public-board-status--development {
+  border-color: rgba(180, 200, 255, 0.35);
+  background: rgba(120, 140, 220, 0.15);
+  color: #c8d4ff;
+}
+
+.bingo-public-board-status--active {
+  border-color: rgba(120, 220, 160, 0.45);
+  background: rgba(80, 180, 120, 0.2);
+  color: #b8f0cc;
+}
+
+.bingo-public-board-status--finished {
+  border-color: rgba(200, 200, 200, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cream);
+}
+
+.bingo-signup-dialog {
+  max-width: calc(100vw - 2rem);
+  width: min(22rem, 100%);
+  padding: 0;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  background: var(--navy-mid, #1a2233);
+  color: var(--cream);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.bingo-signup-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.bingo-signup-dialog-form {
+  padding: 1.1rem 1.15rem 1rem;
+}
+
+.bingo-signup-dialog-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.bingo-signup-dialog-lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.bingo-signup-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bingo-public-empty {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.bingo-public-grid {
+  margin-bottom: 1.5rem;
+}
+
+.bingo-public-grid.bingo-grid--many .bingo-pub-tile {
+  padding: 0.35rem 0.4rem;
+  font-size: 0.72rem;
+}
+
+.bingo-pub-tile {
+  border-radius: 6px;
+  border: 1px solid var(--panel-edge);
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 5rem;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.bingo-pub-tile--neutral {
+  border-color: rgba(200, 200, 210, 0.35);
+}
+
+.bingo-pub-tile--easy {
+  border-color: rgba(110, 200, 140, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(110, 200, 140, 0.12);
+}
+
+.bingo-pub-tile--mass {
+  border-color: rgba(120, 170, 240, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(120, 170, 240, 0.12);
+}
+
+.bingo-pub-tile--hard {
+  border-color: rgba(230, 140, 120, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(230, 140, 120, 0.12);
+}
+
+.bingo-pub-tile--done {
+  opacity: 0.92;
+  background: rgba(80, 140, 100, 0.15);
+}
+
+.bingo-pub-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bingo-pub-id {
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.bingo-pub-done {
+  font-size: 0.85rem;
+  color: var(--cream-soft);
+  flex-shrink: 0;
+}
+
+.bingo-pub-thumb-wrap {
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  width: 100%;
+  height: clamp(3.25rem, 12vw, 5rem);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.bingo-public-grid.bingo-grid--many .bingo-pub-thumb-wrap {
+  height: clamp(2.5rem, 8vw, 3.25rem);
+}
+
+.bingo-pub-thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+}
+
+.bingo-pub-task {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--cream-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bingo-pub-task--placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.bingo-pub-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.bingo-pub-meta strong {
+  color: var(--cream-soft);
+  font-weight: 600;
+}
+
+.bingo-pub-team-items {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bingo-pub-team-items-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.bingo-pub-team-got-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.bingo-pub-team-got {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--cream-soft);
+  cursor: pointer;
+}
+
+.bingo-pub-team-got:hover {
+  border-color: var(--amber);
+  color: var(--cream);
+}
+
+.bingo-pub-team-got--on {
+  background: rgba(110, 180, 130, 0.28);
+  border-color: rgba(110, 180, 130, 0.55);
+  color: var(--cream);
+}
+
+.bingo-pub-team-got:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.bingo-public-selections-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.bingo-panel {
+  margin-top: 0.5rem;
+}
+
+.bingo-teams-panel {
+  margin-top: 1rem;
+}
+
+.bingo-teams-lead {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
+
+.bingo-teams-count-row {
+  margin-bottom: 1rem;
+}
+
+.bingo-teams-panel .bingo-dim-select {
+  color-scheme: dark;
+}
+
+.bingo-team-names-root {
+  margin-top: 0.35rem;
+}
+
+.bingo-teams-columns-wrap {
+  overflow-x: auto;
+  margin: 0 -0.15rem;
+  padding: 0.15rem 0.15rem 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bingo-teams-columns {
+  display: grid;
+  gap: 0.55rem;
+  align-items: stretch;
+  min-width: min-content;
+}
+
+.bingo-team-column {
+  min-width: 0;
+}
+
+.bingo-team-column .bingo-team-name-input,
+.bingo-team-column .bingo-team-captain-input {
+  width: 100%;
+  font-size: 0.78rem;
+  padding: 0.22rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+  color-scheme: dark;
+}
+
+.bingo-team-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin-top: 0.15rem;
+}
+
+.bingo-team-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cream-soft);
+  line-height: 1.2;
+}
+
+.bingo-team-members-textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 0.28rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+  color-scheme: dark;
+  resize: vertical;
+}
+
+.bingo-team-members-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.bingo-teams-signups {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-edge);
+}
+
+.bingo-teams-signups-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.bingo-teams-signups-head .bingo-teams-signups-title {
+  margin: 0;
+}
+
+.bingo-teams-signups-lead {
+  margin: 0.25rem 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.bingo-teams-signups-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bingo-teams-signup-row + .bingo-teams-signup-row {
+  margin-top: 0.45rem;
+}
+
+.bingo-teams-signup-row-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--cream-soft);
+}
+
+.bingo-teams-signup-name {
+  font-weight: 600;
+  color: var(--cream);
+  min-width: 6rem;
+  flex: 1 1 8rem;
+}
+
+.bingo-teams-signup-team-select {
+  flex: 1 1 10rem;
+  max-width: 14rem;
+  min-width: 8rem;
+  color-scheme: dark;
+}
+
+.bingo-teams-signups-empty {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.bingo-teams-placeholder {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.bingo-public-teams {
+  margin: 0 0 1.25rem;
+  padding: 0 0 1.15rem;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.bingo-public-teams-cards {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+  color: var(--cream-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 640px) {
+  .bingo-public-teams-cards {
+    grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+  }
+}
+
+.bingo-pub-team-card {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.bingo-pub-team-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.bingo-pub-team-num {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.bingo-pub-team-name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.bingo-pub-team-captain {
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+}
+
+.bingo-pub-team-captain strong {
+  color: var(--cream-soft);
+  font-weight: 600;
+}
+
+.bingo-pub-team-members-label {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cream-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bingo-pub-team-members {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.86rem;
+}
+
+.bingo-pub-team-members li + li {
+  margin-top: 0.2rem;
+}
+
+.bingo-pub-team-members-empty {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.bingo-board-meta {
+  margin-bottom: 1rem;
+}
+
+.bingo-board-meta-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+
+.bingo-board-id-line {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.bingo-board-id-line--main {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
+.bingo-board-id-label {
+  font-weight: 600;
+  color: var(--cream-soft);
+}
+
+.bingo-board-id {
+  word-break: break-all;
+  max-width: min(100%, 28rem);
+}
+
+.bingo-btn-tiny {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+}
+
+.bingo-dim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.bingo-dim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.bingo-dim-x {
+  align-self: center;
+  font-size: 1.25rem;
+  padding-bottom: 0.15rem;
+}
+
+.bingo-dim-select {
+  min-width: 4.5rem;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: var(--navy-deep);
+  color: var(--cream);
+}
+
+.bingo-dim-hint {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.bingo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.bingo-title-label {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.bingo-toolbar-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cream-soft);
+}
+
+.bingo-title-input {
+  width: 100%;
+  max-width: 420px;
+}
+
+.bingo-board-status-field {
+  flex: 0 1 11rem;
+  min-width: 0;
+}
+
+.bingo-progress {
+  margin: 0;
+  font-size: 0.95rem;
+  align-self: center;
+}
+
+.bingo-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bingo-btn-danger {
+  color: var(--ember-bright, #f4a08c);
+  border-color: rgba(244, 160, 140, 0.35);
+}
+
+.bingo-btn-danger:hover {
+  border-color: rgba(244, 160, 140, 0.55);
+  background: rgba(244, 160, 140, 0.08);
+}
+
+.bingo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+}
+
+.bingo-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bingo-leg-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  border: 1px solid var(--panel-edge);
+}
+
+.bingo-leg-swatch--neutral {
+  background: rgba(212, 175, 106, 0.2);
+  border-color: rgba(212, 175, 106, 0.45);
+}
+
+.bingo-leg-swatch--easy {
+  background: rgba(110, 180, 130, 0.35);
+  border-color: rgba(110, 180, 130, 0.55);
+}
+
+.bingo-leg-swatch--mass {
+  background: rgba(150, 120, 200, 0.35);
+  border-color: rgba(150, 120, 200, 0.55);
+}
+
+.bingo-leg-swatch--hard {
+  background: rgba(200, 90, 90, 0.35);
+  border-color: rgba(200, 90, 90, 0.55);
+}
+
+.bingo-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.bingo-grid--many {
+  gap: 0.4rem;
+}
+
+.bingo-grid--many .bingo-tile {
+  padding: 0.4rem 0.35rem;
+  min-height: 0;
+  font-size: 0.72rem;
+}
+
+.bingo-grid--many .bingo-tile-num {
+  font-size: 0.62rem;
+}
+
+.bingo-grid--many .bingo-tile-toggle {
+  width: 1.45rem;
+  height: 1.45rem;
+  font-size: 0.85rem;
+}
+
+.bingo-grid--many .bingo-tile-tint,
+.bingo-grid--many .bingo-tile-task,
+.bingo-grid--many .bingo-tile-item,
+.bingo-grid--many .bingo-tile-boss,
+.bingo-grid--many .bingo-tile-notes,
+.bingo-grid--many .bingo-tile-image-url {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.3rem;
+}
+
+.bingo-grid--many .bingo-tile-item--multi {
+  min-height: 3.75rem;
+  font-size: 0.65rem;
+}
+
+.bingo-grid--many .bingo-tile-task {
+  min-height: 2rem;
+}
+
+.bingo-grid--many .bingo-tile-thumb-wrap {
+  max-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .bingo-grid:not(.bingo-grid--many) {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .bingo-grid:not(.bingo-grid--many) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .bingo-grid--many {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+.bingo-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.45rem;
+  min-height: 6rem;
+  border-radius: 6px;
+  border: 1px solid var(--panel-edge);
+  background: var(--navy-mid, #1a2233);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bingo-tile--neutral {
+  border-color: rgba(212, 175, 106, 0.35);
+}
+
+.bingo-tile--easy {
+  border-color: rgba(110, 180, 130, 0.45);
+  background: rgba(110, 180, 130, 0.06);
+}
+
+.bingo-tile--mass {
+  border-color: rgba(150, 120, 200, 0.45);
+  background: rgba(150, 120, 200, 0.07);
+}
+
+.bingo-tile--hard {
+  border-color: rgba(200, 90, 90, 0.45);
+  background: rgba(200, 90, 90, 0.06);
+}
+
+.bingo-tile--done {
+  opacity: 0.9;
+  box-shadow: inset 0 0 0 2px rgba(110, 180, 130, 0.45);
+}
+
+.bingo-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.bingo-tile-id {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}
+
+.bingo-tile-toggle {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: var(--navy-deep);
+  color: var(--cream);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bingo-tile-toggle[aria-pressed="true"] {
+  background: rgba(110, 180, 130, 0.35);
+  border-color: rgba(110, 180, 130, 0.65);
+}
+
+.bingo-tile-toggle:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.bingo-tile-tint,
+.bingo-tile-item,
+.bingo-tile-boss {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.22rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: var(--navy-deep);
+  color: var(--cream);
+  cursor: pointer;
+  /* Native <select> list on Windows/Chromium: avoid light popup + cream text (unreadable). */
+  color-scheme: dark;
+}
+
+.bingo-tile-item,
+.bingo-tile-boss {
+  font-size: 0.78rem;
+  padding: 0.28rem 0.35rem;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.bingo-tile-item--multi {
+  min-height: 5.5rem;
+  padding: 0.2rem 0.25rem;
+  line-height: 1.35;
+}
+
+.bingo-tile-item-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.bingo-grid--many .bingo-tile-item-hint {
+  display: none;
+}
+
+.bingo-tile-item option,
+.bingo-tile-boss option,
+.bingo-tile-tint option {
+  background-color: var(--navy-deep);
+  color: #f5f1ea;
+}
+
+.bingo-tile-thumb-wrap {
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.25);
+  max-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bingo-tile-thumb {
+  width: 100%;
+  height: auto;
+  max-height: 72px;
+  object-fit: contain;
+  display: block;
+}
+
+.bingo-tile-thumb--empty {
+  font-size: 0.7rem;
+  padding: 0.35rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.bingo-tile-img-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.bingo-tile-upload-btn,
+.bingo-tile-clear-img {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: var(--navy-deep);
+  color: var(--cream);
+  cursor: pointer;
+}
+
+.bingo-tile-upload-btn:hover,
+.bingo-tile-clear-img:hover {
+  border-color: var(--amber);
+}
+
+.bingo-tile-task,
+.bingo-tile-notes,
+.bingo-tile-image-url {
+  width: 100%;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+}
+
+.bingo-tile-task {
+  min-height: 2.4rem;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+.bingo-tile-task::placeholder,
+.bingo-tile-notes::placeholder,
+.bingo-tile-image-url::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
 }
 
 .plugin-panel-text {

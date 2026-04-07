@@ -61,93 +61,6 @@
     return `Could not load Wise Old Man (${m || "error"}). Try again.`;
   }
 
-  const WOM_HOME_CACHE_KEY = "terpinheimer_wom_home_v1";
-  const WOM_HOME_CACHE_MAX_MS = 5 * 60 * 1000;
-
-  function readWomHomeCache() {
-    try {
-      const raw = sessionStorage.getItem(WOM_HOME_CACHE_KEY);
-      if (!raw) return null;
-      const o = JSON.parse(raw);
-      if (!o || typeof o.t !== "number" || !o.group) return null;
-      if (Date.now() - o.t > WOM_HOME_CACHE_MAX_MS) return null;
-      return {
-        group: o.group,
-        gainedXp: Array.isArray(o.gainedXp) ? o.gainedXp : [],
-        hiscores: Array.isArray(o.hiscores) ? o.hiscores : [],
-        gainedColl: Array.isArray(o.gainedColl) ? o.gainedColl : [],
-        clueHiscores: Array.isArray(o.clueHiscores) ? o.clueHiscores : [],
-        collectionsHiscores: Array.isArray(o.collectionsHiscores) ? o.collectionsHiscores : [],
-        clanBossKills: typeof o.clanBossKills === "number" ? o.clanBossKills : 0,
-        achievements: Array.isArray(o.achievements) ? o.achievements : [],
-        competitions: Array.isArray(o.competitions) ? o.competitions : [],
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  function writeWomHomeCache(bundle) {
-    try {
-      sessionStorage.setItem(
-        WOM_HOME_CACHE_KEY,
-        JSON.stringify({
-          t: Date.now(),
-          group: bundle.group,
-          gainedXp: bundle.gainedXp,
-          hiscores: bundle.hiscores,
-          gainedColl: bundle.gainedColl,
-          clueHiscores: bundle.clueHiscores,
-          collectionsHiscores: bundle.collectionsHiscores,
-          clanBossKills: bundle.clanBossKills,
-          achievements: bundle.achievements,
-          competitions: bundle.competitions,
-        })
-      );
-    } catch {
-      /* storage full or unavailable */
-    }
-  }
-
-  /** Caps parallel WOM HTTP requests; large bursts were returning HTTP 403 from the API edge. */
-  let womThrottleBusy = 0;
-  const WOM_THROTTLE_CAP = 2;
-  const WOM_THROTTLE_GAP_MS = 120;
-  let womThrottleNextStart = 0;
-  const womThrottleWaiters = [];
-
-  function womThrottleEnter() {
-    return new Promise((resolve) => {
-      function attempt() {
-        if (womThrottleBusy < WOM_THROTTLE_CAP) {
-          womThrottleBusy++;
-          resolve();
-        } else {
-          womThrottleWaiters.push(attempt);
-        }
-      }
-      attempt();
-    });
-  }
-
-  function womThrottleLeave() {
-    womThrottleBusy--;
-    const next = womThrottleWaiters.shift();
-    if (next) next();
-  }
-
-  async function womWithThrottle(fn) {
-    await womThrottleEnter();
-    const gap = Math.max(0, womThrottleNextStart - Date.now());
-    if (gap) await new Promise((r) => setTimeout(r, gap));
-    womThrottleNextStart = Date.now() + WOM_THROTTLE_GAP_MS;
-    try {
-      return await fn();
-    } finally {
-      womThrottleLeave();
-    }
-  }
-
   const WOM_GROUP_URL = `https://wiseoldman.net/groups/${WOM_GROUP_ID}`;
   /** Matches WOM API Boss metric enum — each has group hiscores with per-player kill counts. */
   const WOM_BOSS_METRICS = [
@@ -775,11 +688,13 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -823,11 +738,13 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -918,11 +835,13 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -1064,11 +983,13 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -1077,6 +998,1786 @@
     document.title = "Members | Terpinheimer";
     renderMembersList();
   }
+
+  const BINGO_STORAGE_KEY = "terpinheimer_bingo_board_v2";
+  const BINGO_LEGACY_KEY = "terpinheimer_bingo_board_v1";
+  const BINGO_TINTS = ["neutral", "easy", "mass", "hard"];
+  const BINGO_MIN_DIM = 3;
+  const BINGO_MAX_DIM = 10;
+  /** Multiple item picks in one tile are stored in `item` joined by this character (not used in OSRS item names). */
+  const BINGO_ITEM_LIST_SEP = "|";
+  const BINGO_ITEM_FIELD_MAX = 2000;
+  const BINGO_TEAM_COUNT_MAX = 12;
+  const BINGO_TEAM_NAME_MAX = 80;
+  const BINGO_TEAM_CAPTAIN_MAX = 80;
+  const BINGO_TEAM_MEMBERS_MAX = 2000;
+  const BINGO_SIGNUPS_STORAGE_KEY = "terpinheimer_bingo_signups_v1";
+  const BINGO_SIGNUP_NAME_MAX = 32;
+  const BINGO_MAX_IMAGE_CHARS = 480000;
+  const BINGO_BOARD_STATUSES = ["development", "active", "finished"];
+  const BINGO_BOARD_STATUS_LABELS = {
+    development: "In development",
+    active: "Active",
+    finished: "Finished",
+  };
+  let bingoSaveTimer = null;
+  let bingoBindingsDone = false;
+  let bingoPublicPreviewGridBound = false;
+  let bingoDimsFilled = false;
+  let bingoImageTargetIndex = null;
+  let bingoOsrsItemsCache = null;
+  let bingoOsrsItemsLoadPromise = null;
+
+  function bingoWomBossDisplayName(metric) {
+    const M = {
+      abyssal_sire: "Abyssal Sire",
+      alchemical_hydra: "Alchemical Hydra",
+      amoxliatl: "Amoxliatl",
+      araxxor: "Araxxor",
+      artio: "Artio",
+      barrows_chests: "Barrows chests",
+      brutus: "Brutus",
+      bryophyta: "Bryophyta",
+      callisto: "Callisto",
+      calvarion: "Calvar'ion",
+      cerberus: "Cerberus",
+      chambers_of_xeric: "Chambers of Xeric",
+      chambers_of_xeric_challenge_mode: "Chambers of Xeric (Challenge Mode)",
+      chaos_elemental: "Chaos Elemental",
+      chaos_fanatic: "Chaos Fanatic",
+      commander_zilyana: "Commander Zilyana",
+      corporeal_beast: "Corporeal Beast",
+      crazy_archaeologist: "Crazy Archaeologist",
+      dagannoth_prime: "Dagannoth Prime",
+      dagannoth_rex: "Dagannoth Rex",
+      dagannoth_supreme: "Dagannoth Supreme",
+      deranged_archaeologist: "Deranged Archaeologist",
+      doom_of_mokhaiotl: "Doom of Mokhaiotl",
+      duke_sucellus: "Duke Sucellus",
+      general_graardor: "General Graardor",
+      giant_mole: "Giant Mole",
+      grotesque_guardians: "Grotesque Guardians",
+      hespori: "Hespori",
+      kalphite_queen: "Kalphite Queen",
+      king_black_dragon: "King Black Dragon",
+      kraken: "Kraken",
+      kreearra: "Kree'arra",
+      kril_tsutsaroth: "K'ril Tsutsaroth",
+      lunar_chests: "Lunar Chests",
+      mimic: "Mimic",
+      nex: "Nex",
+      nightmare: "The Nightmare",
+      phosanis_nightmare: "Phosani's Nightmare",
+      obor: "Obor",
+      phantom_muspah: "Phantom Muspah",
+      sarachnis: "Sarachnis",
+      scorpia: "Scorpia",
+      scurrius: "Scurrius",
+      shellbane_gryphon: "Shellbane Gryphon",
+      skotizo: "Skotizo",
+      sol_heredit: "Sol Heredit",
+      spindel: "Spindel",
+      tempoross: "Tempoross",
+      the_gauntlet: "The Gauntlet",
+      the_corrupted_gauntlet: "The Corrupted Gauntlet",
+      the_hueycoatl: "The Hueycoatl",
+      the_leviathan: "The Leviathan",
+      the_royal_titans: "The Royal Titans",
+      the_whisperer: "The Whisperer",
+      theatre_of_blood: "Theatre of Blood",
+      theatre_of_blood_hard_mode: "Theatre of Blood (Hard Mode)",
+      thermonuclear_smoke_devil: "Thermonuclear Smoke Devil",
+      tombs_of_amascut: "Tombs of Amascut",
+      tombs_of_amascut_expert: "Tombs of Amascut (Expert)",
+      tzkal_zuk: "TzKal-Zuk",
+      tztok_jad: "TzTok-Jad",
+      vardorvis: "Vardorvis",
+      venenatis: "Venenatis",
+      vetion: "Vet'ion",
+      vorkath: "Vorkath",
+      wintertodt: "Wintertodt",
+      yama: "Yama",
+      zalcano: "Zalcano",
+      zulrah: "Zulrah",
+    };
+    if (M[metric]) return M[metric];
+    return String(metric || "")
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  const BINGO_BOSS_SELECT_LABELS = (() => {
+    const seen = new Set();
+    const out = [];
+    for (const m of WOM_BOSS_METRICS) {
+      const label = bingoWomBossDisplayName(m);
+      if (seen.has(label)) continue;
+      seen.add(label);
+      out.push(label);
+    }
+    out.sort((a, b) => a.localeCompare(b));
+    return out;
+  })();
+
+  function startBingoOsrsItemsFetch() {
+    if (!bingoOsrsItemsLoadPromise) {
+      bingoOsrsItemsLoadPromise = fetch("/data/osrs-bingo-items.json", { credentials: "same-origin" })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((j) => {
+          const raw = Array.isArray(j) ? j : j && Array.isArray(j.items) ? j.items : [];
+          bingoOsrsItemsCache = raw.map((x) => String(x || "").trim()).filter(Boolean);
+          bingoOsrsItemsCache.sort((a, b) => a.localeCompare(b));
+          return bingoOsrsItemsCache;
+        })
+        .catch(() => {
+          bingoOsrsItemsCache = [];
+          return bingoOsrsItemsCache;
+        });
+    }
+    return bingoOsrsItemsLoadPromise;
+  }
+
+  function bingoOsrsItemsForSelect() {
+    return bingoOsrsItemsCache === null ? [] : bingoOsrsItemsCache;
+  }
+
+  function bingoBossSelectOptionsHtml(selectedRaw) {
+    const cur = String(selectedRaw || "").trim();
+    let html = `<option value="">— Boss / source (optional) —</option>`;
+    let found = false;
+    for (const label of BINGO_BOSS_SELECT_LABELS) {
+      if (cur === label) found = true;
+      const sel = cur === label ? " selected" : "";
+      html += `<option value="${bingoEscapeAttr(label)}"${sel}>${bingoEscapeTextarea(label)}</option>`;
+    }
+    if (cur && !found) {
+      html += `<option value="${bingoEscapeAttr(cur)}" selected>${bingoEscapeTextarea(cur)} (not in list)</option>`;
+    }
+    return html;
+  }
+
+  function bingoParseStoredItemList(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return [];
+    return s
+      .split(BINGO_ITEM_LIST_SEP)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  function bingoFormatItemsForDisplay(raw) {
+    const parts = bingoParseStoredItemList(raw);
+    if (parts.length) return parts.join(", ");
+    return String(raw || "").trim();
+  }
+
+  function bingoItemSelectOptionsHtml(selectedRaw, itemNames) {
+    const selected = new Set(bingoParseStoredItemList(selectedRaw));
+    const names = Array.isArray(itemNames) ? itemNames : [];
+    const nameSet = new Set(names);
+    let html = "";
+    for (const name of names) {
+      const sel = selected.has(name) ? " selected" : "";
+      html += `<option value="${bingoEscapeAttr(name)}"${sel}>${bingoEscapeTextarea(name)}</option>`;
+    }
+    for (const token of selected) {
+      if (!nameSet.has(token)) {
+        html += `<option value="${bingoEscapeAttr(token)}" selected>${bingoEscapeTextarea(token)} (not in list)</option>`;
+      }
+    }
+    return html;
+  }
+
+  function bingoNewBoardId() {
+    try {
+      if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+    } catch {
+      /* ignore */
+    }
+    return "b-" + Math.random().toString(36).slice(2, 11) + Math.random().toString(36).slice(2, 11);
+  }
+
+  function bingoClampDim(n) {
+    const x = parseInt(String(n), 10);
+    if (Number.isNaN(x)) return 5;
+    return Math.min(BINGO_MAX_DIM, Math.max(BINGO_MIN_DIM, x));
+  }
+
+  function bingoSanitizeImageUrl(url) {
+    const s = String(url || "").trim();
+    if (!s) return "";
+    if (s.startsWith("data:image/")) return s.length <= BINGO_MAX_IMAGE_CHARS ? s : "";
+    try {
+      const u = new URL(s);
+      if (u.protocol === "https:" || u.protocol === "http:") return s.slice(0, 2000);
+    } catch {
+      /* ignore */
+    }
+    return "";
+  }
+
+  function bingoEscapeAttr(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
+  }
+
+  function bingoEscapeTextarea(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function normalizeBingoBoardStatus(raw) {
+    const s = typeof raw === "string" ? String(raw).trim() : "";
+    return BINGO_BOARD_STATUSES.includes(s) ? s : "development";
+  }
+
+  function normalizeBingoTile(t, r, c) {
+    const tint = BINGO_TINTS.includes(t && t.tint) ? t.tint : "neutral";
+    const id = t && typeof t.id === "string" && /^r\d+c\d+$/.test(t.id) ? t.id : `r${r}c${c}`;
+    return {
+      id,
+      text: typeof t.text === "string" ? t.text.slice(0, 800) : "",
+      item: typeof t.item === "string" ? t.item.slice(0, BINGO_ITEM_FIELD_MAX) : "",
+      boss: typeof t.boss === "string" ? t.boss.slice(0, 200) : "",
+      notes: typeof t.notes === "string" ? t.notes.slice(0, 1200) : "",
+      tint,
+      done: !!t.done,
+      imageUrl: bingoSanitizeImageUrl(t && t.imageUrl),
+      imageAlt: t && typeof t.imageAlt === "string" ? t.imageAlt.slice(0, 200) : "",
+    };
+  }
+
+  /** Per-tile, per-team booleans: team k got this tile's listed items (board preview toggles). */
+  function bingoNormalizeTeamTileDone(o, tiles, teamCount) {
+    const n = Math.min(BINGO_TEAM_COUNT_MAX, Math.max(0, Math.floor(teamCount) || 0));
+    const raw = o && typeof o.teamTileDone === "object" && o.teamTileDone !== null ? o.teamTileDone : {};
+    const out = {};
+    for (let ti = 0; ti < (tiles || []).length; ti++) {
+      const t = tiles[ti];
+      const id = t && typeof t.id === "string" ? t.id : `r0c${ti}`;
+      const prev = raw[id];
+      let a = Array.isArray(prev) ? prev.map((x) => !!x) : [];
+      while (a.length < n) a.push(false);
+      if (a.length > n) a = a.slice(0, n);
+      out[id] = a;
+    }
+    return out;
+  }
+
+  function normalizeBingoTeams(o) {
+    const parsed = parseInt(String(o && o.teamCount != null ? o.teamCount : "0"), 10);
+    let n = Number.isFinite(parsed) ? parsed : 0;
+    n = Math.min(BINGO_TEAM_COUNT_MAX, Math.max(0, n));
+
+    const padSlice = (arr, maxFieldLen, nSlots, trimNames) => {
+      let a = Array.isArray(arr) ? arr.map((x) => String(x ?? "")) : [];
+      a = a.map((s) => {
+        const t = trimNames ? s.trim() : s;
+        return t.slice(0, maxFieldLen);
+      });
+      while (a.length < nSlots) a.push("");
+      if (a.length > nSlots) a = a.slice(0, nSlots);
+      return a;
+    };
+
+    const names = padSlice(o && o.teamNames, BINGO_TEAM_NAME_MAX, n, true);
+    const captains = padSlice(o && o.teamCaptains, BINGO_TEAM_CAPTAIN_MAX, n, true);
+    const members = padSlice(o && o.teamMembers, BINGO_TEAM_MEMBERS_MAX, n, false);
+
+    const tintsIn = Array.isArray(o && o.teamTints) ? o.teamTints : [];
+    const tints = [];
+    for (let i = 0; i < n; i++) {
+      const tv = tintsIn[i];
+      tints.push(BINGO_TINTS.includes(tv) ? tv : "neutral");
+    }
+
+    return { teamCount: n, teamNames: names, teamTints: tints, teamCaptains: captains, teamMembers: members };
+  }
+
+  function defaultBingoState() {
+    const rows = 5;
+    const cols = 5;
+    const cr = Math.floor(rows / 2);
+    const cc = Math.floor(cols / 2);
+    const centerFree = rows % 2 === 1 && cols % 2 === 1;
+    const tiles = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        tiles.push(
+          normalizeBingoTile(
+            {
+              text: centerFree && r === cr && c === cc ? "FREE SPACE" : "",
+              item: "",
+              boss: "",
+              notes: "",
+              tint: "neutral",
+              done: false,
+              imageUrl: "",
+              imageAlt: "",
+            },
+            r,
+            c
+          )
+        );
+      }
+    }
+    const teams = normalizeBingoTeams({});
+    return {
+      v: 2,
+      boardId: bingoNewBoardId(),
+      title: "",
+      boardStatus: "development",
+      rows,
+      cols,
+      tiles,
+      ...teams,
+      teamTileDone: bingoNormalizeTeamTileDone({}, tiles, teams.teamCount),
+    };
+  }
+
+  function migrateBingoV1ToV2(o) {
+    const tiles = [];
+    for (let i = 0; i < 25; i++) {
+      const r = Math.floor(i / 5);
+      const c = i % 5;
+      const t = o.tiles[i] || {};
+      tiles.push(
+        normalizeBingoTile(
+          {
+            text: t.text,
+            item: t.item,
+            boss: t.boss,
+            notes: "",
+            tint: t.tint,
+            done: t.done,
+            imageUrl: "",
+            imageAlt: "",
+          },
+          r,
+          c
+        )
+      );
+    }
+    const teams = normalizeBingoTeams({});
+    return {
+      v: 2,
+      boardId: bingoNewBoardId(),
+      title: typeof o.title === "string" ? o.title.slice(0, 120) : "",
+      boardStatus: "development",
+      rows: 5,
+      cols: 5,
+      tiles,
+      ...teams,
+      teamTileDone: bingoNormalizeTeamTileDone({}, tiles, teams.teamCount),
+    };
+  }
+
+  function readBingoState() {
+    try {
+      let raw = localStorage.getItem(BINGO_STORAGE_KEY);
+      if (!raw) raw = localStorage.getItem(BINGO_LEGACY_KEY);
+      if (!raw) return defaultBingoState();
+      const o = JSON.parse(raw);
+      if (o.v === 1 && Array.isArray(o.tiles) && o.tiles.length === 25) {
+        const m = migrateBingoV1ToV2(o);
+        writeBingoState(m);
+        try {
+          localStorage.removeItem(BINGO_LEGACY_KEY);
+        } catch {
+          /* ignore */
+        }
+        return m;
+      }
+      if (o.v !== 2 || !Array.isArray(o.tiles)) return defaultBingoState();
+      const rows = bingoClampDim(o.rows);
+      const cols = bingoClampDim(o.cols);
+      if (o.tiles.length !== rows * cols) return defaultBingoState();
+      let idx = 0;
+      const tiles = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          tiles.push(normalizeBingoTile(o.tiles[idx] || {}, r, c));
+          idx++;
+        }
+      }
+      const boardId =
+        typeof o.boardId === "string" && o.boardId.length >= 6 ? o.boardId : bingoNewBoardId();
+      const teams = normalizeBingoTeams(o);
+      return {
+        v: 2,
+        boardId,
+        title: typeof o.title === "string" ? o.title.slice(0, 120) : "",
+        boardStatus: normalizeBingoBoardStatus(o.boardStatus),
+        rows,
+        cols,
+        tiles,
+        ...teams,
+        teamTileDone: bingoNormalizeTeamTileDone(o, tiles, teams.teamCount),
+      };
+    } catch {
+      return defaultBingoState();
+    }
+  }
+
+  function writeBingoState(state) {
+    try {
+      const payload = { ...state, boardStatus: normalizeBingoBoardStatus(state.boardStatus) };
+      localStorage.setItem(BINGO_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* quota */
+    }
+  }
+
+  function resizeBingoState(state, newRows, newCols) {
+    const oldRows = state.rows;
+    const oldCols = state.cols;
+    const oldTiles = state.tiles.slice();
+    const tiles = [];
+    for (let r = 0; r < newRows; r++) {
+      for (let c = 0; c < newCols; c++) {
+        if (r < oldRows && c < oldCols) {
+          const oi = r * oldCols + c;
+          const t = normalizeBingoTile({ ...oldTiles[oi] }, r, c);
+          t.id = `r${r}c${c}`;
+          tiles.push(t);
+        } else {
+          tiles.push(
+            normalizeBingoTile(
+              {
+                text: "",
+                item: "",
+                boss: "",
+                notes: "",
+                tint: "neutral",
+                done: false,
+                imageUrl: "",
+                imageAlt: "",
+              },
+              r,
+              c
+            )
+          );
+        }
+      }
+    }
+    const teams = normalizeBingoTeams(state);
+    const next = {
+      v: 2,
+      boardId: state.boardId,
+      title: state.title,
+      boardStatus: normalizeBingoBoardStatus(state.boardStatus),
+      rows: newRows,
+      cols: newCols,
+      tiles,
+      ...teams,
+      teamTileDone: bingoNormalizeTeamTileDone({ teamTileDone: state.teamTileDone }, tiles, teams.teamCount),
+    };
+    return next;
+  }
+
+  function bingoUpdateProgress() {
+    const el = document.getElementById("bingo-progress");
+    const grid = document.getElementById("bingo-grid");
+    if (!el || !grid) return;
+    const total = parseInt(grid.dataset.bingoRows || "5", 10) * parseInt(grid.dataset.bingoCols || "5", 10);
+    let n = 0;
+    grid.querySelectorAll('.bingo-tile-toggle[aria-pressed="true"]').forEach(() => {
+      n++;
+    });
+    el.textContent = `${n} / ${total} complete`;
+  }
+
+  function collectBingoFromDom() {
+    const titleEl = document.getElementById("bingo-board-title");
+    const title = titleEl ? String(titleEl.value || "").slice(0, 120) : "";
+    const grid = document.getElementById("bingo-grid");
+    if (!grid) return defaultBingoState();
+    const rows = bingoClampDim(grid.dataset.bingoRows);
+    const cols = bingoClampDim(grid.dataset.bingoCols);
+    const boardId = String(grid.dataset.boardId || "").trim() || bingoNewBoardId();
+    const tiles = [];
+    let i = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const tile = grid.querySelector(`.bingo-tile[data-bingo-index="${i}"]`);
+        if (!tile) {
+          tiles.push(
+            normalizeBingoTile(
+              { text: "", item: "", boss: "", notes: "", tint: "neutral", done: false, imageUrl: "", imageAlt: "" },
+              r,
+              c
+            )
+          );
+          i++;
+          continue;
+        }
+        const tintSel = tile.querySelector(".bingo-tile-tint");
+        const tint = BINGO_TINTS.includes(tintSel && tintSel.value) ? tintSel.value : "neutral";
+        const task = tile.querySelector(".bingo-tile-task");
+        const item = tile.querySelector(".bingo-tile-item");
+        const boss = tile.querySelector(".bingo-tile-boss");
+        let itemVal = "";
+        if (item && item.multiple) {
+          itemVal = Array.from(item.selectedOptions)
+            .map((o) => String(o.value || "").trim())
+            .filter(Boolean)
+            .join(BINGO_ITEM_LIST_SEP);
+        } else if (item) {
+          itemVal = String(item.value || "").trim();
+        }
+        const notes = tile.querySelector(".bingo-tile-notes");
+        const imgUrlInp = tile.querySelector(".bingo-tile-image-url");
+        const imgAltInp = tile.querySelector(".bingo-tile-image-alt");
+        const togg = tile.querySelector(".bingo-tile-toggle");
+        tiles.push(
+          normalizeBingoTile(
+            {
+              text: (task && task.value) || "",
+              item: itemVal,
+              boss: (boss && boss.value) || "",
+              notes: (notes && notes.value) || "",
+              tint,
+              done: togg && togg.getAttribute("aria-pressed") === "true",
+              imageUrl: (imgUrlInp && imgUrlInp.value) || "",
+              imageAlt: (imgAltInp && imgAltInp.value) || "",
+            },
+            r,
+            c
+          )
+        );
+        i++;
+      }
+    }
+    const teams = collectBingoTeamsFromDom();
+    const prev = readBingoState();
+    const statusSel = document.getElementById("bingo-board-status");
+    const boardStatus = normalizeBingoBoardStatus(
+      statusSel && statusSel.value != null && statusSel.value !== "" ? statusSel.value : prev.boardStatus
+    );
+    return {
+      v: 2,
+      boardId,
+      title,
+      boardStatus,
+      rows,
+      cols,
+      tiles,
+      ...teams,
+      teamTileDone: bingoNormalizeTeamTileDone({ teamTileDone: prev.teamTileDone }, tiles, teams.teamCount),
+    };
+  }
+
+  function scrapeBingoTeamColumnsFromDom() {
+    const root = document.getElementById("bingo-team-names");
+    if (!root) return null;
+    const cols = [...root.querySelectorAll(".bingo-team-column")].sort(
+      (a, b) =>
+        parseInt(a.getAttribute("data-bingo-team-col") || "0", 10) -
+        parseInt(b.getAttribute("data-bingo-team-col") || "0", 10)
+    );
+    if (!cols.length) return null;
+    const teamNames = [];
+    const teamCaptains = [];
+    const teamMembers = [];
+    cols.forEach((col) => {
+      teamNames.push(String(col.querySelector("[data-bingo-team-idx]")?.value || "").trim());
+      teamCaptains.push(String(col.querySelector("[data-bingo-team-captain]")?.value || "").trim());
+      teamMembers.push(String(col.querySelector("[data-bingo-team-members]")?.value || ""));
+    });
+    return { teamNames, teamCaptains, teamMembers };
+  }
+
+  function collectBingoTeamsFromDom() {
+    const sel = document.getElementById("bingo-team-count");
+    let n = parseInt(String(sel && sel.value != null ? sel.value : "0"), 10);
+    if (!Number.isFinite(n)) n = 0;
+    n = Math.min(BINGO_TEAM_COUNT_MAX, Math.max(0, n));
+    const scraped = scrapeBingoTeamColumnsFromDom();
+    if (scraped) {
+      return normalizeBingoTeams({ teamCount: n, ...scraped });
+    }
+    return normalizeBingoTeams({ teamCount: n });
+  }
+
+  function renderBingoTeamColumns(t) {
+    const root = document.getElementById("bingo-team-names");
+    if (!root) return;
+    const n = t.teamCount;
+    if (n === 0) {
+      root.innerHTML =
+        '<p class="muted bingo-teams-placeholder">Pick how many teams above — each team opens as its own column.</p>';
+      return;
+    }
+    let html = `<div class="bingo-teams-columns-wrap"><div class="bingo-teams-columns" style="grid-template-columns: repeat(${n}, minmax(12rem, 1fr))" role="group" aria-label="Team columns">`;
+    for (let i = 0; i < n; i++) {
+      const name = t.teamNames[i] != null ? String(t.teamNames[i]) : "";
+      const captain = t.teamCaptains[i] != null ? String(t.teamCaptains[i]) : "";
+      const memberText = t.teamMembers[i] != null ? String(t.teamMembers[i]) : "";
+      const nameEsc = bingoEscapeAttr(name);
+      const captainEsc = bingoEscapeAttr(captain);
+      const membersEsc = bingoEscapeTextarea(memberText);
+      html += `<div class="bingo-tile bingo-team-column bingo-tile--neutral" data-bingo-team-col="${i}">
+        <div class="bingo-tile-head">
+          <span class="bingo-tile-id">Team ${i + 1}</span>
+        </div>
+        <label class="sr-only" for="bingo-team-name-${i}">Team name</label>
+        <input type="text" id="bingo-team-name-${i}" class="bingo-team-name-input event-add-input" data-bingo-team-idx="${i}" maxlength="${BINGO_TEAM_NAME_MAX}" placeholder="Team name" value="${nameEsc}" autocomplete="off" />
+        <div class="bingo-team-section">
+          <label class="bingo-team-section-label" for="bingo-team-captain-${i}">Team captain</label>
+          <input type="text" id="bingo-team-captain-${i}" class="bingo-team-captain-input event-add-input" data-bingo-team-captain="${i}" maxlength="${BINGO_TEAM_CAPTAIN_MAX}" placeholder="Captain name" value="${captainEsc}" autocomplete="name" />
+        </div>
+        <div class="bingo-team-section">
+          <label class="bingo-team-section-label" for="bingo-team-members-${i}">Members</label>
+          <textarea id="bingo-team-members-${i}" class="bingo-team-members-textarea" data-bingo-team-members="${i}" maxlength="${BINGO_TEAM_MEMBERS_MAX}" rows="4" placeholder="One name per line">${membersEsc}</textarea>
+        </div>
+      </div>`;
+    }
+    html += "</div></div>";
+    root.innerHTML = html;
+  }
+
+  function renderBingoTeamsUi(state) {
+    const t = normalizeBingoTeams(state);
+    const sel = document.getElementById("bingo-team-count");
+    if (sel) sel.value = String(t.teamCount);
+    renderBingoTeamColumns(t);
+    bingoRenderTeamsSignups(state);
+  }
+
+  function scheduleBingoSave() {
+    const main = document.getElementById("bingo-access-main");
+    if (main && main.hidden) return;
+    if (bingoSaveTimer) clearTimeout(bingoSaveTimer);
+    bingoSaveTimer = setTimeout(() => {
+      bingoSaveTimer = null;
+      writeBingoState(collectBingoFromDom());
+      bingoUpdateProgress();
+    }, 400);
+  }
+
+  function bingoRefreshTilePreview(tile, url) {
+    const safe = bingoSanitizeImageUrl(url);
+    const wrap = tile.querySelector(".bingo-tile-thumb-wrap");
+    if (!wrap) return;
+    if (!safe) {
+      wrap.innerHTML =
+        '<div class="bingo-tile-thumb bingo-tile-thumb--empty muted" aria-hidden="true">No image</div>';
+      return;
+    }
+    const altEl = tile.querySelector(".bingo-tile-image-alt");
+    const alt = altEl ? String(altEl.value || "").slice(0, 200) : "";
+    wrap.innerHTML = `<img class="bingo-tile-thumb" src="${bingoEscapeAttr(safe)}" alt="${bingoEscapeAttr(alt)}" loading="lazy" />`;
+  }
+
+  function bingoShrinkDataUrl(dataUrl, maxLen, done) {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        done(null);
+        return;
+      }
+      const scales = [1, 0.72, 0.5, 0.36, 0.25, 0.18];
+      for (let si = 0; si < scales.length; si++) {
+        const sc = scales[si];
+        canvas.width = Math.max(32, Math.round(w * sc));
+        canvas.height = Math.max(32, Math.round(h * sc));
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        let out = canvas.toDataURL("image/jpeg", 0.82);
+        if (out.length <= maxLen) {
+          done(out);
+          return;
+        }
+      }
+      done(null);
+    };
+    img.onerror = () => done(null);
+    img.src = dataUrl;
+  }
+
+  function renderBingoGridFromState(state) {
+    const grid = document.getElementById("bingo-grid");
+    const titleEl = document.getElementById("bingo-board-title");
+    const idEl = document.getElementById("bingo-board-id");
+    if (!grid) return;
+    if (titleEl) titleEl.value = state.title || "";
+    if (idEl) idEl.textContent = state.boardId || "—";
+    const statusSel = document.getElementById("bingo-board-status");
+    if (statusSel) statusSel.value = normalizeBingoBoardStatus(state.boardStatus);
+    grid.dataset.bingoRows = String(state.rows);
+    grid.dataset.bingoCols = String(state.cols);
+    grid.dataset.boardId = state.boardId || "";
+
+    const rowsSel = document.getElementById("bingo-rows");
+    const colsSel = document.getElementById("bingo-cols");
+    if (rowsSel) rowsSel.value = String(state.rows);
+    if (colsSel) colsSel.value = String(state.cols);
+
+    const total = state.rows * state.cols;
+    grid.classList.toggle("bingo-grid--many", total > 36);
+    grid.style.gridTemplateColumns = `repeat(${state.cols}, minmax(0, 1fr))`;
+
+    let html = "";
+    let i = 0;
+    for (let r = 0; r < state.rows; r++) {
+      for (let c = 0; c < state.cols; c++) {
+        const t = state.tiles[i] || normalizeBingoTile({}, r, c);
+        const tint = BINGO_TINTS.includes(t.tint) ? t.tint : "neutral";
+        const done = !!t.done;
+        const safeImg = bingoSanitizeImageUrl(t.imageUrl);
+        const thumbInner = safeImg
+          ? `<img class="bingo-tile-thumb" src="${bingoEscapeAttr(safeImg)}" alt="${bingoEscapeAttr(t.imageAlt)}" loading="lazy" />`
+          : '<div class="bingo-tile-thumb bingo-tile-thumb--empty muted" aria-hidden="true">No image</div>';
+        const taskEsc = bingoEscapeTextarea(t.text);
+        const itemOpts = bingoItemSelectOptionsHtml(t.item, bingoOsrsItemsForSelect());
+        const bossOpts = bingoBossSelectOptionsHtml(t.boss);
+        const notesEsc = bingoEscapeTextarea(t.notes);
+        const imgUrlEsc = bingoEscapeAttr(t.imageUrl);
+        const imgAltEsc = bingoEscapeAttr(t.imageAlt);
+        const itemListSize = total > 36 ? 3 : 5;
+        html += `<div class="bingo-tile bingo-tile--${tint}${done ? " bingo-tile--done" : ""}" data-bingo-index="${i}">
+          <div class="bingo-tile-head">
+            <span class="bingo-tile-id">${bingoEscapeAttr(t.id)}</span>
+            <button type="button" class="bingo-tile-toggle" aria-pressed="${done}" title="Mark tile complete">${done ? "✓" : "○"}</button>
+          </div>
+          <div class="bingo-tile-thumb-wrap">${thumbInner}</div>
+          <div class="bingo-tile-img-actions">
+            <button type="button" class="bingo-tile-upload-btn" data-bingo-upload="${i}">Upload</button>
+            <button type="button" class="bingo-tile-clear-img" data-bingo-clear-img="${i}">Clear image</button>
+          </div>
+          <label class="sr-only" for="bingo-tint-${i}">Tile type</label>
+          <select id="bingo-tint-${i}" class="bingo-tile-tint" aria-label="Tile type ${t.id}">
+            <option value="neutral"${tint === "neutral" ? " selected" : ""}>General</option>
+            <option value="easy"${tint === "easy" ? " selected" : ""}>Easy / solo</option>
+            <option value="mass"${tint === "mass" ? " selected" : ""}>Team mass</option>
+            <option value="hard"${tint === "hard" ? " selected" : ""}>Hard / specific</option>
+          </select>
+          <label class="sr-only" for="bingo-task-${i}">Task</label>
+          <textarea id="bingo-task-${i}" class="bingo-tile-task" maxlength="800" rows="2" placeholder="Task, drop, or goal…">${taskEsc}</textarea>
+          <label class="sr-only" for="bingo-item-${i}">Items</label>
+          <select id="bingo-item-${i}" class="bingo-tile-item bingo-tile-item--multi" multiple size="${itemListSize}" aria-label="Items for tile ${bingoEscapeAttr(t.id)}. Hold Ctrl or Command while clicking to select several." title="Ctrl or ⌘ + click to select multiple items">${itemOpts}</select>
+          <p class="muted bingo-tile-item-hint">Ctrl / ⌘ + click to select multiple items.</p>
+          <label class="sr-only" for="bingo-boss-${i}">Boss or source</label>
+          <select id="bingo-boss-${i}" class="bingo-tile-boss" aria-label="Boss or source for ${bingoEscapeAttr(t.id)}">${bossOpts}</select>
+          <label class="sr-only" for="bingo-notes-${i}">Notes</label>
+          <textarea id="bingo-notes-${i}" class="bingo-tile-notes" maxlength="1200" rows="2" placeholder="Extra notes (optional)…">${notesEsc}</textarea>
+          <label class="sr-only" for="bingo-imgurl-${i}">Image URL</label>
+          <input id="bingo-imgurl-${i}" class="bingo-tile-image-url" maxlength="2000" placeholder="Image URL (https:// or paste data URL)" value="${imgUrlEsc}" />
+          <label class="sr-only" for="bingo-imgalt-${i}">Image description</label>
+          <input id="bingo-imgalt-${i}" class="bingo-tile-image-alt" maxlength="200" placeholder="Image description (optional)" value="${imgAltEsc}" />
+        </div>`;
+        i++;
+      }
+    }
+    grid.innerHTML = html;
+    bingoUpdateProgress();
+    renderBingoTeamsUi(state);
+  }
+
+  function bingoPublicTileHasDisplayContent(t) {
+    if (!t) return false;
+    if (String(t.text || "").trim()) return true;
+    if (String(t.item || "").trim()) return true;
+    if (String(t.boss || "").trim()) return true;
+    if (String(t.notes || "").trim()) return true;
+    if (bingoSanitizeImageUrl(t.imageUrl)) return true;
+    return false;
+  }
+
+  function bingoReadSignupsStore() {
+    try {
+      const raw = localStorage.getItem(BINGO_SIGNUPS_STORAGE_KEY);
+      if (!raw) return { byBoard: {} };
+      const o = JSON.parse(raw);
+      if (!o || typeof o !== "object" || o.byBoard == null || typeof o.byBoard !== "object") return { byBoard: {} };
+      return { byBoard: o.byBoard };
+    } catch {
+      return { byBoard: {} };
+    }
+  }
+
+  function bingoWriteSignupsStore(store) {
+    try {
+      localStorage.setItem(BINGO_SIGNUPS_STORAGE_KEY, JSON.stringify(store));
+    } catch {
+      /* quota */
+    }
+  }
+
+  function bingoGetSignupsForBoard(boardId) {
+    const bid = String(boardId || "");
+    const st = bingoReadSignupsStore();
+    const arr = st.byBoard[bid];
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function bingoSetSignupsForBoard(boardId, entries) {
+    const st = bingoReadSignupsStore();
+    st.byBoard[String(boardId || "")] = entries;
+    bingoWriteSignupsStore(st);
+  }
+
+  function bingoSignupNewId() {
+    return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+  }
+
+  function bingoSignupNormalizeName(raw) {
+    return String(raw || "")
+      .trim()
+      .slice(0, BINGO_SIGNUP_NAME_MAX);
+  }
+
+  function bingoTeamMembersAddLine(teamMembersArr, teamIndex, line) {
+    const t = teamMembersArr.slice();
+    const cur = String(t[teamIndex] || "");
+    const lines = cur.split(/\r?\n/);
+    const key = line.trim().toLowerCase();
+    if (!key) return t;
+    if (lines.some((ln) => ln.trim().toLowerCase() === key)) return t;
+    const next = cur ? cur.replace(/\s*$/, "") + "\n" + line.trim() : line.trim();
+    t[teamIndex] = next.slice(0, BINGO_TEAM_MEMBERS_MAX);
+    return t;
+  }
+
+  function bingoTeamMembersRemoveLine(teamMembersArr, teamIndex, line) {
+    const t = teamMembersArr.slice();
+    const key = line.trim().toLowerCase();
+    if (!key) return t;
+    const lines = String(t[teamIndex] || "").split(/\r?\n/);
+    t[teamIndex] = lines.filter((ln) => ln.trim().toLowerCase() !== key).join("\n").slice(0, BINGO_TEAM_MEMBERS_MAX);
+    return t;
+  }
+
+  /** Migrate legacy `onTeam` to `rosterTeamIdx`; returns true if the entry object was changed. */
+  function bingoMigrateSignupEntry(e) {
+    if (!e || typeof e !== "object") return false;
+    let dirty = false;
+    if (e.rosterTeamIdx === undefined) {
+      if (e.onTeam === true) e.rosterTeamIdx = 0;
+      else e.rosterTeamIdx = null;
+      dirty = true;
+    } else if (typeof e.rosterTeamIdx === "number" && !Number.isFinite(e.rosterTeamIdx)) {
+      e.rosterTeamIdx = null;
+      dirty = true;
+    }
+    if (e.onTeam !== undefined) {
+      delete e.onTeam;
+      dirty = true;
+    }
+    return dirty;
+  }
+
+  function bingoClampSignupRosterIdx(e, teamCount) {
+    const n = Math.max(0, Math.floor(teamCount) || 0);
+    if (e.rosterTeamIdx != null && (e.rosterTeamIdx < 0 || e.rosterTeamIdx >= n)) {
+      e.rosterTeamIdx = null;
+      return true;
+    }
+    return false;
+  }
+
+  /** Remove player from `from` roster slot and add to `to` (null = not on any team roster). */
+  function bingoSetPlayerOnTeamRoster(state, playerName, fromIdx, toIdx) {
+    const nt = normalizeBingoTeams(state);
+    const n = nt.teamCount;
+    const clamp = (i) =>
+      i != null && Number.isFinite(i) && Math.floor(i) === i && i >= 0 && i < n ? i : null;
+    const from = clamp(fromIdx);
+    const to = clamp(toIdx);
+    if (from === to) return { ...state, ...nt };
+    let teamMembers = nt.teamMembers.slice();
+    if (from != null) teamMembers = bingoTeamMembersRemoveLine(teamMembers, from, playerName);
+    if (to != null) teamMembers = bingoTeamMembersAddLine(teamMembers, to, playerName);
+    return { ...state, ...normalizeBingoTeams({ ...nt, teamMembers }) };
+  }
+
+  function bingoAddSignupEntry(boardId, rawName) {
+    const name = bingoSignupNormalizeName(rawName);
+    if (!name) return "Enter a name.";
+    const bid = String(boardId || "");
+    let entries = bingoGetSignupsForBoard(bid);
+    if (entries.some((e) => String(e.name || "").trim().toLowerCase() === name.toLowerCase())) {
+      return "That name is already on the sign-up list.";
+    }
+    entries = entries.concat([{ id: bingoSignupNewId(), name, rosterTeamIdx: null }]);
+    bingoSetSignupsForBoard(bid, entries);
+    return null;
+  }
+
+  /** After team count changes, drop roster assignments that no longer fit; persist sign-up store. */
+  function bingoClampSignupsToTeamCount(boardId, teamCount) {
+    const entries = bingoGetSignupsForBoard(boardId);
+    if (!entries.length) return;
+    let touched = false;
+    for (const e of entries) {
+      if (bingoMigrateSignupEntry(e)) touched = true;
+      if (bingoClampSignupRosterIdx(e, teamCount)) touched = true;
+    }
+    if (touched) bingoSetSignupsForBoard(boardId, entries);
+  }
+
+  /** Remove every sign-up for this board and strip those names from team rosters they were assigned to. */
+  function bingoClearAllSignupsForBoard(boardId) {
+    const bid = String(boardId || "");
+    const entries = bingoGetSignupsForBoard(bid);
+    if (!entries.length) return;
+    let st = readBingoState();
+    for (const e of entries) {
+      bingoMigrateSignupEntry(e);
+      const idx = e.rosterTeamIdx;
+      if (idx == null || !Number.isFinite(idx) || idx < 0) continue;
+      const nt = normalizeBingoTeams(st);
+      if (idx >= nt.teamCount) continue;
+      st = bingoSetPlayerOnTeamRoster(st, e.name, idx, null);
+    }
+    bingoSetSignupsForBoard(bid, []);
+    writeBingoState(st);
+  }
+
+  function bingoRenderTeamsSignups(state) {
+    const wrap = document.getElementById("bingo-teams-signups");
+    const list = document.getElementById("bingo-teams-signups-list");
+    const resetBtn = document.getElementById("bingo-teams-signups-reset");
+    if (!wrap || !list) return;
+    const boardId = String(state.boardId || "");
+    const entries = bingoGetSignupsForBoard(boardId);
+    const teamsMeta = normalizeBingoTeams(state);
+    const n = teamsMeta.teamCount;
+    let storeDirty = false;
+    entries.forEach((e) => {
+      if (bingoMigrateSignupEntry(e)) storeDirty = true;
+      if (bingoClampSignupRosterIdx(e, n)) storeDirty = true;
+    });
+    if (storeDirty) bingoSetSignupsForBoard(boardId, entries);
+    if (resetBtn) resetBtn.disabled = entries.length === 0;
+    if (!entries.length) {
+      list.innerHTML =
+        '<li class="bingo-teams-signups-empty muted">No sign-ups yet. Use <strong>Sign up</strong> on the board preview (before unlock) to add a name.</li>';
+      return;
+    }
+    list.innerHTML = entries
+      .map((e) => {
+        const safeName = bingoEscapeTextarea(e.name);
+        const idEsc = bingoEscapeAttr(e.id);
+        const ri = e.rosterTeamIdx;
+        const selVal = ri != null && ri >= 0 && ri < n ? String(ri) : "";
+        const disabled = n < 1 ? " disabled" : "";
+        const title = n >= 1 ? "" : ' title="Set number of teams above first."';
+        let optHtml = '<option value="">Not on a roster</option>';
+        for (let i = 0; i < n; i++) {
+          const sel = String(i) === selVal ? " selected" : "";
+          optHtml += `<option value="${i}"${sel}>Team ${i + 1}</option>`;
+        }
+        return `<li class="bingo-teams-signup-row">
+        <div class="bingo-teams-signup-row-inner"${title}>
+          <span class="bingo-teams-signup-name">${safeName}</span>
+          <select class="bingo-teams-signup-team-select bingo-dim-select" data-bingo-signup-id="${idEsc}" aria-label="${bingoEscapeAttr(e.name)} — assign to team"${disabled}>${optHtml}</select>
+        </div>
+      </li>`;
+      })
+      .join("");
+  }
+
+  function bindBingoSignupHandlers() {
+    const openBtn = document.getElementById("bingo-signup-open-btn");
+    const dlg = document.getElementById("bingo-signup-dialog");
+    const form = document.getElementById("bingo-signup-form");
+    const cancel = document.getElementById("bingo-signup-cancel");
+    const inp = document.getElementById("bingo-signup-name-input");
+    const signupsRoot = document.getElementById("bingo-teams-signups");
+    const resetSignupsBtn = document.getElementById("bingo-teams-signups-reset");
+
+    resetSignupsBtn?.addEventListener("click", () => {
+      const st = readBingoState();
+      const bid = String(st.boardId || "");
+      const n = bingoGetSignupsForBoard(bid).length;
+      if (!n) return;
+      if (
+        !window.confirm(
+          "Clear all bingo sign-ups for this board? Anyone assigned to a team via sign-up will be removed from those team member lists."
+        )
+      )
+        return;
+      bingoClearAllSignupsForBoard(bid);
+      const main = document.getElementById("bingo-access-main");
+      if (main && !main.hidden) renderBingoTeamsUi(readBingoState());
+      else bingoRenderTeamsSignups(readBingoState());
+      renderBingoPublicPreview(readBingoState());
+    });
+
+    openBtn?.addEventListener("click", () => {
+      if (inp) inp.value = "";
+      if (dlg && typeof dlg.showModal === "function") {
+        dlg.showModal();
+        queueMicrotask(() => inp?.focus());
+      } else {
+        const st = readBingoState();
+        const name = window.prompt("Enter your OSRS display name:", "");
+        if (name == null) return;
+        const err = bingoAddSignupEntry(st.boardId, name);
+        if (err) {
+          window.alert(err);
+          return;
+        }
+        renderBingoPublicPreview(readBingoState());
+        bingoRenderTeamsSignups(readBingoState());
+      }
+    });
+
+    cancel?.addEventListener("click", () => dlg?.close());
+
+    dlg?.addEventListener("click", (e) => {
+      if (e.target === dlg) dlg.close();
+    });
+
+    form?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const st = readBingoState();
+      const name = inp ? String(inp.value || "").trim() : "";
+      if (!name) {
+        window.alert("Please enter your OSRS name.");
+        return;
+      }
+      const err = bingoAddSignupEntry(st.boardId, name);
+      if (err) {
+        window.alert(err);
+        return;
+      }
+      dlg?.close();
+      renderBingoPublicPreview(readBingoState());
+      bingoRenderTeamsSignups(readBingoState());
+    });
+
+    signupsRoot?.addEventListener("change", (e) => {
+      const teamSel = e.target && e.target.closest && e.target.closest(".bingo-teams-signup-team-select");
+      if (!teamSel || teamSel.disabled) return;
+      const sid = teamSel.getAttribute("data-bingo-signup-id");
+      if (!sid) return;
+      const st = readBingoState();
+      const nt = normalizeBingoTeams(st);
+      const boardId = String(st.boardId || "");
+      const entries = bingoGetSignupsForBoard(boardId);
+      const entry = entries.find((x) => String(x.id) === sid);
+      if (!entry) return;
+      bingoMigrateSignupEntry(entry);
+      const raw = String(teamSel.value || "");
+      const newIdx = raw === "" ? null : parseInt(raw, 10);
+      const nextIdx = raw !== "" && Number.isFinite(newIdx) && newIdx >= 0 && newIdx < nt.teamCount ? newIdx : null;
+      const oldIdx = entry.rosterTeamIdx != null ? entry.rosterTeamIdx : null;
+      if (oldIdx === nextIdx) return;
+      if (nextIdx != null && nt.teamCount < 1) {
+        teamSel.value = "";
+        entry.rosterTeamIdx = null;
+        bingoSetSignupsForBoard(boardId, entries);
+        window.alert("Add at least one team before assigning sign-ups.");
+        return;
+      }
+      const newState = bingoSetPlayerOnTeamRoster(st, entry.name, oldIdx, nextIdx);
+      entry.rosterTeamIdx = nextIdx;
+      bingoSetSignupsForBoard(boardId, entries);
+      writeBingoState(newState);
+      const main = document.getElementById("bingo-access-main");
+      if (main && !main.hidden) renderBingoTeamsUi(readBingoState());
+      else bingoRenderTeamsSignups(readBingoState());
+      renderBingoPublicPreview(readBingoState());
+    });
+  }
+
+  function renderBingoPublicPreview(state) {
+    const nameEl = document.getElementById("bingo-public-board-name");
+    const emptyEl = document.getElementById("bingo-public-empty");
+    const grid = document.getElementById("bingo-public-grid");
+    const teamsWrap = document.getElementById("bingo-public-teams");
+    const teamsList = document.getElementById("bingo-public-teams-list");
+    if (!grid) return;
+
+    const title = String(state.title || "").trim();
+    if (nameEl) nameEl.textContent = title || "Untitled board";
+
+    const statusWrap = document.getElementById("bingo-public-board-status-wrap");
+    const statusBadge = document.getElementById("bingo-public-board-status");
+    const bs = normalizeBingoBoardStatus(state.boardStatus);
+
+    const tiles = state.tiles || [];
+    const rows = bingoClampDim(state.rows);
+    const cols = bingoClampDim(state.cols);
+    const total = rows * cols;
+    const teamsMeta = normalizeBingoTeams(state);
+    const teamTileDoneMap = bingoNormalizeTeamTileDone(state, tiles, teamsMeta.teamCount);
+
+    const anyTile = tiles.slice(0, total).some((t) => bingoPublicTileHasDisplayContent(t));
+    const hasBoard = !!title || anyTile || teamsMeta.teamCount > 0;
+    if (emptyEl) emptyEl.hidden = hasBoard;
+    if (statusWrap && statusBadge) {
+      statusWrap.hidden = !hasBoard;
+      statusBadge.textContent = BINGO_BOARD_STATUS_LABELS[bs];
+      statusBadge.className = "bingo-public-board-status bingo-public-board-status--" + bs;
+    }
+
+    grid.dataset.bingoRows = String(rows);
+    grid.dataset.bingoCols = String(cols);
+    grid.classList.toggle("bingo-grid--many", total > 36);
+    grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+    let html = "";
+    for (let i = 0; i < total; i++) {
+      const t = tiles[i] || normalizeBingoTile({}, Math.floor(i / cols), i % cols);
+      const tint = BINGO_TINTS.includes(t.tint) ? t.tint : "neutral";
+      const done = !!t.done;
+      const safeImg = bingoSanitizeImageUrl(t.imageUrl);
+      const thumb = safeImg
+        ? `<div class="bingo-pub-thumb-wrap"><img class="bingo-pub-thumb" src="${bingoEscapeAttr(safeImg)}" alt="" loading="lazy" /></div>`
+        : "";
+      const taskRaw = String(t.text || "").trim();
+      const task = taskRaw
+        ? `<p class="bingo-pub-task">${bingoEscapeTextarea(taskRaw)}</p>`
+        : `<p class="bingo-pub-task bingo-pub-task--placeholder">Empty tile</p>`;
+      const parts = [];
+      const itemLine = bingoFormatItemsForDisplay(t.item);
+      if (itemLine) {
+        parts.push(`<span><strong>Items</strong> ${bingoEscapeTextarea(itemLine)}</span>`);
+      }
+      if (String(t.boss || "").trim()) {
+        parts.push(`<span><strong>Source</strong> ${bingoEscapeTextarea(String(t.boss).trim())}</span>`);
+      }
+      const notesTrim = String(t.notes || "").trim();
+      if (notesTrim) {
+        parts.push(`<span><strong>Notes</strong> ${bingoEscapeTextarea(notesTrim)}</span>`);
+      }
+      const meta = parts.length > 0 ? `<p class="bingo-pub-meta">${parts.join(" · ")}</p>` : "";
+      const hasItemsForTeams = String(t.item || "").trim().length > 0;
+      let teamItemsBlock = "";
+      if (hasItemsForTeams && teamsMeta.teamCount > 0) {
+        const arr = teamTileDoneMap[t.id] || [];
+        let gotBtns = "";
+        for (let ti = 0; ti < teamsMeta.teamCount; ti++) {
+          const got = !!arr[ti];
+          gotBtns += `<button type="button" class="bingo-pub-team-got${got ? " bingo-pub-team-got--on" : ""}" data-bingo-tile="${bingoEscapeAttr(t.id)}" data-bingo-team="${ti}" aria-pressed="${got ? "true" : "false"}" title="Team ${ti + 1} has these items">T${ti + 1}</button>`;
+        }
+        teamItemsBlock = `<div class="bingo-pub-team-items" role="group" aria-label="Which teams have these items for ${bingoEscapeAttr(t.id)}">
+          <span class="bingo-pub-team-items-label">Teams with items</span>
+          <div class="bingo-pub-team-got-row">${gotBtns}</div>
+        </div>`;
+      }
+      html += `<article class="bingo-pub-tile bingo-pub-tile--${tint}${done ? " bingo-pub-tile--done" : ""}" aria-label="Tile ${bingoEscapeAttr(t.id)}">
+        <div class="bingo-pub-head">
+          <span class="bingo-pub-id">${bingoEscapeAttr(t.id)}</span>
+          <span class="bingo-pub-done" aria-hidden="true">${done ? "✓" : ""}</span>
+        </div>
+        ${thumb}
+        ${task}
+        ${meta}
+        ${teamItemsBlock}
+      </article>`;
+    }
+    grid.innerHTML = html;
+
+    if (teamsWrap && teamsList) {
+      if (teamsMeta.teamCount > 0) {
+        teamsWrap.hidden = false;
+        let tHtml = "";
+        for (let ti = 0; ti < teamsMeta.teamCount; ti++) {
+          const nm = String(teamsMeta.teamNames[ti] || "").trim();
+          const cap = String(teamsMeta.teamCaptains[ti] || "").trim();
+          const memRaw = String(teamsMeta.teamMembers[ti] || "");
+          const memLines = memRaw
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const nameLine = nm
+            ? `<span class="bingo-pub-team-name">${bingoEscapeTextarea(nm)}</span>`
+            : `<span class="bingo-pub-team-name bingo-pub-team-name--placeholder muted">(unnamed)</span>`;
+          const captainBlock = cap
+            ? `<p class="bingo-pub-team-captain"><strong>Captain</strong> ${bingoEscapeTextarea(cap)}</p>`
+            : "";
+          const membersBlock = memLines.length
+            ? `<ul class="bingo-pub-team-members">${memLines
+                .map((m) => `<li>${bingoEscapeTextarea(m)}</li>`)
+                .join("")}</ul>`
+            : `<p class="bingo-pub-team-members-empty muted">No members listed yet.</p>`;
+          tHtml += `<li class="bingo-pub-team-card">
+            <div class="bingo-pub-team-card-head">
+              <span class="bingo-pub-team-num">Team ${ti + 1}</span>
+              ${nameLine}
+            </div>
+            ${captainBlock}
+            <p class="bingo-pub-team-members-label">Members</p>
+            ${membersBlock}
+          </li>`;
+        }
+        teamsList.innerHTML = tHtml;
+      } else {
+        teamsWrap.hidden = true;
+        teamsList.innerHTML = "";
+      }
+    }
+  }
+
+  function bingoShowDesignerUnlocked() {
+    const gate = document.getElementById("bingo-access-gate");
+    const main = document.getElementById("bingo-access-main");
+    const pub = document.getElementById("bingo-public-preview");
+    if (gate) gate.hidden = true;
+    if (main) main.hidden = false;
+    if (pub) pub.hidden = true;
+    renderBingoGridFromState(readBingoState());
+  }
+
+  function bingoShowDesignerLocked() {
+    const gate = document.getElementById("bingo-access-gate");
+    const main = document.getElementById("bingo-access-main");
+    const editGrid = document.getElementById("bingo-grid");
+    const pub = document.getElementById("bingo-public-preview");
+    if (gate) gate.hidden = false;
+    if (main) main.hidden = true;
+    if (editGrid) editGrid.innerHTML = "";
+    if (pub) pub.hidden = false;
+    renderBingoPublicPreview(readBingoState());
+  }
+
+  async function bingoRefreshAccessGate() {
+    const gate = document.getElementById("bingo-access-gate");
+    const main = document.getElementById("bingo-access-main");
+    const grid = document.getElementById("bingo-grid");
+    const st = document.getElementById("bingo-unlock-status");
+    const pub = document.getElementById("bingo-public-preview");
+    if (!gate || !main) {
+      if (pub) pub.hidden = true;
+      if (grid) renderBingoGridFromState(readBingoState());
+      return true;
+    }
+
+    try {
+      const r = await fetch("/api/event-session", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+
+      if (r.status === 503) {
+        if (st) {
+          st.textContent =
+            j.error || "CLAN_EVENTS_SECRET is not configured on the server (min 6 characters).";
+          st.classList.add("load-error");
+          st.classList.remove("muted");
+        }
+        bingoShowDesignerLocked();
+        return false;
+      }
+
+      if (st) {
+        st.textContent = "";
+        st.classList.remove("load-error");
+        st.classList.add("muted");
+      }
+
+      if (j.sessionToken) {
+        try {
+          sessionStorage.setItem(EVENT_SESSION_STORAGE_KEY, j.sessionToken);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (j.unlocked) {
+        bingoShowDesignerUnlocked();
+        return true;
+      }
+    } catch {
+      if (st) {
+        st.textContent =
+          "Could not reach the site server. Use npm start or your live URL (not a local file) and try again.";
+        st.classList.add("load-error");
+        st.classList.remove("muted");
+      }
+    }
+
+    bingoShowDesignerLocked();
+    return false;
+  }
+
+  function fillBingoDimSelectsOnce() {
+    if (bingoDimsFilled) return;
+    bingoDimsFilled = true;
+    const rowsSel = document.getElementById("bingo-rows");
+    const colsSel = document.getElementById("bingo-cols");
+    if (!rowsSel || !colsSel) return;
+    for (let n = BINGO_MIN_DIM; n <= BINGO_MAX_DIM; n++) {
+      const optR = document.createElement("option");
+      optR.value = String(n);
+      optR.textContent = String(n);
+      rowsSel.appendChild(optR);
+      const optC = document.createElement("option");
+      optC.value = String(n);
+      optC.textContent = String(n);
+      colsSel.appendChild(optC);
+    }
+  }
+
+  function bingoBindPublicPreviewGridOnce() {
+    if (bingoPublicPreviewGridBound) return;
+    const pubGrid = document.getElementById("bingo-public-grid");
+    if (!pubGrid) return;
+    bingoPublicPreviewGridBound = true;
+    pubGrid.addEventListener("click", (e) => {
+      const btn = e.target.closest(".bingo-pub-team-got");
+      if (!btn) return;
+      const tileId = btn.getAttribute("data-bingo-tile");
+      const teamIdx = parseInt(btn.getAttribute("data-bingo-team"), 10);
+      if (tileId == null || tileId === "" || Number.isNaN(teamIdx)) return;
+      let st = readBingoState();
+      const nt = normalizeBingoTeams(st);
+      if (teamIdx < 0 || teamIdx >= nt.teamCount) return;
+      st.teamTileDone = bingoNormalizeTeamTileDone({ teamTileDone: st.teamTileDone }, st.tiles, nt.teamCount);
+      const arr = (st.teamTileDone[tileId] && st.teamTileDone[tileId].slice()) || [];
+      while (arr.length < nt.teamCount) arr.push(false);
+      if (arr.length > nt.teamCount) arr.length = nt.teamCount;
+      arr[teamIdx] = !arr[teamIdx];
+      st.teamTileDone[tileId] = arr;
+      writeBingoState(st);
+      renderBingoPublicPreview(st);
+    });
+  }
+
+  function bindBingoPageOnce() {
+    if (bingoBindingsDone) return;
+    bingoBindingsDone = true;
+    bindBingoSignupHandlers();
+    bingoBindPublicPreviewGridOnce();
+    const grid = document.getElementById("bingo-grid");
+    if (!grid) return;
+
+    void startBingoOsrsItemsFetch().then(() => {
+      const v = document.getElementById("bingo-view");
+      const main = document.getElementById("bingo-access-main");
+      if (v && !v.hidden && main && !main.hidden && grid.querySelector(".bingo-tile")) {
+        renderBingoGridFromState(readBingoState());
+      }
+    });
+
+    grid.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t && t.classList && t.classList.contains("bingo-tile-image-url")) {
+        const tile = t.closest(".bingo-tile");
+        if (tile) bingoRefreshTilePreview(tile, t.value);
+      }
+      scheduleBingoSave();
+    });
+
+    grid.addEventListener("change", (e) => {
+      const sel = e.target && e.target.closest && e.target.closest(".bingo-tile-tint");
+      if (sel) {
+        const tile = sel.closest(".bingo-tile");
+        if (tile) {
+          tile.classList.remove("bingo-tile--neutral", "bingo-tile--easy", "bingo-tile--mass", "bingo-tile--hard");
+          const v = BINGO_TINTS.includes(sel.value) ? sel.value : "neutral";
+          tile.classList.add(`bingo-tile--${v}`);
+        }
+      }
+      scheduleBingoSave();
+    });
+
+    grid.addEventListener("click", (e) => {
+      const up = e.target.closest("[data-bingo-upload]");
+      if (up) {
+        const idx = parseInt(up.getAttribute("data-bingo-upload"), 10);
+        if (!Number.isNaN(idx)) {
+          bingoImageTargetIndex = idx;
+          document.getElementById("bingo-tile-image-file")?.click();
+        }
+        return;
+      }
+      const clr = e.target.closest("[data-bingo-clear-img]");
+      if (clr) {
+        const idx = parseInt(clr.getAttribute("data-bingo-clear-img"), 10);
+        const tile = grid.querySelector(`.bingo-tile[data-bingo-index="${idx}"]`);
+        if (tile) {
+          const inp = tile.querySelector(".bingo-tile-image-url");
+          if (inp) inp.value = "";
+          bingoRefreshTilePreview(tile, "");
+          scheduleBingoSave();
+        }
+        return;
+      }
+      const btn = e.target.closest(".bingo-tile-toggle");
+      if (!btn) return;
+      const tile = btn.closest(".bingo-tile");
+      const pressed = btn.getAttribute("aria-pressed") === "true";
+      const next = !pressed;
+      btn.setAttribute("aria-pressed", next ? "true" : "false");
+      btn.textContent = next ? "✓" : "○";
+      if (tile) tile.classList.toggle("bingo-tile--done", next);
+      scheduleBingoSave();
+      bingoUpdateProgress();
+    });
+
+    document.getElementById("bingo-board-title")?.addEventListener("input", () => scheduleBingoSave());
+
+    document.getElementById("bingo-board-status")?.addEventListener("change", () => scheduleBingoSave());
+
+    document.getElementById("bingo-team-count")?.addEventListener("change", () => {
+      const s0 = readBingoState();
+      const sel = document.getElementById("bingo-team-count");
+      const newN = Math.min(BINGO_TEAM_COUNT_MAX, Math.max(0, parseInt(String(sel && sel.value != null ? sel.value : "0"), 10) || 0));
+      const scraped = scrapeBingoTeamColumnsFromDom();
+      let merged = normalizeBingoTeams(
+        scraped
+          ? {
+              teamCount: newN,
+              teamNames: scraped.teamNames,
+              teamCaptains: scraped.teamCaptains,
+              teamMembers: scraped.teamMembers,
+            }
+          : { teamCount: newN }
+      );
+      bingoClampSignupsToTeamCount(s0.boardId, merged.teamCount);
+      renderBingoTeamColumns(merged);
+      bingoRenderTeamsSignups({ ...s0, ...merged });
+      scheduleBingoSave();
+    });
+
+    document.getElementById("bingo-team-names")?.addEventListener("input", (e) => {
+      const t = e.target;
+      if (
+        t &&
+        t.classList &&
+        (t.classList.contains("bingo-team-name-input") ||
+          t.classList.contains("bingo-team-captain-input") ||
+          t.classList.contains("bingo-team-members-textarea"))
+      ) {
+        scheduleBingoSave();
+      }
+    });
+
+    document.getElementById("bingo-apply-dims")?.addEventListener("click", () => {
+      const rowsSel = document.getElementById("bingo-rows");
+      const colsSel = document.getElementById("bingo-cols");
+      const newRows = bingoClampDim(rowsSel && rowsSel.value);
+      const newCols = bingoClampDim(colsSel && colsSel.value);
+      let state = collectBingoFromDom();
+      const oldN = state.rows * state.cols;
+      const newN = newRows * newCols;
+      if (newN < oldN) {
+        if (
+          !window.confirm(
+            `Shrink to ${newRows}×${newCols}? ${oldN - newN} tile(s) at the bottom-right will be removed.`
+          )
+        )
+          return;
+      }
+      state = resizeBingoState(state, newRows, newCols);
+      writeBingoState(state);
+      renderBingoGridFromState(state);
+    });
+
+    document.getElementById("bingo-copy-id")?.addEventListener("click", async () => {
+      const idEl = document.getElementById("bingo-board-id");
+      const t = idEl ? idEl.textContent.trim() : "";
+      if (!t || t === "—") return;
+      try {
+        await navigator.clipboard.writeText(t);
+      } catch {
+        try {
+          idEl.focus();
+          document.execCommand("selectAll");
+          document.execCommand("copy");
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    document.getElementById("bingo-exit-designer")?.addEventListener("click", async () => {
+      try {
+        await fetch("/api/event-session", { method: "DELETE", credentials: "include" });
+      } catch {
+        /* offline or old server without DELETE */
+      }
+      try {
+        sessionStorage.removeItem(EVENT_SESSION_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      const st = document.getElementById("bingo-unlock-status");
+      if (st) {
+        st.textContent = "";
+        st.classList.remove("load-error");
+        st.classList.add("muted");
+      }
+      bingoShowDesignerLocked();
+    });
+
+    document.getElementById("bingo-clear-done")?.addEventListener("click", () => {
+      grid.querySelectorAll(".bingo-tile-toggle").forEach((b) => {
+        b.setAttribute("aria-pressed", "false");
+        b.textContent = "○";
+        const t = b.closest(".bingo-tile");
+        if (t) t.classList.remove("bingo-tile--done");
+      });
+      scheduleBingoSave();
+      bingoUpdateProgress();
+    });
+
+    document.getElementById("bingo-reset-board")?.addEventListener("click", () => {
+      if (
+        !window.confirm(
+          "Reset to a fresh 5×5 board? Tile text and images are cleared. Your board ID stays the same for plugin sync."
+        )
+      )
+        return;
+      const id = readBingoState().boardId;
+      const fresh = defaultBingoState();
+      fresh.boardId = id;
+      writeBingoState(fresh);
+      renderBingoGridFromState(fresh);
+    });
+
+    document.getElementById("bingo-export")?.addEventListener("click", () => {
+      const main = document.getElementById("bingo-access-main");
+      if (main && main.hidden) {
+        window.alert("Unlock the bingo designer with the clan events secret first.");
+        return;
+      }
+      const data = collectBingoFromDom();
+      const slug = (data.title || "board")
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 48);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `terpinheimer-bingo-${slug || "board"}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    const fileInput = document.getElementById("bingo-import-file");
+    document.getElementById("bingo-import-btn")?.addEventListener("click", () => fileInput && fileInput.click());
+
+    fileInput?.addEventListener("change", () => {
+      const main = document.getElementById("bingo-access-main");
+      if (main && main.hidden) {
+        fileInput.value = "";
+        window.alert("Unlock the bingo designer with the clan events secret first.");
+        return;
+      }
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const o = JSON.parse(String(reader.result || ""));
+          let state = null;
+          if (o.v === 1 && Array.isArray(o.tiles) && o.tiles.length === 25) state = migrateBingoV1ToV2(o);
+          else if (o.v === 2 && Array.isArray(o.tiles)) {
+            const rows = bingoClampDim(o.rows);
+            const cols = bingoClampDim(o.cols);
+            if (o.tiles.length !== rows * cols) {
+              window.alert("Invalid file: rows×columns must match number of tiles.");
+              fileInput.value = "";
+              return;
+            }
+            let idx = 0;
+            const tiles = [];
+            for (let r = 0; r < rows; r++) {
+              for (let c = 0; c < cols; c++) {
+                tiles.push(normalizeBingoTile(o.tiles[idx] || {}, r, c));
+                idx++;
+              }
+            }
+            const teamsImp = normalizeBingoTeams(o);
+            state = {
+              v: 2,
+              boardId: typeof o.boardId === "string" && o.boardId.length >= 6 ? o.boardId : bingoNewBoardId(),
+              title: typeof o.title === "string" ? o.title.slice(0, 120) : "",
+              boardStatus: normalizeBingoBoardStatus(o.boardStatus),
+              rows,
+              cols,
+              tiles,
+              ...teamsImp,
+              teamTileDone: bingoNormalizeTeamTileDone(o, tiles, teamsImp.teamCount),
+            };
+          }
+          if (!state) {
+            window.alert("Invalid bingo file. Expected version 2 (or legacy version 1 with 25 tiles).");
+            fileInput.value = "";
+            return;
+          }
+          writeBingoState(state);
+          renderBingoGridFromState(state);
+        } catch {
+          window.alert("Could not read that JSON file.");
+        }
+        fileInput.value = "";
+      };
+      reader.readAsText(f);
+    });
+
+    const imgFile = document.getElementById("bingo-tile-image-file");
+    imgFile?.addEventListener("change", () => {
+      const f = imgFile.files && imgFile.files[0];
+      imgFile.value = "";
+      if (f == null || bingoImageTargetIndex == null) return;
+      const idx = bingoImageTargetIndex;
+      bingoImageTargetIndex = null;
+      if (!f.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let dataUrl = String(reader.result || "");
+        const apply = (url) => {
+          const tile = grid.querySelector(`.bingo-tile[data-bingo-index="${idx}"]`);
+          if (!tile) return;
+          const inp = tile.querySelector(".bingo-tile-image-url");
+          if (inp) inp.value = url;
+          bingoRefreshTilePreview(tile, url);
+          scheduleBingoSave();
+        };
+        if (dataUrl.length <= BINGO_MAX_IMAGE_CHARS) {
+          apply(dataUrl);
+          return;
+        }
+        bingoShrinkDataUrl(dataUrl, BINGO_MAX_IMAGE_CHARS, (small) => {
+          if (small) apply(small);
+          else
+            window.alert(
+              "Image is too large even after shrinking. Try a smaller file or host it online and paste the URL."
+            );
+        });
+      };
+      reader.readAsDataURL(f);
+    });
+
+    window.TerpinheimerBingo = {
+      getState() {
+        const v = document.getElementById("bingo-view");
+        const main = document.getElementById("bingo-access-main");
+        if (v && !v.hidden && main && !main.hidden) return collectBingoFromDom();
+        return readBingoState();
+      },
+      getStateJson() {
+        return JSON.stringify(window.TerpinheimerBingo.getState());
+      },
+      saveState(state) {
+        const main = document.getElementById("bingo-access-main");
+        if (main && main.hidden) return false;
+        if (!state || state.v !== 2 || !Array.isArray(state.tiles)) return false;
+        const rows = bingoClampDim(state.rows);
+        const cols = bingoClampDim(state.cols);
+        if (state.tiles.length !== rows * cols) return false;
+        const teamsSv = normalizeBingoTeams(state);
+        writeBingoState({
+          ...state,
+          boardStatus: normalizeBingoBoardStatus(state.boardStatus),
+          ...teamsSv,
+          teamTileDone: bingoNormalizeTeamTileDone(state, state.tiles, teamsSv.teamCount),
+        });
+        const v = document.getElementById("bingo-view");
+        if (v && !v.hidden && main && !main.hidden) renderBingoGridFromState(readBingoState());
+        return true;
+      },
+      reloadFromStorage() {
+        const main = document.getElementById("bingo-access-main");
+        if (main && main.hidden) {
+          renderBingoPublicPreview(readBingoState());
+          return;
+        }
+        renderBingoGridFromState(readBingoState());
+      },
+    };
+
+    document.getElementById("bingo-unlock-btn")?.addEventListener("click", async () => {
+      const inp = document.getElementById("bingo-unlock-code");
+      const st = document.getElementById("bingo-unlock-status");
+      const code = String(inp?.value || "").trim();
+      if (code.length < MIN_ORGANIZER_CODE_LEN) {
+        if (st) {
+          st.textContent = `Enter the secret (at least ${MIN_ORGANIZER_CODE_LEN} characters).`;
+          st.classList.add("load-error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (st) {
+        st.textContent = "";
+        st.classList.remove("load-error");
+        st.classList.add("muted");
+      }
+      try {
+        const r = await fetch("/api/event-session", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ secret: code }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (st) {
+            let msg = j.error || "Invalid code.";
+            if (r.status === 503 && String(msg).includes("CLAN_EVENTS_SECRET")) {
+              msg +=
+                " Set CLAN_EVENTS_SECRET on the server (e.g. Render → Environment → CLAN_EVENTS_SECRET).";
+            }
+            st.textContent = msg;
+            st.classList.add("load-error");
+            st.classList.remove("muted");
+          }
+          return;
+        }
+        if (inp) inp.value = "";
+        if (j.sessionToken) {
+          try {
+            sessionStorage.setItem(EVENT_SESSION_STORAGE_KEY, j.sessionToken);
+          } catch {
+            /* ignore */
+          }
+        }
+        if (st) {
+          st.textContent = "Unlocked — same session as Events (cookie + optional session token).";
+          st.classList.remove("load-error");
+          st.classList.add("muted");
+        }
+        bingoShowDesignerUnlocked();
+      } catch {
+        if (st) {
+          st.textContent = "Could not reach the server.";
+          st.classList.add("load-error");
+          st.classList.remove("muted");
+        }
+      }
+    });
+  }
+
+  function showBingoView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (bingov) bingov.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Bingo | Terpinheimer";
+    fillBingoDimSelectsOnce();
+    bindBingoPageOnce();
+    void bingoRefreshAccessGate();
+  }
+
 
   function applyRoute() {
     const raw = window.location.hash ? window.location.hash.slice(1) : "/";
@@ -1105,6 +2806,11 @@
       return;
     }
 
+    if (path === "/bingo") {
+      showBingoView();
+      return;
+    }
+
     if (path === "/map") {
       showMapView();
       return;
@@ -1128,39 +2834,37 @@
   }
 
   async function womGet(path) {
-    return womWithThrottle(async () => {
-      const base = womFetchBase();
-      const maxAttempts = 3;
-      let lastErr;
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const wait = womRetryDelay(attempt);
-        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-        try {
-          const r = await fetch(`${base}${path}`, {
-            headers: { Accept: "application/json" },
-          });
-          if (!r.ok) {
-            const st = r.status;
-            lastErr = new Error(`${path}: ${st}`);
-            if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
-            throw lastErr;
-          }
-          return r.json();
-        } catch (e) {
-          lastErr = e;
-          const msg = e && typeof e.message === "string" ? e.message : "";
-          const http = msg.match(/: (\d{3})$/);
-          if (http) {
-            const st = Number(http[1]);
-            if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
-          } else if (attempt < maxAttempts - 1) {
-            continue;
-          }
+    const base = womFetchBase();
+    const maxAttempts = 3;
+    let lastErr;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const wait = womRetryDelay(attempt);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      try {
+        const r = await fetch(`${base}${path}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!r.ok) {
+          const st = r.status;
+          lastErr = new Error(`${path}: ${st}`);
+          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
           throw lastErr;
         }
+        return r.json();
+      } catch (e) {
+        lastErr = e;
+        const msg = e && typeof e.message === "string" ? e.message : "";
+        const http = msg.match(/: (\d{3})$/);
+        if (http) {
+          const st = Number(http[1]);
+          if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
+        } else if (attempt < maxAttempts - 1) {
+          continue;
+        }
+        throw lastErr;
       }
-      throw lastErr;
-    });
+    }
+    throw lastErr;
   }
 
   /** Sum every roster member's delta for a metric/period (WOM gained has no max limit; paginate by offset). */
@@ -1221,7 +2925,7 @@
   /** Sum kill counts for every boss WOM tracks, across the full roster (paginated hiscores per boss). */
   async function womGetClanTotalBossKills() {
     let total = 0;
-    const batchSize = 2;
+    const batchSize = 12;
     for (let i = 0; i < WOM_BOSS_METRICS.length; i += batchSize) {
       const batch = WOM_BOSS_METRICS.slice(i, i + batchSize);
       const parts = await Promise.all(
@@ -1448,21 +3152,71 @@
     grid.innerHTML = html;
   }
 
-  async function applyHomeBundle(bundle, customEventsPromise) {
+  async function load() {
+    const customEventsPromise = fetch("/api/custom-events", { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) return [];
+        try {
+          const j = await r.json();
+          return Array.isArray(j) ? j : [];
+        } catch {
+          return [];
+        }
+      })
+      .catch(() => []);
+
+    const paths = {
+      group: `/groups/${WOM_GROUP_ID}`,
+      hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
+      achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
+      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
+    };
+
+    const results = await Promise.allSettled([
+      womGet(paths.group),
+      womGetAllGroupGained("overall"),
+      womGet(paths.hiscores),
+      womGetAllGroupGained("collections_logged"),
+      womGetAllGroupHiscores("clue_scrolls_all"),
+      womGetAllGroupHiscores("collections_logged"),
+      womGetClanTotalBossKills(),
+      womGet(paths.achievements),
+      womGet(paths.competitions),
+    ]);
+
     const errEl = document.getElementById("load-error");
+    const group = results[0].status === "fulfilled" ? results[0].value : null;
+    if (!group) {
+      cachedMemberships = [];
+      cachedCompetitions = [];
+      const membersMeta = document.getElementById("members-list-meta");
+      if (membersMeta) membersMeta.textContent = "Could not load roster from Wise Old Man.";
+      renderMembersListIfVisible();
+      if (errEl) {
+        errEl.hidden = false;
+        errEl.textContent =
+          results[0].status === "rejected"
+            ? womLoadErrorHint(results[0].reason)
+            : "Could not load group.";
+      }
+      const customEvents = await customEventsPromise;
+      refreshEventCache([], customEvents);
+      await refreshHomeLiveMapPresence();
+      startHomeLiveMapPoll();
+      return;
+    }
+
     if (errEl) errEl.hidden = true;
 
-    const {
-      group,
-      gainedXp,
-      hiscores,
-      gainedColl,
-      clueHiscores,
-      collectionsHiscores,
-      clanBossKills,
-      achievements,
-      competitions,
-    } = bundle;
+    const gainedXp = results[1].status === "fulfilled" ? unwrapList(results[1].value) : [];
+    const hiscores = results[2].status === "fulfilled" ? unwrapList(results[2].value) : [];
+    const gainedColl = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
+    const clueHiscores = results[4].status === "fulfilled" ? results[4].value : [];
+    const collectionsHiscores = results[5].status === "fulfilled" ? results[5].value : [];
+    const clanBossKills =
+      results[6].status === "fulfilled" && typeof results[6].value === "number" ? results[6].value : 0;
+    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
+    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
 
     const memberships = group.memberships || [];
     cachedMemberships = memberships;
@@ -1567,110 +3321,6 @@
 
     await refreshHomeLiveMapPresence();
     startHomeLiveMapPoll();
-  }
-
-  async function load() {
-    const customEventsPromise = fetch("/api/custom-events", { credentials: "include" })
-      .then(async (r) => {
-        if (!r.ok) return [];
-        try {
-          const j = await r.json();
-          return Array.isArray(j) ? j : [];
-        } catch {
-          return [];
-        }
-      })
-      .catch(() => []);
-
-    const errEl = document.getElementById("load-error");
-    const staleBundle = readWomHomeCache();
-    let paintedFromCache = false;
-    if (staleBundle) {
-      paintedFromCache = true;
-      await applyHomeBundle(staleBundle, customEventsPromise);
-    }
-
-    const paths = {
-      group: `/groups/${WOM_GROUP_ID}`,
-      hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
-      achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
-      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
-    };
-
-    const results = await Promise.allSettled([
-      womGet(paths.group),
-      womGetAllGroupGained("overall"),
-      womGet(paths.hiscores),
-      womGetAllGroupGained("collections_logged"),
-      womGetAllGroupHiscores("clue_scrolls_all"),
-      womGetAllGroupHiscores("collections_logged"),
-      womGetClanTotalBossKills(),
-      womGet(paths.achievements),
-      womGet(paths.competitions),
-    ]);
-
-    const group = results[0].status === "fulfilled" ? results[0].value : null;
-    if (!group) {
-      if (!paintedFromCache) {
-        cachedMemberships = [];
-        cachedCompetitions = [];
-        const membersMeta = document.getElementById("members-list-meta");
-        if (membersMeta) membersMeta.textContent = "Could not load roster from Wise Old Man.";
-        renderMembersListIfVisible();
-        if (errEl) {
-          errEl.hidden = false;
-          errEl.textContent =
-            results[0].status === "rejected"
-              ? womLoadErrorHint(results[0].reason)
-              : "Could not load group.";
-        }
-        const customEvents = await customEventsPromise;
-        refreshEventCache([], customEvents);
-      } else {
-        const customEvents = await customEventsPromise;
-        refreshEventCache(staleBundle.competitions || [], customEvents);
-      }
-      await refreshHomeLiveMapPresence();
-      startHomeLiveMapPoll();
-      return;
-    }
-
-    const gainedXp = results[1].status === "fulfilled" ? unwrapList(results[1].value) : [];
-    const hiscores = results[2].status === "fulfilled" ? unwrapList(results[2].value) : [];
-    const gainedColl = results[3].status === "fulfilled" ? unwrapList(results[3].value) : [];
-    const clueHiscores = results[4].status === "fulfilled" ? results[4].value : [];
-    const collectionsHiscores = results[5].status === "fulfilled" ? results[5].value : [];
-    const clanBossKills =
-      results[6].status === "fulfilled" && typeof results[6].value === "number" ? results[6].value : 0;
-    const achievements = results[7].status === "fulfilled" ? unwrapList(results[7].value) : [];
-    const competitions = results[8].status === "fulfilled" ? unwrapList(results[8].value) : [];
-
-    writeWomHomeCache({
-      group,
-      gainedXp,
-      hiscores,
-      gainedColl,
-      clueHiscores,
-      collectionsHiscores,
-      clanBossKills,
-      achievements,
-      competitions,
-    });
-
-    await applyHomeBundle(
-      {
-        group,
-        gainedXp,
-        hiscores,
-        gainedColl,
-        clueHiscores,
-        collectionsHiscores,
-        clanBossKills,
-        achievements,
-        competitions,
-      },
-      customEventsPromise
-    );
   }
 
   const toggle = document.querySelector(".nav-toggle");
@@ -2128,11 +3778,13 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
@@ -2149,12 +3801,14 @@
     const listv = document.getElementById("members-list-view");
     const evw = document.getElementById("events-view");
     const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = false;
     document.body.classList.add("map-route-live");
     window.scrollTo(0, 0);
