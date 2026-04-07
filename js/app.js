@@ -2250,7 +2250,13 @@
     const grid = document.getElementById("bingo-grid");
     const st = document.getElementById("bingo-unlock-status");
     const pub = document.getElementById("bingo-public-preview");
+    const openRow = document.getElementById("bingo-session-open-row");
+    const setOpenDesignerOffer = (on) => {
+      if (openRow) openRow.hidden = !on;
+    };
+
     if (!gate || !main) {
+      setOpenDesignerOffer(false);
       if (pub) pub.hidden = true;
       if (grid) renderBingoGridFromState(readBingoState());
       return true;
@@ -2268,6 +2274,7 @@
           st.classList.remove("muted");
         }
         bingoShowDesignerLocked();
+        setOpenDesignerOffer(false);
         return false;
       }
 
@@ -2285,10 +2292,9 @@
         }
       }
 
-      if (j.unlocked) {
-        bingoShowDesignerUnlocked();
-        return true;
-      }
+      bingoShowDesignerLocked();
+      setOpenDesignerOffer(!!j.unlocked);
+      return !!j.unlocked;
     } catch {
       if (st) {
         st.textContent =
@@ -2299,6 +2305,7 @@
     }
 
     bingoShowDesignerLocked();
+    setOpenDesignerOffer(false);
     return false;
   }
 
@@ -2493,6 +2500,10 @@
       }
     });
 
+    document.getElementById("bingo-open-designer-btn")?.addEventListener("click", () => {
+      bingoShowDesignerUnlocked();
+    });
+
     document.getElementById("bingo-exit-designer")?.addEventListener("click", async () => {
       try {
         await fetch("/api/event-session", { method: "DELETE", credentials: "include" });
@@ -2510,7 +2521,7 @@
         st.classList.remove("load-error");
         st.classList.add("muted");
       }
-      bingoShowDesignerLocked();
+      void bingoRefreshAccessGate();
     });
 
     document.getElementById("bingo-clear-done")?.addEventListener("click", () => {
