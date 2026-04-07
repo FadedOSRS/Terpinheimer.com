@@ -338,6 +338,16 @@
     return `/public/skill-capes/${encodeURIComponent("Achievement_diary_cape_(t).png")}`;
   }
 
+  function questPointCapeIconSrc() {
+    return `/public/skill-capes/${encodeURIComponent("Quest_point_cape_(t).png")}`;
+  }
+
+  /** Every main quest (RuneProfile type !== 2) finished; excludes miniquests. */
+  function allMainQuestsComplete(mainQuests) {
+    if (!mainQuests || !mainQuests.length) return false;
+    return mainQuests.every((q) => Number(q.state) === 2);
+  }
+
   const COMBAT_TIER_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master", "Grandmaster"];
 
   function combatTierSortKey(name) {
@@ -759,7 +769,9 @@
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     const diaries = profile.achievementDiaryTiers || [];
     const ca = profile.combatAchievementTiers || [];
+    const mainQuests = runeProfileMainQuestsOnly(profile.quests);
     const diaryCapeUnlocked = allAchievementDiaryTiersComplete(diaries);
+    const questPointCapeUnlocked = allMainQuestsComplete(mainQuests);
     const combatTierTop = highestCompletedCombatTierName(ca);
 
     const clanP = document.getElementById("member-clan-panel");
@@ -787,15 +799,21 @@
             combatHiltSrc
           )}" alt="${escHtml(combatTierTop)} combat tier" loading="lazy" decoding="async" /></span></span>`
         : "";
+      const qpCapeSrc = questPointCapeIconSrc();
+      const questPointBadge = questPointCapeUnlocked
+        ? `<span class="member-skill-cape-badge member-skill-cape-badge--quest-point" title="Quest point cape (t)"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
+            qpCapeSrc
+          )}" alt="Quest point cape (t)" loading="lazy" decoding="async" /></span></span>`
+        : "";
       const diarySrc = achievementDiaryCapeIconSrc();
       const diaryBadge = diaryCapeUnlocked
         ? `<span class="member-skill-cape-badge member-skill-cape-badge--diary" title="Achievement diary cape (t)"><span class="member-skill-cape-frame"><img class="member-skill-cape-icon" src="${escHtml(
             diarySrc
           )}" alt="Achievement diary cape (t)" loading="lazy" decoding="async" /></span></span>`
         : "";
-      const capeStrip = `${badges}${combatBadge}${diaryBadge}`;
+      const capeStrip = `${badges}${combatBadge}${questPointBadge}${diaryBadge}`;
       const badgesBlock = capeStrip
-        ? `<span class="member-skill-capes" aria-label="Skill capes, combat tier, and diary milestones">${capeStrip}</span>`
+        ? `<span class="member-skill-capes" aria-label="Skill capes, combat tier, quest point, and diary milestones">${capeStrip}</span>`
         : "";
       clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</span>`;
     } else if (clanP) clanP.hidden = true;
@@ -825,7 +843,6 @@
     if (totEl) totEl.textContent = skills.length ? `Total level: ${totalLvl}` : "";
 
     const quests = profile.quests || [];
-    const mainQuests = runeProfileMainQuestsOnly(quests);
     const done = mainQuests.filter((q) => q.state === 2);
     const qp = done.reduce((s, q) => s + (q.points || 0), 0);
     const qpEl = document.getElementById("member-qp");
