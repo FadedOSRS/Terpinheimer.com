@@ -249,7 +249,17 @@
             <li><strong>Announcements</strong> — short clan message. Only <strong>Owner / Deputy Owner</strong> (Jagex clan rank) can save changes to the text in RuneLite config.</li>
             <li><strong>Quick links</strong> — Discord, website, Wise Old Man, live map, etc., if you filled those URLs under plugin <strong>Links</strong>.</li>
             <li><strong>Skill of the Week / Boss of the Week</strong> — from your Wise Old Man group’s competitions; shows leaders, countdowns, and links to the competition on the web.</li>
-            <li><strong>Web events</strong> — reads your clan’s <strong>calendar summary API</strong> so upcoming or active events from this site can appear in the client.</li>
+            <li><strong>Web Events</strong> — reads your clan’s <strong>calendar summary API</strong> so upcoming or active events from this site can appear in the client.</li>
+            <li><strong>Clan Event tracker</strong> — opened from Home (attendance card), with present/late thresholds and copy behavior controlled in config.</li>
+          </ul>
+        </section>
+
+        <section class="member-panel member-wide plugin-panel">
+          <h2 class="member-section-title">Tabs in the sidebar</h2>
+          <ul class="plugin-guide-list">
+            <li><strong>Always shown</strong> — Home, SOTW, BOTW, Web Events.</li>
+            <li><strong>Conditional</strong> — <strong>Group</strong> tab appears only while you are in a RuneLite party (Party plugin/passphrase), and shows shared party loot totals + split.</li>
+            <li><strong>Attendance</strong> is intentionally opened from Home and is not duplicated as a bottom tab.</li>
           </ul>
         </section>
 
@@ -269,7 +279,7 @@
             <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a>
             in sync so
             <a href="#/members" class="wom-link">member pages</a>
-            on this site stay accurate. Full collection log still benefits from the official RuneProfile plugin and syncing there.
+            on this site stay accurate. This sync is built into Terpinheimer (no extra RuneProfile plugin required for skills/quests on logout). Full collection log depth can still benefit from the official RuneProfile plugin.
           </p>
         </section>
 
@@ -294,6 +304,7 @@
             <li><strong>Collection log</strong> — new collection log entries.</li>
             <li><strong>Levels</strong> — level-ups (intervals, min level, virtual/combat levels, screenshots).</li>
             <li><strong>Progression</strong> — deaths, quests, combat achievements.</li>
+            <li><strong>Coffer donations</strong> — optional donation notices through the same webhook flow.</li>
           </ul>
           <p class="muted plugin-guide-note">Leave the webhook empty and leaves sends off if you only want the sidebar — no Discord spam.</p>
         </section>
@@ -313,27 +324,14 @@
         </section>
 
         <section class="member-panel member-wide plugin-panel">
-          <h2 class="member-section-title">Clan bingo (RuneLite / embedded browser)</h2>
-          <p class="muted plugin-panel-text">
-            Design boards at <a href="#/bingo" class="wom-link">Bingo</a> (grid, tiles, team items, export JSON). The site exposes <span class="plugin-code">window.TerpinheimerBingo</span> on every page load for the Terpinheimer plugin or any embedded browser on this origin:
-            <span class="plugin-code">getPluginState()</span> / <span class="plugin-code">getPluginStateJson()</span> — full v2 state plus <strong>boardStatus</strong> (<span class="plugin-code">development</span> | <span class="plugin-code">active</span> | <span class="plugin-code">finished</span>), <strong>boardStatusLabel</strong>, and <strong>progress</strong> (done/total/percent);
-            <span class="plugin-code">getState()</span> — raw stored shape (same fields, no progress label);
-            <span class="plugin-code">subscribe(fn)</span> — called with the plugin snapshot whenever the board is saved (returns unsubscribe);
-            <span class="plugin-code">saveState(state)</span> — persists when the Bingo view is open (<span class="plugin-code">#/bingo</span>), refreshes preview or designer UI;
-            <span class="plugin-code">setTeamTileGot(tileId, teamIndex, got)</span> — plugin-only updates for “teams with items” on a tile (<span class="plugin-code">tileId</span> e.g. <span class="plugin-code">r1c2</span>, 0-based team index, boolean); public T1/T2 pills are read-only in the browser;
-            <span class="plugin-code">reloadFromStorage()</span> — re-render from disk.
-            Point the in-game panel at this site (ideally <span class="plugin-code">#/bingo</span>) so <span class="plugin-code">saveState</span> is allowed. Moderator edits still use the same <span class="plugin-code">CLAN_EVENTS_SECRET</span> session as Events.
-            <span class="plugin-contract-link-wrap">Machine-readable contract: <a href="/public/bingo-plugin-contract.json" class="wom-link">/public/bingo-plugin-contract.json</a></span>
-          </p>
-        </section>
-
-        <section class="member-panel member-wide plugin-panel">
           <h2 class="member-section-title">Quick checklist</h2>
           <ol class="plugin-guide-list plugin-guide-list--ol">
             <li>Install <strong>Terpinheimer</strong> from the hub or your jar.</li>
             <li><strong>General</strong> → confirm Wise Old Man group ID.</li>
             <li><strong>Links</strong> → set website and Discord at minimum.</li>
+            <li><strong>Links</strong> → set clan calendar page + summary API so Web Events works.</li>
             <li>Optional: enable <strong>live map</strong> + base URL + shared key.</li>
+            <li>Optional: join a RuneLite party and enable <strong>Party loot (Group tab)</strong>.</li>
             <li>Optional: Discord webhook + turn on the notification types you want.</li>
           </ol>
         </section>

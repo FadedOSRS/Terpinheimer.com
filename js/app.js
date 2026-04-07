@@ -276,6 +276,12 @@
     return `${WIKI_SKILL_ICON_BASE}${file}`;
   }
 
+  function skillCapeIconSrc(name) {
+    const n = normalizeSkillName(name);
+    if (!n) return "";
+    return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(n)}_cape.png`;
+  }
+
   const DIARY_TIER_ORDER = ["Easy", "Medium", "Hard", "Elite", "Master"];
 
   function diaryTierSortKey(tierName) {
@@ -653,14 +659,28 @@
     const rpA = document.getElementById("member-rp-link");
     if (rpA) rpA.href = rpPage;
 
+    const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
+
     const clanP = document.getElementById("member-clan-panel");
     const clanB = document.getElementById("member-clan-body");
     if (profile.clan && profile.clan.name && clanP && clanB) {
       clanP.hidden = false;
-      clanB.innerHTML = `<strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}`;
+      const maxed = skills.filter((s) => levelFromXp(s.xp || 0) >= 99);
+      const badges = maxed
+        .map((s) => {
+          const skillName = normalizeSkillName(s.name);
+          const src = skillCapeIconSrc(skillName);
+          if (!src) return "";
+          const lv = levelFromXp(s.xp || 0);
+          return `<img class="member-skill-cape-icon" src="${escHtml(src)}" alt="${escHtml(skillName)} skillcape" title="${escHtml(skillName)} (${lv})" loading="lazy" decoding="async" />`;
+        })
+        .filter(Boolean)
+        .join("");
+      const badgesBlock = badges
+        ? `<div class="member-skill-capes" aria-label="Maxed skill capes">${badges}</div>`
+        : "";
+      clanB.innerHTML = `<strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}${badgesBlock}`;
     } else if (clanP) clanP.hidden = true;
-
-    const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     let totalLvl = 0;
     const skillHtml = skills
       .map((s) => {

@@ -3107,6 +3107,23 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   color: var(--text-muted);
 }
 
+.member-skill-capes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.member-skill-cape-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 196, 114, 0.45);
+  padding: 2px;
+  object-fit: contain;
+}
+
 .member-section-title {
   margin: 0 0 0.65rem;
   font-family: var(--font-display);
