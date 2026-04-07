@@ -257,6 +257,33 @@
     Sailing: "Sailing_icon.png",
   };
 
+  const LOCAL_SKILL_CAPE_FILE = {
+    Attack: "Attack_cape(t).png",
+    Hitpoints: "Hitpoints_cape(t).png",
+    Mining: "Mining_cape(t).png",
+    Strength: "Strength_cape(t).png",
+    Agility: "Agility_cape(t).png",
+    Smithing: "Smithing_cape(t).png",
+    Defence: "Defence_cape(t).png",
+    Herblore: "Herblore_cape(t).png",
+    Fishing: "Fishing_cape(t).png",
+    Ranged: "Ranging_cape(t).png",
+    Thieving: "Thieving_cape(t).png",
+    Cooking: "Cooking_cape(t).png",
+    Prayer: "Prayer_cape(t).png",
+    Crafting: "Crafting_cape(t).png",
+    Firemaking: "Firemaking_cape(t).png",
+    Magic: "Magic_cape(t).png",
+    Fletching: "Fletching_cape(t).png",
+    Woodcutting: "Woodcut._cape(t).png",
+    Runecraft: "Runecraft_cape(t).png",
+    Slayer: "Slayer_cape(t).png",
+    Farming: "Farming_cape(t).png",
+    Construction: "Construct._cape(t).png",
+    Hunter: "Hunter_cape(t).png",
+    Sailing: "Sailing_cape(t).png",
+  };
+
   function normalizeSkillName(name) {
     const n = String(name || "").trim();
     if (n === "Runecrafting") return "Runecraft";
@@ -279,7 +306,9 @@
   function skillCapeIconSrc(name) {
     const n = normalizeSkillName(name);
     if (!n) return "";
-    // Wiki files are named `Prayer_cape(t).png` (no `_` before `(t)`), not `..._cape_(t).png`.
+    const localFile = LOCAL_SKILL_CAPE_FILE[n];
+    if (localFile) return `/public/skill-capes/${encodeURIComponent(localFile)}`;
+    // Fallback to wiki naming.
     return `${WIKI_SKILL_ICON_BASE}${encodeURIComponent(`${n}_cape(t).png`)}`;
   }
 
