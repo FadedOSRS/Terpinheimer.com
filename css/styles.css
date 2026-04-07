@@ -3136,15 +3136,15 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 }
 
 .member-skill-cape-frame {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   border-radius: 999px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 38%, rgba(252, 248, 238, 0.45) 0%, rgba(200, 185, 155, 0.16) 55%, rgba(28, 36, 48, 0.35) 100%);
+  background: radial-gradient(circle at 50% 40%, rgba(252, 248, 238, 0.45) 0%, rgba(200, 185, 155, 0.16) 55%, rgba(28, 36, 48, 0.35) 100%);
   border: 1px solid rgba(255, 196, 114, 0.9);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
@@ -3153,12 +3153,13 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 }
 
 .member-skill-cape-icon {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 82%;
+  max-height: 82%;
   object-fit: contain;
-  object-position: center 42%;
-  transform: scale(1.32);
-  transform-origin: center 42%;
+  object-position: center center;
+  image-rendering: crisp-edges;
 }
 
 @media (max-width: 700px) {
