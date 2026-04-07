@@ -679,7 +679,7 @@
       const badgesBlock = badges
         ? `<div class="member-skill-capes" aria-label="Maxed skill capes">${badges}</div>`
         : "";
-      clanB.innerHTML = `<strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}${badgesBlock}`;
+      clanB.innerHTML = `<div class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${escHtml(profile.clan.title || "Member")}</span>${badgesBlock}</div>`;
     } else if (clanP) clanP.hidden = true;
     let totalLvl = 0;
     const skillHtml = skills
