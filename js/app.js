@@ -3674,7 +3674,15 @@
         if (resetPanel) resetPanel.hidden = false;
         return;
       }
-      setAdminStatus("admin-auth-status", "Not logged in.", false);
+      if (j.bootstrapAllowed) {
+        setAdminStatus(
+          "admin-auth-status",
+          "No admin accounts yet. Create the first one on the right (signup key), then sign in on the left.",
+          false
+        );
+      } else {
+        setAdminStatus("admin-auth-status", "Not logged in.", false);
+      }
       if (resetPanel) resetPanel.hidden = true;
     } catch {
       setAdminStatus("admin-auth-status", "Could not reach the server.", true);
@@ -3737,8 +3745,9 @@
           setAdminStatus("admin-signup-status", j.error || "Could not create admin.", true);
           return;
         }
-        setAdminStatus("admin-signup-status", "Admin created.", false);
+        setAdminStatus("admin-signup-status", "Admin created. You can sign in on the left.", false);
         signupForm.reset();
+        await refreshAdminSessionStatus();
       } catch {
         setAdminStatus("admin-signup-status", "Could not reach the server.", true);
       }
