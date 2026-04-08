@@ -4133,8 +4133,7 @@
     return [];
   }
 
-  async function womGet(path) {
-    const base = womFetchBase();
+  async function womGetWithBase(base, path) {
     const maxAttempts = 3;
     let lastErr;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -4165,6 +4164,26 @@
       }
     }
     throw lastErr;
+  }
+
+  /**
+   * Prefer same-origin `/api/wom/v2` when present (dev-server / hosted proxy). If that fails (e.g. static
+   * hosting with no proxy), retry against the public Wise Old Man API (CORS-enabled).
+   */
+  async function womGet(path) {
+    const primary = womFetchBase();
+    if (primary === WOM_API) {
+      return womGetWithBase(WOM_API, path);
+    }
+    try {
+      return await womGetWithBase(primary, path);
+    } catch (e1) {
+      try {
+        return await womGetWithBase(WOM_API, path);
+      } catch {
+        throw e1;
+      }
+    }
   }
 
   /** Sum every roster member's delta for a metric/period (WOM gained has no max limit; paginate by offset). */
@@ -4323,26 +4342,41 @@
     }
   }
 
-  /** Latest Skill of the Week / Boss of the Week (by end date) from group competition list. */
-  function pickLatestWeekCompetition(competitions) {
+  function isWeekCompetitionTitle(c) {
+    if (!c || c.visible === false) return false;
+    const t = String(c.title || "").toLowerCase();
+    return (
+      t.includes("skill of the week") ||
+      t.includes("boss of the week") ||
+      /\bsotw\b/.test(t) ||
+      /\bbotw\b/.test(t)
+    );
+  }
+
+  /**
+   * Prefer an active SOTW/BOTW (started, not ended). If none, use the most recently finished one.
+   * If only future competitions exist, returns null (nothing has “run” yet).
+   */
+  function pickWeekCompetitionToDisplay(competitions) {
     const list = Array.isArray(competitions) ? competitions : [];
-    const matches = list.filter((c) => {
-      if (!c || c.visible === false) return false;
-      const t = String(c.title || "").toLowerCase();
-      return (
-        t.includes("skill of the week") ||
-        t.includes("boss of the week") ||
-        /\bsotw\b/.test(t) ||
-        /\bbotw\b/.test(t)
-      );
-    });
+    const matches = list.filter(isWeekCompetitionTitle);
     if (!matches.length) return null;
-    matches.sort((a, b) => {
-      const ea = new Date(a.endsAt || 0).getTime();
-      const eb = new Date(b.endsAt || 0).getTime();
-      return eb - ea;
+    const now = Date.now();
+    const active = matches.filter((c) => {
+      const s = new Date(c.startsAt).getTime();
+      const e = new Date(c.endsAt).getTime();
+      return !Number.isNaN(s) && !Number.isNaN(e) && s <= now && now <= e;
     });
-    return matches[0];
+    if (active.length) {
+      active.sort((a, b) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime());
+      return active[0];
+    }
+    const finished = matches.filter((c) => new Date(c.endsAt).getTime() < now);
+    if (finished.length) {
+      finished.sort((a, b) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime());
+      return finished[0];
+    }
+    return null;
   }
 
   async function renderHomeWeekCompetitionFromList(competitions) {
@@ -4353,7 +4387,7 @@
     const linkEl = document.getElementById("home-wom-week-link");
     if (!wrap || !listEl) return;
 
-    const picked = pickLatestWeekCompetition(competitions);
+    const picked = pickWeekCompetitionToDisplay(competitions);
     if (!picked || picked.id == null) {
       wrap.hidden = false;
       if (headingEl) headingEl.textContent = "Skill / Boss of the week";
@@ -4372,8 +4406,22 @@
       if (headingEl) headingEl.textContent = detail.title || picked.title || "Weekly competition";
       const start = detail.startsAt ? new Date(detail.startsAt).toLocaleDateString() : "";
       const end = detail.endsAt ? new Date(detail.endsAt).toLocaleDateString() : "";
+      const startMs = new Date(detail.startsAt).getTime();
+      const endMs = new Date(detail.endsAt).getTime();
+      const now = Date.now();
+      const isLive =
+        !Number.isNaN(startMs) &&
+        !Number.isNaN(endMs) &&
+        startMs <= now &&
+        now <= endMs;
       if (subEl) {
-        subEl.textContent = start && end ? `${start} – ${end} · Wise Old Man` : "Wise Old Man";
+        if (start && end) {
+          subEl.textContent = isLive
+            ? `Live · ${start} – ${end} · Wise Old Man`
+            : `Final results · ${start} – ${end} · Wise Old Man`;
+        } else {
+          subEl.textContent = "Wise Old Man";
+        }
       }
 
       const parts = Array.isArray(detail.participations) ? detail.participations : [];

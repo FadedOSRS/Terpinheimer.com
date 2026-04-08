@@ -2531,6 +2531,11 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   margin-top: 0.75rem;
 }
 
+.home-wom-week .home-wom-week-list {
+  list-style: none;
+  padding-left: 0;
+}
+
 /* Home: collection log + achievements — shared title row, intro, then aligned lists */
 .clan-activity-grid {
   display: flex;
