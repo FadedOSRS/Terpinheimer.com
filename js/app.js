@@ -3665,23 +3665,19 @@
   }
 
   async function refreshAdminSessionStatus() {
-    const signupPanel = document.getElementById("admin-signup-panel");
     const resetPanel = document.getElementById("admin-reset-panel");
     try {
       const r = await fetch("/api/admin/me", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       if (j.authenticated && j.admin?.email) {
         setAdminStatus("admin-auth-status", `Logged in as ${j.admin.email}`, false);
-        if (signupPanel) signupPanel.hidden = false;
         if (resetPanel) resetPanel.hidden = false;
         return;
       }
       setAdminStatus("admin-auth-status", "Not logged in.", false);
-      if (signupPanel) signupPanel.hidden = true;
       if (resetPanel) resetPanel.hidden = true;
     } catch {
       setAdminStatus("admin-auth-status", "Could not reach the server.", true);
-      if (signupPanel) signupPanel.hidden = true;
       if (resetPanel) resetPanel.hidden = true;
     }
   }

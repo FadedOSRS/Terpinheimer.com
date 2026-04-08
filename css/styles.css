@@ -2744,6 +2744,40 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   max-width: 22rem;
 }
 
+/* Admin page: login + signup side by side */
+.admin-auth-panel-title {
+  margin-bottom: 0.35rem;
+}
+
+.admin-auth-panel-lead {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.admin-auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 2rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .admin-auth-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.admin-auth-col .admin-auth-subtitle {
+  font-size: 1rem;
+  margin: 0 0 0.65rem;
+}
+
+.admin-auth-form {
+  max-width: none;
+}
+
 .event-add-label {
   display: flex;
   flex-direction: column;

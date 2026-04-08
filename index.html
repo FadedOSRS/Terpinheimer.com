@@ -603,43 +603,48 @@
         </section>
 
         <section class="member-panel member-wide">
-          <h2 class="member-section-title">Admin login</h2>
-          <form id="admin-login-form" class="event-add-form">
-            <fieldset class="event-form-fieldset">
-              <label class="event-add-label">
-                <span>Email</span>
-                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
-              </label>
-              <label class="event-add-label">
-                <span>Password</span>
-                <input name="password" type="password" required class="event-add-input" autocomplete="current-password" />
-              </label>
-              <button type="submit" class="btn btn-primary event-add-submit">Login</button>
-            </fieldset>
-            <p id="admin-login-status" class="event-add-status muted" role="status"></p>
-          </form>
-        </section>
-
-        <section class="member-panel member-wide" id="admin-signup-panel" hidden>
-          <h2 class="member-section-title">Create admin account</h2>
-          <form id="admin-signup-form" class="event-add-form">
-            <fieldset class="event-form-fieldset">
-              <label class="event-add-label">
-                <span>Email</span>
-                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
-              </label>
-              <label class="event-add-label">
-                <span>Password</span>
-                <input name="password" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
-              </label>
-              <label class="event-add-label">
-                <span>Signup key</span>
-                <input name="signupKey" type="password" required class="event-add-input" autocomplete="off" />
-              </label>
-              <button type="submit" class="btn btn-primary event-add-submit">Create admin</button>
-            </fieldset>
-            <p id="admin-signup-status" class="event-add-status muted" role="status"></p>
-          </form>
+          <h2 class="member-section-title admin-auth-panel-title">Sign in or create an admin</h2>
+          <p class="muted admin-auth-panel-lead">Log in below, or create another admin account after you are signed in (signup key required).</p>
+          <div class="admin-auth-grid">
+            <div class="admin-auth-col">
+              <h3 class="member-section-title admin-auth-subtitle">Admin login</h3>
+              <form id="admin-login-form" class="event-add-form admin-auth-form">
+                <fieldset class="event-form-fieldset">
+                  <label class="event-add-label">
+                    <span>Email</span>
+                    <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+                  </label>
+                  <label class="event-add-label">
+                    <span>Password</span>
+                    <input name="password" type="password" required class="event-add-input" autocomplete="current-password" />
+                  </label>
+                  <button type="submit" class="btn btn-primary event-add-submit">Login</button>
+                </fieldset>
+                <p id="admin-login-status" class="event-add-status muted" role="status"></p>
+              </form>
+            </div>
+            <div class="admin-auth-col">
+              <h3 class="member-section-title admin-auth-subtitle">Create admin account</h3>
+              <form id="admin-signup-form" class="event-add-form admin-auth-form">
+                <fieldset class="event-form-fieldset">
+                  <label class="event-add-label">
+                    <span>Email</span>
+                    <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+                  </label>
+                  <label class="event-add-label">
+                    <span>Password</span>
+                    <input name="password" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
+                  </label>
+                  <label class="event-add-label">
+                    <span>Signup key</span>
+                    <input name="signupKey" type="password" required class="event-add-input" autocomplete="off" />
+                  </label>
+                  <button type="submit" class="btn btn-primary event-add-submit">Create admin</button>
+                </fieldset>
+                <p id="admin-signup-status" class="event-add-status muted" role="status"></p>
+              </form>
+            </div>
+          </div>
         </section>
 
         <section class="member-panel member-wide" id="admin-reset-panel" hidden>
