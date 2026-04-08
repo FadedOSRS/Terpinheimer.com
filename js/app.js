@@ -1252,8 +1252,6 @@
 
   async function openMemberPage(slug) {
     closeMobileNav();
-    const err = document.getElementById("member-error");
-    if (err) err.hidden = true;
 
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
@@ -1297,11 +1295,6 @@
       );
       if (profileContent) profileContent.hidden = true;
       if (notFoundHelp) notFoundHelp.hidden = false;
-      if (err) {
-        err.hidden = false;
-        err.textContent =
-          "Still nothing? Serve the site with node dev-server.mjs (not file://) so /rp-api and /rs-item can proxy RuneProfile and Jagex.";
-      }
       return;
     }
 

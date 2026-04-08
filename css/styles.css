@@ -3055,11 +3055,6 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   opacity: 0.5;
 }
 
-.member-error {
-  text-align: left;
-  margin-bottom: 1rem;
-}
-
 .member-header {
   display: flex;
   flex-wrap: wrap;
