@@ -3668,7 +3668,28 @@
     const raw = window.location.hash ? window.location.hash.slice(1) : "/";
     let path = raw.startsWith("/") ? raw : `/${raw}`;
     path = path.split("?")[0].replace(/\/+$/, "") || "/";
+    const adminMatch = path.match(/^\/admin(\/profile)?$/i);
+    if (adminMatch) return adminMatch[1] ? "/admin/profile" : "/admin";
     return path;
+  }
+
+  const ADMIN_LOGIN_PENDING_KEY = "th_admin_login_pending";
+
+  /** After POST /api/admin/login, some browsers need a short delay before the session cookie is included on GET /api/admin/me. */
+  async function fetchAdminMeForProfileGate(postLoginWarmup) {
+    const attempts = postLoginWarmup ? 6 : 1;
+    const delayMs = 100;
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, delayMs));
+      try {
+        const r = await fetch("/api/admin/me", { credentials: "include" });
+        const j = await r.json().catch(() => ({}));
+        if (j.authenticated && j.admin?.email) return j;
+      } catch {
+        /* retry when postLoginWarmup */
+      }
+    }
+    return null;
   }
 
   function setAdminSubview(mode) {
@@ -3747,7 +3768,17 @@
         }
         setAdminStatus("admin-login-status", "Login successful.", false);
         loginForm.reset();
-        window.location.hash = "#/admin/profile";
+        try {
+          sessionStorage.setItem(ADMIN_LOGIN_PENDING_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        const target = "#/admin/profile";
+        if (currentHashPath() !== "/admin/profile") {
+          window.location.hash = target;
+        } else {
+          applyRoute();
+        }
       } catch {
         setAdminStatus("admin-login-status", "Could not reach the server.", true);
       }
@@ -3921,15 +3952,26 @@
       document.title = "Admin dashboard | Terpinheimer";
       void (async () => {
         try {
-          const r = await fetch("/api/admin/me", { credentials: "include" });
-          const j = await r.json().catch(() => ({}));
-          const signedIn = !!(j.authenticated && j.admin?.email);
+          let postLogin = false;
+          try {
+            postLogin = sessionStorage.getItem(ADMIN_LOGIN_PENDING_KEY) === "1";
+            if (postLogin) sessionStorage.removeItem(ADMIN_LOGIN_PENDING_KEY);
+          } catch {
+            /* ignore */
+          }
+          const j = await fetchAdminMeForProfileGate(postLogin);
+          const signedIn = !!(j && j.authenticated && j.admin?.email);
           if (!signedIn) {
             window.location.hash = "#/admin";
             return;
           }
           await refreshAdminSessionStatus();
         } catch {
+          try {
+            sessionStorage.removeItem(ADMIN_LOGIN_PENDING_KEY);
+          } catch {
+            /* ignore */
+          }
           window.location.hash = "#/admin";
         }
       })();
