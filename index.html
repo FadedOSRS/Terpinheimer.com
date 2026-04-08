@@ -585,108 +585,204 @@
       </div>
     </div>
 
-    <div id="admin-view" class="plugin-view" hidden>
-      <div class="container member-wrap">
-        <nav class="member-crumb" aria-label="Breadcrumb">
+    <div id="admin-view" class="plugin-view admin-portal-view" hidden>
+      <div class="container admin-portal-container">
+        <nav class="member-crumb admin-portal-crumb" aria-label="Breadcrumb">
           <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Admin</span>
         </nav>
-        <header class="members-list-header">
-          <h1 class="section-title members-list-heading">Admin access</h1>
-          <hr class="rule" />
-          <p class="lead muted">Admin account signup/login and owner-only password resets.</p>
+
+        <header class="admin-portal-hero">
+          <p class="admin-portal-eyebrow">Terpinheimer</p>
+          <h1 class="admin-portal-title">Administrator sign-in</h1>
+          <p class="admin-portal-lead muted">
+            Secure access for site administrators. New installs: create the first account on the right, then sign in here. Additional admins require an active session and signup key.
+          </p>
         </header>
 
-        <section class="member-panel member-wide">
-          <h2 class="member-section-title">Current session</h2>
-          <p id="admin-auth-status" class="muted">Checking…</p>
-          <button type="button" class="btn btn-ghost" id="admin-logout-btn">Logout</button>
-        </section>
+        <div class="admin-session-bar" role="region" aria-label="Session">
+          <div class="admin-session-bar-main">
+            <span class="admin-session-label">Session</span>
+            <p id="admin-auth-status" class="admin-session-status muted">Checking…</p>
+          </div>
+          <button type="button" class="btn btn-ghost admin-session-logout" id="admin-logout-btn">Sign out</button>
+        </div>
 
-        <section class="member-panel member-wide">
-          <h2 class="member-section-title admin-auth-panel-title">Sign in or create an admin</h2>
-          <p class="muted admin-auth-panel-lead">
-            If this is the first setup, create your admin on the right, then sign in on the left. After that, new admins require an active login plus the signup key.
+        <div class="admin-auth-cards">
+          <article class="admin-auth-card admin-auth-card--login">
+            <header class="admin-auth-card-head">
+              <span class="admin-auth-card-icon admin-auth-card-icon--lock" aria-hidden="true"></span>
+              <div>
+                <h2 class="admin-auth-card-title">Sign in</h2>
+                <p class="admin-auth-card-desc muted">Use your admin email and password.</p>
+              </div>
+            </header>
+            <form id="admin-login-form" class="admin-form" autocomplete="on">
+              <fieldset class="admin-form-fieldset">
+                <label class="admin-label" for="admin-login-email">
+                  <span class="admin-label-text">Email</span>
+                  <input
+                    id="admin-login-email"
+                    name="email"
+                    type="email"
+                    required
+                    class="admin-input"
+                    autocomplete="username"
+                    inputmode="email"
+                  />
+                </label>
+                <label class="admin-label" for="admin-login-password">
+                  <span class="admin-label-text">Password</span>
+                  <input
+                    id="admin-login-password"
+                    name="password"
+                    type="password"
+                    required
+                    class="admin-input"
+                    autocomplete="current-password"
+                  />
+                </label>
+                <button type="submit" class="btn btn-primary admin-submit">Sign in</button>
+              </fieldset>
+              <p id="admin-login-status" class="admin-form-status muted" role="status"></p>
+            </form>
+          </article>
+
+          <article class="admin-auth-card admin-auth-card--signup">
+            <header class="admin-auth-card-head">
+              <span class="admin-auth-card-icon admin-auth-card-icon--key" aria-hidden="true"></span>
+              <div>
+                <h2 class="admin-auth-card-title">Create admin</h2>
+                <p class="admin-auth-card-desc muted">First admin: no sign-in yet. Later: you must be signed in.</p>
+              </div>
+            </header>
+            <form id="admin-signup-form" class="admin-form" autocomplete="on">
+              <fieldset class="admin-form-fieldset">
+                <label class="admin-label" for="admin-signup-email">
+                  <span class="admin-label-text">Email</span>
+                  <input
+                    id="admin-signup-email"
+                    name="email"
+                    type="email"
+                    required
+                    class="admin-input"
+                    autocomplete="username"
+                    inputmode="email"
+                  />
+                </label>
+                <label class="admin-label" for="admin-signup-password">
+                  <span class="admin-label-text">Password</span>
+                  <input
+                    id="admin-signup-password"
+                    name="password"
+                    type="password"
+                    required
+                    minlength="8"
+                    class="admin-input"
+                    autocomplete="new-password"
+                  />
+                </label>
+                <label class="admin-label" for="admin-signup-key">
+                  <span class="admin-label-text">Signup key</span>
+                  <input
+                    id="admin-signup-key"
+                    name="signupKey"
+                    type="password"
+                    required
+                    class="admin-input"
+                    autocomplete="off"
+                  />
+                </label>
+                <button type="submit" class="btn btn-primary admin-submit">Create admin</button>
+              </fieldset>
+              <p id="admin-signup-status" class="admin-form-status muted" role="status"></p>
+            </form>
+          </article>
+        </div>
+
+        <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">
+          <h2 class="admin-owner-tools-title">Owner tools</h2>
+          <p class="muted admin-owner-tools-lead">
+            Password resets and account removal require your session plus the owner reset key. There is no self-serve “forgot password” for admins.
           </p>
-          <div class="admin-auth-grid">
-            <div class="admin-auth-col">
-              <h3 class="member-section-title admin-auth-subtitle">Admin login</h3>
-              <form id="admin-login-form" class="event-add-form admin-auth-form">
-                <fieldset class="event-form-fieldset">
-                  <label class="event-add-label">
-                    <span>Email</span>
-                    <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+
+          <div class="admin-owner-grid">
+            <div class="admin-owner-block">
+              <h3 class="admin-owner-block-title">Reset password</h3>
+              <form id="admin-reset-form" class="admin-form">
+                <fieldset class="admin-form-fieldset">
+                  <label class="admin-label" for="admin-reset-email">
+                    <span class="admin-label-text">Admin email</span>
+                    <input
+                      id="admin-reset-email"
+                      name="email"
+                      type="email"
+                      required
+                      class="admin-input"
+                      autocomplete="username"
+                    />
                   </label>
-                  <label class="event-add-label">
-                    <span>Password</span>
-                    <input name="password" type="password" required class="event-add-input" autocomplete="current-password" />
+                  <label class="admin-label" for="admin-reset-newpw">
+                    <span class="admin-label-text">New password</span>
+                    <input
+                      id="admin-reset-newpw"
+                      name="newPassword"
+                      type="password"
+                      required
+                      minlength="8"
+                      class="admin-input"
+                      autocomplete="new-password"
+                    />
                   </label>
-                  <button type="submit" class="btn btn-primary event-add-submit">Login</button>
+                  <label class="admin-label" for="admin-reset-owner-key">
+                    <span class="admin-label-text">Owner reset key</span>
+                    <input
+                      id="admin-reset-owner-key"
+                      name="ownerResetKey"
+                      type="password"
+                      required
+                      class="admin-input"
+                      autocomplete="off"
+                    />
+                  </label>
+                  <button type="submit" class="btn btn-primary admin-submit">Reset password</button>
                 </fieldset>
-                <p id="admin-login-status" class="event-add-status muted" role="status"></p>
+                <p id="admin-reset-status" class="admin-form-status muted" role="status"></p>
               </form>
             </div>
-            <div class="admin-auth-col">
-              <h3 class="member-section-title admin-auth-subtitle">Create admin account</h3>
-              <form id="admin-signup-form" class="event-add-form admin-auth-form">
-                <fieldset class="event-form-fieldset">
-                  <label class="event-add-label">
-                    <span>Email</span>
-                    <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+
+            <div class="admin-owner-block admin-owner-block--danger">
+              <h3 class="admin-owner-block-title">Delete admin</h3>
+              <p class="muted admin-owner-block-warning">Permanent. You cannot delete the account you are signed in with.</p>
+              <form id="admin-delete-form" class="admin-form">
+                <fieldset class="admin-form-fieldset">
+                  <label class="admin-label" for="admin-delete-email">
+                    <span class="admin-label-text">Admin email</span>
+                    <input
+                      id="admin-delete-email"
+                      name="email"
+                      type="email"
+                      required
+                      class="admin-input"
+                      autocomplete="username"
+                    />
                   </label>
-                  <label class="event-add-label">
-                    <span>Password</span>
-                    <input name="password" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
+                  <label class="admin-label" for="admin-delete-owner-key">
+                    <span class="admin-label-text">Owner reset key</span>
+                    <input
+                      id="admin-delete-owner-key"
+                      name="ownerResetKey"
+                      type="password"
+                      required
+                      class="admin-input"
+                      autocomplete="off"
+                    />
                   </label>
-                  <label class="event-add-label">
-                    <span>Signup key</span>
-                    <input name="signupKey" type="password" required class="event-add-input" autocomplete="off" />
-                  </label>
-                  <button type="submit" class="btn btn-primary event-add-submit">Create admin</button>
+                  <button type="submit" class="btn btn-primary admin-submit admin-submit--danger">Delete admin</button>
                 </fieldset>
-                <p id="admin-signup-status" class="event-add-status muted" role="status"></p>
+                <p id="admin-delete-status" class="admin-form-status muted" role="status"></p>
               </form>
             </div>
           </div>
-        </section>
-
-        <section class="member-panel member-wide" id="admin-reset-panel" hidden>
-          <h2 class="member-section-title">Manual password reset (owner only)</h2>
-          <p class="muted">No self-service forgot-password exists. Use this when an admin forgets their password.</p>
-          <form id="admin-reset-form" class="event-add-form">
-            <fieldset class="event-form-fieldset">
-              <label class="event-add-label">
-                <span>Admin email</span>
-                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
-              </label>
-              <label class="event-add-label">
-                <span>New password</span>
-                <input name="newPassword" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
-              </label>
-              <label class="event-add-label">
-                <span>Owner reset key</span>
-                <input name="ownerResetKey" type="password" required class="event-add-input" autocomplete="off" />
-              </label>
-              <button type="submit" class="btn btn-primary event-add-submit">Reset password</button>
-            </fieldset>
-            <p id="admin-reset-status" class="event-add-status muted" role="status"></p>
-          </form>
-
-          <h3 class="member-section-title member-mt">Delete admin account (owner only)</h3>
-          <p class="muted">This permanently removes an admin account. You cannot delete the currently logged-in account.</p>
-          <form id="admin-delete-form" class="event-add-form">
-            <fieldset class="event-form-fieldset">
-              <label class="event-add-label">
-                <span>Admin email</span>
-                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
-              </label>
-              <label class="event-add-label">
-                <span>Owner reset key</span>
-                <input name="ownerResetKey" type="password" required class="event-add-input" autocomplete="off" />
-              </label>
-              <button type="submit" class="btn btn-primary event-add-submit">Delete admin</button>
-            </fieldset>
-            <p id="admin-delete-status" class="event-add-status muted" role="status"></p>
-          </form>
         </section>
       </div>
     </div>

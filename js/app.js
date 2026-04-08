@@ -3660,31 +3660,35 @@
     const el = document.getElementById(elId);
     if (!el) return;
     el.textContent = text || "";
-    el.classList.toggle("load-error", !!isError);
+    el.classList.toggle("admin-form-status--error", !!isError);
     el.classList.toggle("muted", !isError);
   }
 
   async function refreshAdminSessionStatus() {
     const resetPanel = document.getElementById("admin-reset-panel");
+    const adminView = document.getElementById("admin-view");
     try {
       const r = await fetch("/api/admin/me", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
-      if (j.authenticated && j.admin?.email) {
-        setAdminStatus("admin-auth-status", `Logged in as ${j.admin.email}`, false);
+      const signedIn = !!(j.authenticated && j.admin?.email);
+      if (adminView) adminView.classList.toggle("admin-portal-view--signed-in", signedIn);
+      if (signedIn) {
+        setAdminStatus("admin-auth-status", `Signed in as ${j.admin.email}`, false);
         if (resetPanel) resetPanel.hidden = false;
         return;
       }
       if (j.bootstrapAllowed) {
         setAdminStatus(
           "admin-auth-status",
-          "No admin accounts yet. Create the first one on the right (signup key), then sign in on the left.",
+          "No admin accounts yet — create the first one with signup key, then sign in.",
           false
         );
       } else {
-        setAdminStatus("admin-auth-status", "Not logged in.", false);
+        setAdminStatus("admin-auth-status", "Signed out.", false);
       }
       if (resetPanel) resetPanel.hidden = true;
     } catch {
+      if (adminView) adminView.classList.remove("admin-portal-view--signed-in");
       setAdminStatus("admin-auth-status", "Could not reach the server.", true);
       if (resetPanel) resetPanel.hidden = true;
     }
@@ -3847,7 +3851,7 @@
     stopLiveMapPoll();
     if (adminv) adminv.hidden = false;
     window.scrollTo(0, 0);
-    document.title = "Admin | Terpinheimer";
+    document.title = "Administrator | Terpinheimer";
     bindAdminPageOnce();
     void refreshAdminSessionStatus();
   }
