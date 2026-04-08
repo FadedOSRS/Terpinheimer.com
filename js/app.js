@@ -3664,33 +3664,59 @@
     el.classList.toggle("muted", !isError);
   }
 
+  function currentHashPath() {
+    const raw = window.location.hash ? window.location.hash.slice(1) : "/";
+    let path = raw.startsWith("/") ? raw : `/${raw}`;
+    path = path.split("?")[0].replace(/\/+$/, "") || "/";
+    return path;
+  }
+
+  function setAdminSubview(mode) {
+    const authSec = document.getElementById("admin-auth-section");
+    const profSec = document.getElementById("admin-profile-section");
+    const crumbAuth = document.getElementById("admin-crumb-auth");
+    const crumbProf = document.getElementById("admin-crumb-profile");
+    const auth = mode === "auth";
+    if (authSec) authSec.hidden = !auth;
+    if (profSec) profSec.hidden = auth;
+    if (crumbAuth) crumbAuth.hidden = !auth;
+    if (crumbProf) crumbProf.hidden = auth;
+  }
+
   async function refreshAdminSessionStatus() {
     const resetPanel = document.getElementById("admin-reset-panel");
-    const adminView = document.getElementById("admin-view");
+    const hint = document.getElementById("admin-auth-signed-in-hint");
+    const emailEl = document.getElementById("admin-profile-email");
+    const loginCard = document.getElementById("admin-login-card");
+    const path = currentHashPath();
+    const onProfile = path === "/admin/profile";
     try {
       const r = await fetch("/api/admin/me", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       const signedIn = !!(j.authenticated && j.admin?.email);
-      if (adminView) adminView.classList.toggle("admin-portal-view--signed-in", signedIn);
-      if (signedIn) {
-        setAdminStatus("admin-auth-status", `Signed in as ${j.admin.email}`, false);
-        if (resetPanel) resetPanel.hidden = false;
+      const email = signedIn ? String(j.admin.email) : "";
+
+      if (!signedIn && onProfile) {
+        window.location.hash = "#/admin";
         return;
       }
-      if (j.bootstrapAllowed) {
-        setAdminStatus(
-          "admin-auth-status",
-          "No admin accounts yet — create the first one with signup key, then sign in.",
-          false
-        );
-      } else {
-        setAdminStatus("admin-auth-status", "Signed out.", false);
+
+      if (emailEl) emailEl.textContent = email ? `Signed in as ${email}` : "";
+
+      if (hint) {
+        hint.hidden = !signedIn || onProfile;
+        const disp = hint.querySelector("[data-admin-email-display]");
+        if (disp) disp.textContent = email;
       }
-      if (resetPanel) resetPanel.hidden = true;
+      if (loginCard) loginCard.hidden = signedIn && !onProfile;
+
+      if (resetPanel) resetPanel.hidden = !signedIn || !onProfile;
     } catch {
-      if (adminView) adminView.classList.remove("admin-portal-view--signed-in");
-      setAdminStatus("admin-auth-status", "Could not reach the server.", true);
+      if (emailEl) emailEl.textContent = "";
+      if (hint) hint.hidden = true;
+      if (loginCard) loginCard.hidden = false;
       if (resetPanel) resetPanel.hidden = true;
+      if (onProfile) window.location.hash = "#/admin";
     }
   }
 
@@ -3721,7 +3747,7 @@
         }
         setAdminStatus("admin-login-status", "Login successful.", false);
         loginForm.reset();
-        await refreshAdminSessionStatus();
+        window.location.hash = "#/admin/profile";
       } catch {
         setAdminStatus("admin-login-status", "Could not reach the server.", true);
       }
@@ -3817,7 +3843,6 @@
 
     const logoutBtn = document.getElementById("admin-logout-btn");
     logoutBtn?.addEventListener("click", async () => {
-      setAdminStatus("admin-auth-status", "Logging out...", false);
       try {
         await fetch("/api/admin/logout", {
           method: "POST",
@@ -3830,7 +3855,7 @@
     });
   }
 
-  function showAdminView() {
+  function showAdminShell() {
     closeMobileNav();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
@@ -3851,16 +3876,12 @@
     stopLiveMapPoll();
     if (adminv) adminv.hidden = false;
     window.scrollTo(0, 0);
-    document.title = "Administrator | Terpinheimer";
     bindAdminPageOnce();
-    void refreshAdminSessionStatus();
   }
 
 
   function applyRoute() {
-    const raw = window.location.hash ? window.location.hash.slice(1) : "/";
-    let path = raw.startsWith("/") ? raw : `/${raw}`;
-    path = path.split("?")[0].replace(/\/+$/, "") || "/";
+    const path = currentHashPath();
 
     const segs = path.split("/").filter(Boolean);
     const routeRoot = segs[0]?.toLowerCase();
@@ -3894,8 +3915,32 @@
       return;
     }
 
+    if (path === "/admin/profile") {
+      showAdminShell();
+      setAdminSubview("profile");
+      document.title = "Admin dashboard | Terpinheimer";
+      void (async () => {
+        try {
+          const r = await fetch("/api/admin/me", { credentials: "include" });
+          const j = await r.json().catch(() => ({}));
+          const signedIn = !!(j.authenticated && j.admin?.email);
+          if (!signedIn) {
+            window.location.hash = "#/admin";
+            return;
+          }
+          await refreshAdminSessionStatus();
+        } catch {
+          window.location.hash = "#/admin";
+        }
+      })();
+      return;
+    }
+
     if (path === "/admin") {
-      showAdminView();
+      showAdminShell();
+      setAdminSubview("auth");
+      document.title = "Administrator | Terpinheimer";
+      void refreshAdminSessionStatus();
       return;
     }
 

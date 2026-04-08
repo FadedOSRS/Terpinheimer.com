@@ -45,7 +45,7 @@
         <a href="#/map">Map</a>
         <a href="#/bingo">Bingo</a>
         <a href="#/plugin">Plugin</a>
-        <a href="#/admin">Admin</a>
+        <a href="#/admin/profile">Admin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
     </div>
@@ -128,7 +128,7 @@
           </section>
         </div>
 
-        <section class="member-panel member-wide" id="admin-reset-panel" hidden>
+        <section class="member-panel member-wide" id="member-drops-panel" hidden>
           <h2 class="member-section-title">Drops &amp; collection log</h2>
           <ul class="activity-log" id="member-recent"></ul>
         </section>
@@ -587,10 +587,15 @@
 
     <div id="admin-view" class="plugin-view admin-portal-view" hidden>
       <div class="container admin-portal-container">
-        <nav class="member-crumb admin-portal-crumb" aria-label="Breadcrumb">
+        <nav id="admin-crumb-auth" class="member-crumb admin-portal-crumb" aria-label="Breadcrumb">
           <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Admin</span>
         </nav>
+        <nav id="admin-crumb-profile" class="member-crumb admin-portal-crumb" hidden aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <a href="#/admin">Admin</a> <span class="crumb-sep">/</span>
+          <span>Dashboard</span>
+        </nav>
 
+        <div id="admin-auth-section">
         <header class="admin-portal-hero">
           <p class="admin-portal-eyebrow">Terpinheimer</p>
           <h1 class="admin-portal-title">Administrator sign-in</h1>
@@ -599,16 +604,13 @@
           </p>
         </header>
 
-        <div class="admin-session-bar" role="region" aria-label="Session">
-          <div class="admin-session-bar-main">
-            <span class="admin-session-label">Session</span>
-            <p id="admin-auth-status" class="admin-session-status muted">Checking…</p>
-          </div>
-          <button type="button" class="btn btn-ghost admin-session-logout" id="admin-logout-btn">Sign out</button>
-        </div>
+        <p id="admin-auth-signed-in-hint" class="admin-auth-signed-in-hint muted" hidden>
+          Signed in as <strong data-admin-email-display></strong>.
+          <a href="#/admin/profile" class="wom-link">Open admin dashboard</a>
+        </p>
 
         <div class="admin-auth-cards">
-          <article class="admin-auth-card admin-auth-card--login">
+          <article class="admin-auth-card admin-auth-card--login" id="admin-login-card">
             <header class="admin-auth-card-head">
               <span class="admin-auth-card-icon admin-auth-card-icon--lock" aria-hidden="true"></span>
               <div>
@@ -698,6 +700,27 @@
             </form>
           </article>
         </div>
+        </div>
+
+        <div id="admin-profile-section" class="admin-profile-section" hidden>
+          <header class="admin-profile-header">
+            <div class="admin-profile-intro">
+              <h1 class="admin-profile-title">Admin dashboard</h1>
+              <p class="admin-profile-email muted" id="admin-profile-email"></p>
+            </div>
+            <button type="button" class="btn btn-ghost admin-profile-signout" id="admin-logout-btn">Sign out</button>
+          </header>
+
+          <section class="admin-dashboard" aria-label="Site administration">
+            <h2 class="admin-dashboard-heading">Site tools</h2>
+            <p class="muted admin-dashboard-lead">Use this area for admin-only features as you add them (content, settings, integrations).</p>
+            <div class="admin-dashboard-grid">
+              <article class="admin-dash-card admin-dash-card--placeholder">
+                <h3 class="admin-dash-card-title">Coming soon</h3>
+                <p class="muted admin-dash-card-desc">Placeholder for announcements, quick links, or other tools.</p>
+              </article>
+            </div>
+          </section>
 
         <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">
           <h2 class="admin-owner-tools-title">Owner tools</h2>
@@ -784,6 +807,7 @@
             </div>
           </div>
         </section>
+        </div>
       </div>
     </div>
 
