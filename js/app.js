@@ -1041,7 +1041,12 @@
 
   let memberReqId = 0;
 
-  async function renderRuneProfile(profile) {
+  function memberNavStale(navId) {
+    return navId != null && navId !== memberReqId;
+  }
+
+  async function renderRuneProfile(profile, navId) {
+    if (memberNavStale(navId)) return;
     const rpPage = `https://www.runeprofile.com/${encodeURIComponent(profile.username)}`;
     document.title = `${profile.username} | Terpinheimer`;
     const crumb = document.getElementById("member-crumb-name");
@@ -1056,6 +1061,7 @@
     if (rpA) rpA.href = rpPage;
 
     const petClogMeta = await loadOsrsPetCollectionLogMeta();
+    if (memberNavStale(navId)) return;
 
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     const diaries = profile.achievementDiaryTiers || [];
@@ -1169,6 +1175,7 @@
           .join("");
         petEl.innerHTML = `<div class="member-pets-strip">${chips}</div>`;
         await hydrateOsrsPetIcons(petEl);
+        if (memberNavStale(navId)) return;
       } else {
         petEl.innerHTML =
           '<p class="muted member-diary-empty">No pets found in synced collection log yet.</p>';
@@ -1235,6 +1242,12 @@
 
     const mv = document.getElementById("member-view");
     await hydrateOsrsItemNames(mv);
+    if (memberNavStale(navId)) return;
+
+    const profileContent = document.getElementById("member-profile-content");
+    const notFoundHelp = document.getElementById("member-not-found-help");
+    if (profileContent) profileContent.hidden = false;
+    if (notFoundHelp) notFoundHelp.hidden = true;
   }
 
   async function openMemberPage(slug) {
@@ -1261,6 +1274,11 @@
     window.scrollTo(0, 0);
 
     const id = ++memberReqId;
+    const profileContent = document.getElementById("member-profile-content");
+    const notFoundHelp = document.getElementById("member-not-found-help");
+    if (profileContent) profileContent.hidden = true;
+    if (notFoundHelp) notFoundHelp.hidden = true;
+
     setText("member-name", "Loading…");
     setText("member-meta", "");
     const sk = document.getElementById("member-skills");
@@ -1275,8 +1293,10 @@
       setText("member-name", "Not found");
       setText(
         "member-meta",
-        "No RuneProfile for this name. Use the exact login name, or sync with the RuneLite RuneProfile plugin."
+        "No RuneProfile data for this name yet. Follow the steps below, or use the exact OSRS login name."
       );
+      if (profileContent) profileContent.hidden = true;
+      if (notFoundHelp) notFoundHelp.hidden = false;
       if (err) {
         err.hidden = false;
         err.textContent =
@@ -1285,7 +1305,7 @@
       return;
     }
 
-    await renderRuneProfile(profile);
+    await renderRuneProfile(profile, id);
   }
 
   let cachedMemberships = null;

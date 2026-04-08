@@ -72,6 +72,27 @@
           </div>
         </header>
 
+        <section id="member-not-found-help" class="member-panel member-wide member-not-found-help" hidden>
+          <h2 class="member-section-title">Set up RuneProfile</h2>
+          <p class="muted member-not-found-lead">
+            This page only shows stats after the player has a public profile on <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a> and has synced from RuneLite.
+          </p>
+          <ol class="member-setup-steps">
+            <li>Run <strong>Old School RuneScape</strong> through <strong>RuneLite</strong>.</li>
+            <li>Open <strong>Plugin Hub</strong>, search for <strong>RuneProfile</strong>, and install the plugin.</li>
+            <li>Open the <strong>RuneProfile</strong> sidebar panel in RuneLite, sign in (or create an account), and use <strong>Sync</strong> so your skills, quests, collection log, and clan info upload to the site.</li>
+            <li>Open this member link again using the player’s <strong>exact OSRS login name</strong> (the name used to log into the game).</li>
+          </ol>
+          <p class="muted member-not-found-note">
+            Clan members who have already synced will appear in the roster; until then, lookups here will show this message instead of stats.
+          </p>
+          <div class="member-not-found-actions">
+            <a href="#/plugin" class="btn btn-ghost">Terpinheimer plugin guide</a>
+            <a href="https://www.runeprofile.com/" class="btn btn-primary" target="_blank" rel="noopener">Open RuneProfile</a>
+          </div>
+        </section>
+
+        <div id="member-profile-content" hidden>
         <div class="member-clan-panel" id="member-clan-panel" hidden>
           <h2 class="member-section-title">Clan</h2>
           <p id="member-clan-body" class="member-clan-body"></p>
@@ -106,6 +127,7 @@
         </section>
 
         <p class="muted member-source">Profile data from <a href="https://www.runeprofile.com/" class="wom-link" target="_blank" rel="noopener">RuneProfile</a> (RuneLite plugin). Player must sync their profile for data to appear.</p>
+        </div>
       </div>
     </div>
 
