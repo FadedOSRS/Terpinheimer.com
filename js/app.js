@@ -93,6 +93,64 @@
     return publicAssetUrl(`public/clan-ranks/${encodeURIComponent(file)}`);
   }
 
+  /** RuneProfile `accountType.key` / `.name` → PNG in public/account-type-icons/. */
+  const ACCOUNT_TYPE_ICON_FILE = {
+    ironman: "Ironman.png",
+    hardcore_ironman: "Hardcore ironman.png",
+    hardcore: "Hardcore ironman.png",
+    hcim: "Hardcore ironman.png",
+    ultimate_ironman: "Ultimate ironman.png",
+    ultimate: "Ultimate ironman.png",
+    uim: "Ultimate ironman.png",
+    group_ironman: "Group Ironman.png",
+    hardcore_group_ironman: "Hardcore group Ironman.png",
+    hardcore_group: "Hardcore group Ironman.png",
+    unranked_group_ironman: "Unranked group Ironman.png",
+    unranked_group: "Unranked group Ironman.png",
+  };
+
+  const ACCOUNT_TYPE_ICON_BY_LABEL = {
+    ironman: "Ironman.png",
+    "hardcore ironman": "Hardcore ironman.png",
+    "ultimate ironman": "Ultimate ironman.png",
+    "group ironman": "Group Ironman.png",
+    "hardcore group ironman": "Hardcore group Ironman.png",
+    "unranked group ironman": "Unranked group Ironman.png",
+  };
+
+  function accountTypeIconSrc(accountType) {
+    if (!accountType) return "";
+    const key = String(accountType.key || "")
+      .trim()
+      .toLowerCase()
+      .replace(/-/g, "_");
+    let file = ACCOUNT_TYPE_ICON_FILE[key] || "";
+    if (!file) {
+      const name = String(accountType.name || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\u2019/g, "'");
+      file = ACCOUNT_TYPE_ICON_BY_LABEL[name] || "";
+    }
+    if (!file) return "";
+    return publicAssetUrl(`public/account-type-icons/${encodeURIComponent(file)}`);
+  }
+
+  function setMemberAccountTypeIcon(accountType, typeNameForAlt) {
+    const el = document.getElementById("member-account-type-icon");
+    if (!el) return;
+    const src = accountTypeIconSrc(accountType);
+    if (!src) {
+      el.removeAttribute("src");
+      el.hidden = true;
+      el.alt = "";
+      return;
+    }
+    el.src = src;
+    el.alt = typeNameForAlt ? `${String(typeNameForAlt).trim()} account type` : "Account type";
+    el.hidden = false;
+  }
+
   function womRetryDelay(attemptIndex) {
     if (attemptIndex <= 0) return 0;
     return attemptIndex === 1 ? 450 : 1100;
@@ -1056,6 +1114,7 @@
     const updated = profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : "—";
     const meta = document.getElementById("member-meta");
     if (meta) meta.textContent = `${typeName} · Last sync ${updated}`;
+    setMemberAccountTypeIcon(profile.accountType, typeName);
 
     const rpA = document.getElementById("member-rp-link");
     if (rpA) rpA.href = rpPage;
@@ -1279,6 +1338,7 @@
 
     setText("member-name", "Loading…");
     setText("member-meta", "");
+    setMemberAccountTypeIcon(null, "");
     const sk = document.getElementById("member-skills");
     if (sk) sk.innerHTML = "";
     const crumb = document.getElementById("member-crumb-name");
@@ -1295,6 +1355,7 @@
       );
       if (profileContent) profileContent.hidden = true;
       if (notFoundHelp) notFoundHelp.hidden = false;
+      setMemberAccountTypeIcon(null, "");
       return;
     }
 
