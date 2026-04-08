@@ -4133,6 +4133,32 @@
     return [];
   }
 
+  /** After 429, wait before retry (WOM uses ~20 req/min; home load bursts many parallel calls). */
+  async function womSleepAfterRateLimit(res) {
+    const ra = res.headers.get("retry-after");
+    if (ra) {
+      const s = Number(ra);
+      if (!Number.isNaN(s) && s > 0) {
+        await new Promise((r) => setTimeout(r, Math.min(s * 1000, 60000)));
+        return;
+      }
+    }
+    const reset = res.headers.get("ratelimit-reset");
+    if (reset) {
+      const v = Number(reset);
+      if (!Number.isNaN(v)) {
+        if (v > 1e9) {
+          const ms = Math.max(0, v * 1000 - Date.now());
+          await new Promise((r) => setTimeout(r, Math.min(ms + 250, 60000)));
+          return;
+        }
+        await new Promise((r) => setTimeout(r, Math.min(v * 1000, 60000)));
+        return;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
   async function womGetWithBase(base, path) {
     const maxAttempts = 3;
     let lastErr;
@@ -4146,13 +4172,23 @@
         if (!r.ok) {
           const st = r.status;
           lastErr = new Error(`${path}: ${st}`);
+          if (st === 429 && attempt < maxAttempts - 1) {
+            await womSleepAfterRateLimit(r);
+            continue;
+          }
           if (attempt < maxAttempts - 1 && (st === 429 || st >= 500)) continue;
           throw lastErr;
         }
-        return r.json();
+        const ct = (r.headers.get("content-type") || "").toLowerCase();
+        if (!ct.includes("application/json")) {
+          throw new Error(`${path}: non-json response`);
+        }
+        return await r.json();
       } catch (e) {
         lastErr = e;
+        if (e instanceof SyntaxError) throw lastErr;
         const msg = e && typeof e.message === "string" ? e.message : "";
+        if (msg.includes("non-json")) throw lastErr;
         const http = msg.match(/: (\d{3})$/);
         if (http) {
           const st = Number(http[1]);
@@ -4160,6 +4196,34 @@
         } else if (attempt < maxAttempts - 1) {
           continue;
         }
+        throw lastErr;
+      }
+    }
+    throw lastErr;
+  }
+
+  /**
+   * Full competition payload (participations) — always uses the public WOM API so static hosts are not
+   * double-hit (proxy 404/HTML then API), and retries harder on 429 after the initial page-load burst.
+   */
+  async function womGetCompetitionById(competitionId) {
+    const path = `/competitions/${competitionId}`;
+    /* Stagger after home()’s parallel WOM burst (~20 req/min limit). */
+    await new Promise((r) => setTimeout(r, 900));
+    let lastErr;
+    const waves = 6;
+    for (let wave = 0; wave < waves; wave++) {
+      try {
+        if (wave > 0) {
+          await new Promise((r) => setTimeout(r, 600 + wave * 500));
+        }
+        return await womGetWithBase(WOM_API, path);
+      } catch (e) {
+        lastErr = e;
+        const msg = e && typeof e.message === "string" ? e.message : "";
+        const m = msg.match(/: (\d{3})$/);
+        const st = m ? Number(m[1]) : 0;
+        if (st === 429 && wave < waves - 1) continue;
         throw lastErr;
       }
     }
@@ -4399,7 +4463,7 @@
     }
 
     try {
-      const detail = await womGet(`/competitions/${picked.id}`);
+      const detail = await womGetCompetitionById(picked.id);
       if (!detail || detail.id == null) throw new Error("no detail");
 
       wrap.hidden = false;
