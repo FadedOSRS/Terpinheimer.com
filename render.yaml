@@ -7,10 +7,12 @@
 # Optional: DISCORD_EVENTS_WEBHOOK_URL (Incoming Webhook URL) posts new events to Discord.
 # Optional: PUBLIC_SITE_URL for calendar link in the embed. See DISCORD_EVENTS.md.
 #
-# Clan calendar events are stored in custom-events.json. This blueprint mounts a persistent disk at
-# /var/data and sets CUSTOM_EVENTS_DIR so redeploys keep that file. Persistent disks require a
-# compatible Render plan (see https://render.com/docs/disks). If you create the service manually,
-# add a disk with the same mount path and set CUSTOM_EVENTS_DIR in the dashboard.
+# Clan events (custom-events.json) and admin accounts (admin-users.json) are written at runtime.
+# Without a persistent disk + env vars, Render's filesystem is ephemeral: every deploy starts fresh
+# and that data disappears. This blueprint mounts a disk at /var/data and sets CUSTOM_EVENTS_DIR
+# and ADMIN_USERS_DIR so both files live on the disk. Persistent disks require a compatible plan
+# (see https://render.com/docs/disks). If you create the service manually, add a disk with the same
+# mount path and set CUSTOM_EVENTS_DIR and ADMIN_USERS_DIR in the dashboard.
 services:
   - type: web
     name: terpinheimer-site
@@ -34,4 +36,6 @@ services:
       - key: DISCORD_WEBHOOK_USERNAME
         value: Terpinheimer.com
       - key: CUSTOM_EVENTS_DIR
+        value: /var/data
+      - key: ADMIN_USERS_DIR
         value: /var/data

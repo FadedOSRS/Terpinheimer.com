@@ -2304,6 +2304,41 @@ p + .plugin-guide-list {
   text-decoration: none;
 }
 
+.btn-cashapp {
+  background: #00d632;
+  color: #0a0f0d;
+  border-color: #00b82a;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+}
+
+.btn-cashapp:hover {
+  background: #33df5e;
+  color: #0a0f0d;
+  text-decoration: none;
+  border-color: #00d632;
+}
+
+.home-donate-inner {
+  text-align: center;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+.home-donate-title {
+  margin-bottom: 0.35rem;
+}
+
+.home-donate-lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.section-donate {
+  border-top: 1px solid var(--panel-edge);
+}
+
 /* Sections */
 .section {
   padding: 2.75rem 0;
