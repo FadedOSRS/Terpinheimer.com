@@ -97,6 +97,58 @@ function normalizeLinkedRsnForStorage(raw) {
   return t;
 }
 
+/** Case-insensitive match for member profile username vs admin linked RSN. */
+function normalizePlayerNameForAdminBadgeMatch(s) {
+  return String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function handlePublicSiteAdminForPlayer(req, res, url) {
+  const cors = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    res.end();
+    return;
+  }
+  if (req.method !== "GET") {
+    res.writeHead(405, cors);
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+  const rawQ = url.searchParams.get("player");
+  const raw = rawQ != null ? String(rawQ) : "";
+  let decoded = raw.trim();
+  try {
+    decoded = decodeURIComponent(decoded.replace(/\+/g, " "));
+  } catch {
+    decoded = raw.trim();
+  }
+  const want = normalizePlayerNameForAdminBadgeMatch(decoded);
+  if (!want) {
+    res.writeHead(200, cors);
+    res.end(JSON.stringify({ siteAdmin: false }));
+    return;
+  }
+  const data = await readAdminsRecord();
+  let siteAdmin = false;
+  for (const a of data.admins) {
+    if (!a.linkedRsn) continue;
+    if (normalizePlayerNameForAdminBadgeMatch(a.linkedRsn) === want) {
+      siteAdmin = true;
+      break;
+    }
+  }
+  res.writeHead(200, cors);
+  res.end(JSON.stringify({ siteAdmin }));
+}
+
 function sanitizeAdminsRecord(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   const adminsIn = Array.isArray(data.admins) ? data.admins : [];
@@ -1563,6 +1615,11 @@ http
       return;
     }
 
+    if (url.pathname === "/api/public/site-admin-for") {
+      await handlePublicSiteAdminForPlayer(req, res, url);
+      return;
+    }
+
     if (
       url.pathname === "/api/admin/signup" ||
       url.pathname === "/api/admin/login" ||
@@ -1748,6 +1805,7 @@ http
     console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
+    console.log("GET /api/public/site-admin-for?player= — member profile Site Admin badge (linked RSN)");
     console.log("GET/POST/DELETE /api/event-session — browser unlock cookie; DELETE clears session");
     console.log(
       "POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/link-rsn | /api/admin/reset-password | /api/admin/delete-account + GET /api/admin/me"

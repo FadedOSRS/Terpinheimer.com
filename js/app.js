@@ -1103,6 +1103,20 @@
     return navId != null && navId !== memberReqId;
   }
 
+  async function fetchMemberIsSiteAdmin(username) {
+    const name = String(username || "").trim();
+    if (!name) return false;
+    try {
+      const r = await fetch(`/api/public/site-admin-for?player=${encodeURIComponent(name)}`, {
+        credentials: "omit",
+      });
+      const j = await r.json().catch(() => ({}));
+      return !!j.siteAdmin;
+    } catch {
+      return false;
+    }
+  }
+
   async function renderRuneProfile(profile, navId) {
     if (memberNavStale(navId)) return;
     const rpPage = `https://www.runeprofile.com/${encodeURIComponent(profile.username)}`;
@@ -1121,6 +1135,11 @@
 
     const petClogMeta = await loadOsrsPetCollectionLogMeta();
     if (memberNavStale(navId)) return;
+
+    const isSiteAdmin = await fetchMemberIsSiteAdmin(profile.username);
+    if (memberNavStale(navId)) return;
+
+    const adminLineEl = document.getElementById("member-site-admin-line");
 
     const skills = [...(profile.skills || [])].sort((a, b) => skillStatsTabSortKey(a.name) - skillStatsTabSortKey(b.name));
     const diaries = profile.achievementDiaryTiers || [];
@@ -1186,8 +1205,19 @@
       const rankBlock = rankIconSrc
         ? `<span class="member-clan-rank"><img class="member-clan-rank-icon" src="${escHtml(rankIconSrc)}" alt="${escHtml(rankTitleRaw)} rank" width="22" height="22" decoding="async" /><span class="member-clan-rank-text">${escHtml(rankTitleRaw)}</span></span>`
         : escHtml(rankTitleRaw);
-      clanB.innerHTML = `<span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(profile.clan.name)}</strong> — ${rankBlock}</span>${badgesBlock}</span>`;
-    } else if (clanP) clanP.hidden = true;
+      const siteAdminBelowClan = isSiteAdmin
+        ? `<div class="member-clan-site-admin"><span class="member-site-admin-badge">Site Admin</span></div>`
+        : "";
+      clanB.innerHTML = `<div class="member-clan-body-inner"><span class="member-clan-summary"><span class="member-clan-main"><strong style="color:var(--cream)">${escHtml(
+        profile.clan.name
+      )}</strong> — ${rankBlock}</span>${badgesBlock}</span>${siteAdminBelowClan}</div>`;
+      if (adminLineEl) adminLineEl.hidden = true;
+    } else if (clanP) {
+      clanP.hidden = true;
+      const clanBody = document.getElementById("member-clan-body");
+      if (clanBody) clanBody.innerHTML = "";
+      if (adminLineEl) adminLineEl.hidden = !isSiteAdmin;
+    }
     let totalLvl = 0;
     const skillHtml = skills
       .map((s) => {
@@ -1338,6 +1368,9 @@
     if (profileContent) profileContent.hidden = true;
     if (notFoundHelp) notFoundHelp.hidden = true;
 
+    const siteAdminLineLoad = document.getElementById("member-site-admin-line");
+    if (siteAdminLineLoad) siteAdminLineLoad.hidden = true;
+
     setText("member-name", "Loading…");
     setText("member-meta", "");
     setMemberAccountTypeIcon(null, "");
@@ -1358,6 +1391,8 @@
       if (profileContent) profileContent.hidden = true;
       if (notFoundHelp) notFoundHelp.hidden = false;
       setMemberAccountTypeIcon(null, "");
+      const siteAdminLineNf = document.getElementById("member-site-admin-line");
+      if (siteAdminLineNf) siteAdminLineNf.hidden = true;
       return;
     }
 
