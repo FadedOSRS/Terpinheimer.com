@@ -526,12 +526,17 @@ async function handleEventSessionApi(req, res) {
   if (req.method === "GET") {
     const tok = getCookieHeader(req, EVENT_SESSION_COOKIE);
     const unlocked = verifyEventSessionToken(tok, secret);
+    const adminEmail = readAdminSessionFromRequest(req);
+    const effectiveUnlocked = unlocked || !!adminEmail;
+    /** Bingo: skip the “Open designer” step when organizers use admin sign-in only (no event-session cookie). */
+    const organizerViaAdmin = !!adminEmail && !unlocked;
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
       JSON.stringify({
-        unlocked,
+        unlocked: effectiveUnlocked,
         /** Same value as HttpOnly cookie — for mobile / in-app browsers that drop cookies on fetch POST. */
         sessionToken: unlocked ? tok : undefined,
+        organizerViaAdmin,
       })
     );
     return;
@@ -931,6 +936,7 @@ function isCustomEventId(s) {
 }
 
 function authorizeCustomEventsEdit(req, secret, bodySecret, bodySessionToken) {
+  if (readAdminSessionFromRequest(req)) return true;
   const cookieTok = getCookieHeader(req, EVENT_SESSION_COOKIE);
   if (verifyEventSessionToken(cookieTok, secret)) return true;
   const submitted = typeof bodySecret === "string" ? bodySecret : "";
@@ -986,7 +992,7 @@ async function handleCustomEventsApi(req, res) {
       read.buf.length > 0 ? parseJsonBody(read.buf) : null;
     const bodySecret =
       body && typeof body === "object" && typeof body.secret === "string" ? body.secret : "";
-    if (!timingSafeEqualString(bodySecret, secret)) {
+    if (!timingSafeEqualString(bodySecret, secret) && !readAdminSessionFromRequest(req)) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
       res.end(
         JSON.stringify({
@@ -1054,7 +1060,7 @@ async function handleCustomEventsApi(req, res) {
   }
 
   if (body.action === "delete") {
-    if (!timingSafeEqualString(submitted, secret)) {
+    if (!timingSafeEqualString(submitted, secret) && !readAdminSessionFromRequest(req)) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
       res.end(
         JSON.stringify({

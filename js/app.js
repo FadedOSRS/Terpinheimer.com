@@ -3089,6 +3089,12 @@
         }
       }
 
+      if (j.organizerViaAdmin) {
+        bingoShowDesignerUnlocked();
+        setOpenDesignerOffer(false);
+        return true;
+      }
+
       bingoShowDesignerLocked();
       setOpenDesignerOffer(!!j.unlocked);
       return !!j.unlocked;
@@ -4540,12 +4546,22 @@
     const id = chip?.getAttribute("data-clan-event-id");
     if (!id) return;
     let code = getOrganizerSecretInput();
+    let adminCanDelete = false;
     if (code.length < MIN_ORGANIZER_CODE_LEN) {
+      try {
+        const ar = await fetch("/api/admin/me", { credentials: "include" });
+        const aj = await ar.json().catch(() => ({}));
+        adminCanDelete = !!(aj.authenticated && aj.admin?.email);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!adminCanDelete && code.length < MIN_ORGANIZER_CODE_LEN) {
       code = String(
         window.prompt("Enter leadership code to remove this event:") || ""
       ).trim();
     }
-    if (code.length < MIN_ORGANIZER_CODE_LEN) {
+    if (!adminCanDelete && code.length < MIN_ORGANIZER_CODE_LEN) {
       window.alert(
         "You must enter the leadership code (at least 6 characters) to remove an event. You can type it in the box under Add clan event first, or use this prompt."
       );
@@ -4557,7 +4573,7 @@
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret: code }),
+        body: JSON.stringify({ secret: adminCanDelete ? "" : code }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
