@@ -3676,12 +3676,8 @@
         if (resetPanel) resetPanel.hidden = false;
         return;
       }
-      if (j.bootstrapAllowed) {
-        setAdminStatus("admin-auth-status", "No admin exists yet. Create the first admin account below.", false);
-      } else {
-        setAdminStatus("admin-auth-status", "Not logged in.", false);
-      }
-      if (signupPanel) signupPanel.hidden = !j.bootstrapAllowed;
+      setAdminStatus("admin-auth-status", "Not logged in.", false);
+      if (signupPanel) signupPanel.hidden = true;
       if (resetPanel) resetPanel.hidden = true;
     } catch {
       setAdminStatus("admin-auth-status", "Could not reach the server.", true);

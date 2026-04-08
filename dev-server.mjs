@@ -214,9 +214,8 @@ async function handleAdminAuthApi(req, res, url) {
     }
     const email = readAdminSessionFromRequest(req);
     if (!email) {
-      const data = await readAdminsRecord();
       res.writeHead(200, cors);
-      res.end(JSON.stringify({ authenticated: false, bootstrapAllowed: data.admins.length === 0 }));
+      res.end(JSON.stringify({ authenticated: false }));
       return;
     }
     const data = await readAdminsRecord();
@@ -267,16 +266,13 @@ async function handleAdminAuthApi(req, res, url) {
   }
 
   if (url.pathname === "/api/admin/signup") {
-    const data = await readAdminsRecord();
-    const bootstrapAllowed = data.admins.length === 0;
-    if (!bootstrapAllowed) {
-      const loggedInAdminEmail = readAdminSessionFromRequest(req);
-      if (!loggedInAdminEmail) {
-        res.writeHead(401, cors);
-        res.end(JSON.stringify({ error: "Login required." }));
-        return;
-      }
+    const loggedInAdminEmail = readAdminSessionFromRequest(req);
+    if (!loggedInAdminEmail) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Login required." }));
+      return;
     }
+    const data = await readAdminsRecord();
     const signupKey = process.env.ADMIN_SIGNUP_KEY?.trim();
     if (!signupKey || signupKey.length < 8) {
       res.writeHead(503, cors);
