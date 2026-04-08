@@ -2510,6 +2510,27 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   }
 }
 
+.home-wom-week {
+  margin-top: 2rem;
+}
+
+.home-wom-week .home-wom-week-title {
+  font-size: 1.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.home-wom-week .home-wom-week-rank {
+  display: inline-block;
+  min-width: 1.5rem;
+  color: var(--muted, rgba(255, 255, 255, 0.55));
+  font-weight: 600;
+}
+
+.home-wom-week .link-more {
+  display: inline-block;
+  margin-top: 0.75rem;
+}
+
 /* Home: collection log + achievements — shared title row, intro, then aligned lists */
 .clan-activity-grid {
   display: flex;

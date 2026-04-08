@@ -4323,6 +4323,96 @@
     }
   }
 
+  /** Latest Skill of the Week / Boss of the Week (by end date) from group competition list. */
+  function pickLatestWeekCompetition(competitions) {
+    const list = Array.isArray(competitions) ? competitions : [];
+    const matches = list.filter((c) => {
+      if (!c || c.visible === false) return false;
+      const t = String(c.title || "").toLowerCase();
+      return (
+        t.includes("skill of the week") ||
+        t.includes("boss of the week") ||
+        /\bsotw\b/.test(t) ||
+        /\bbotw\b/.test(t)
+      );
+    });
+    if (!matches.length) return null;
+    matches.sort((a, b) => {
+      const ea = new Date(a.endsAt || 0).getTime();
+      const eb = new Date(b.endsAt || 0).getTime();
+      return eb - ea;
+    });
+    return matches[0];
+  }
+
+  async function renderHomeWeekCompetitionFromList(competitions) {
+    const wrap = document.getElementById("home-wom-week");
+    const listEl = document.getElementById("home-wom-week-list");
+    const headingEl = document.getElementById("home-wom-week-heading");
+    const subEl = document.getElementById("home-wom-week-sub");
+    const linkEl = document.getElementById("home-wom-week-link");
+    if (!wrap || !listEl) return;
+
+    const picked = pickLatestWeekCompetition(competitions);
+    if (!picked || picked.id == null) {
+      wrap.hidden = false;
+      if (headingEl) headingEl.textContent = "Skill / Boss of the week";
+      if (subEl) subEl.textContent = "";
+      listEl.innerHTML =
+        '<li class="muted">No Skill of the Week or Boss of the Week competition found in recent Wise Old Man group data.</li>';
+      if (linkEl) linkEl.hidden = true;
+      return;
+    }
+
+    try {
+      const detail = await womGet(`/competitions/${picked.id}`);
+      if (!detail || detail.id == null) throw new Error("no detail");
+
+      wrap.hidden = false;
+      if (headingEl) headingEl.textContent = detail.title || picked.title || "Weekly competition";
+      const start = detail.startsAt ? new Date(detail.startsAt).toLocaleDateString() : "";
+      const end = detail.endsAt ? new Date(detail.endsAt).toLocaleDateString() : "";
+      if (subEl) {
+        subEl.textContent = start && end ? `${start} – ${end} · Wise Old Man` : "Wise Old Man";
+      }
+
+      const parts = Array.isArray(detail.participations) ? detail.participations : [];
+      const sorted = [...parts]
+        .sort((a, b) => (b.progress?.gained ?? 0) - (a.progress?.gained ?? 0))
+        .slice(0, 10);
+
+      const titleStr = String(detail.title || "");
+      const gainedSuffix = /\bbotw\b/i.test(titleStr) ? " KC" : " XP";
+
+      listEl.innerHTML = sorted
+        .map((row, i) => {
+          const p = row.player;
+          const name = p?.displayName || p?.username || "?";
+          const u = p?.username ? memberProfileHref(p.username) : "#/";
+          const g = row.progress?.gained ?? 0;
+          return `<li><span class="home-wom-week-rank">${i + 1}.</span> <strong><a href="${u}" class="wom-link">${escHtml(
+            name
+          )}</a></strong> — +${fmtCompact(g)}${gainedSuffix}</li>`;
+        })
+        .join("");
+
+      if (!sorted.length) {
+        listEl.innerHTML = '<li class="muted">No participants in this competition yet.</li>';
+      }
+
+      if (linkEl) {
+        linkEl.href = `https://wiseoldman.net/competitions/${detail.id}`;
+        linkEl.hidden = false;
+      }
+    } catch {
+      wrap.hidden = false;
+      if (headingEl) headingEl.textContent = "Skill / Boss of the week";
+      if (subEl) subEl.textContent = "";
+      listEl.innerHTML = '<li class="muted">Could not load weekly competition from Wise Old Man.</li>';
+      if (linkEl) linkEl.hidden = true;
+    }
+  }
+
   function normalizeCalendarEvents(competitions, customEvents) {
     const out = [];
     for (const c of competitions) {
@@ -4469,7 +4559,7 @@
       group: `/groups/${WOM_GROUP_ID}`,
       hiscores: `/groups/${WOM_GROUP_ID}/hiscores?metric=overall&limit=15`,
       achievements: `/groups/${WOM_GROUP_ID}/achievements?limit=12`,
-      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=30`,
+      competitions: `/groups/${WOM_GROUP_ID}/competitions?limit=100`,
     };
 
     const results = await Promise.allSettled([
@@ -4586,6 +4676,7 @@
 
     const customEvents = await customEventsPromise;
     refreshEventCache(competitions, customEvents);
+    await renderHomeWeekCompetitionFromList(competitions);
 
     const act = document.getElementById("activity");
     if (act) {
