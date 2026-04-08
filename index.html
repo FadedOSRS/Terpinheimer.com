@@ -596,7 +596,7 @@
           <p class="lead muted">Admin account signup/login and owner-only password resets.</p>
         </header>
 
-        <section class="member-panel member-wide" id="admin-signup-panel" hidden>
+        <section class="member-panel member-wide">
           <h2 class="member-section-title">Current session</h2>
           <p id="admin-auth-status" class="muted">Checking…</p>
           <button type="button" class="btn btn-ghost" id="admin-logout-btn">Logout</button>
@@ -620,7 +620,7 @@
           </form>
         </section>
 
-        <section class="member-panel member-wide">
+        <section class="member-panel member-wide" id="admin-signup-panel" hidden>
           <h2 class="member-section-title">Create admin account</h2>
           <form id="admin-signup-form" class="event-add-form">
             <fieldset class="event-form-fieldset">
@@ -642,7 +642,7 @@
           </form>
         </section>
 
-        <section class="member-panel member-wide">
+        <section class="member-panel member-wide" id="admin-reset-panel" hidden>
           <h2 class="member-section-title">Manual password reset (owner only)</h2>
           <p class="muted">No self-service forgot-password exists. Use this when an admin forgets their password.</p>
           <form id="admin-reset-form" class="event-add-form">
@@ -662,6 +662,23 @@
               <button type="submit" class="btn btn-primary event-add-submit">Reset password</button>
             </fieldset>
             <p id="admin-reset-status" class="event-add-status muted" role="status"></p>
+          </form>
+
+          <h3 class="member-section-title member-mt">Delete admin account (owner only)</h3>
+          <p class="muted">This permanently removes an admin account. You cannot delete the currently logged-in account.</p>
+          <form id="admin-delete-form" class="event-add-form">
+            <fieldset class="event-form-fieldset">
+              <label class="event-add-label">
+                <span>Admin email</span>
+                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+              </label>
+              <label class="event-add-label">
+                <span>Owner reset key</span>
+                <input name="ownerResetKey" type="password" required class="event-add-input" autocomplete="off" />
+              </label>
+              <button type="submit" class="btn btn-primary event-add-submit">Delete admin</button>
+            </fieldset>
+            <p id="admin-delete-status" class="event-add-status muted" role="status"></p>
           </form>
         </section>
       </div>

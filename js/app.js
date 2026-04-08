@@ -3777,6 +3777,35 @@
       }
     });
 
+    const deleteForm = document.getElementById("admin-delete-form");
+    deleteForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(deleteForm);
+      const payload = {
+        email: String(fd.get("email") || "").trim(),
+        ownerResetKey: String(fd.get("ownerResetKey") || ""),
+      };
+      if (!window.confirm(`Delete admin account ${payload.email}? This cannot be undone.`)) return;
+      setAdminStatus("admin-delete-status", "Deleting admin account...", false);
+      try {
+        const r = await fetch("/api/admin/delete-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setAdminStatus("admin-delete-status", j.error || "Delete failed.", true);
+          return;
+        }
+        setAdminStatus("admin-delete-status", `Deleted ${j.email || payload.email}.`, false);
+        deleteForm.reset();
+      } catch {
+        setAdminStatus("admin-delete-status", "Could not reach the server.", true);
+      }
+    });
+
     const logoutBtn = document.getElementById("admin-logout-btn");
     logoutBtn?.addEventListener("click", async () => {
       setAdminStatus("admin-auth-status", "Logging out...", false);

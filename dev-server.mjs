@@ -394,6 +394,55 @@ async function handleAdminAuthApi(req, res, url) {
     return;
   }
 
+  if (url.pathname === "/api/admin/delete-account") {
+    const loggedInAdminEmail = readAdminSessionFromRequest(req);
+    if (!loggedInAdminEmail) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Login required." }));
+      return;
+    }
+    const ownerResetKey = process.env.ADMIN_OWNER_RESET_KEY?.trim();
+    if (!ownerResetKey || ownerResetKey.length < 10) {
+      res.writeHead(503, cors);
+      res.end(JSON.stringify({ error: "ADMIN_OWNER_RESET_KEY must be set (min 10 characters)." }));
+      return;
+    }
+    const provided = String(body.ownerResetKey || "").trim();
+    if (!timingSafeEqualString(provided, ownerResetKey)) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Invalid owner reset key." }));
+      return;
+    }
+    const email = normalizeAdminEmail(body.email);
+    if (!isValidAdminEmail(email)) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Valid email is required." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    if (data.admins.length <= 1) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Cannot delete the last remaining admin." }));
+      return;
+    }
+    if (email === loggedInAdminEmail) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Cannot delete the currently logged-in admin account." }));
+      return;
+    }
+    const idx = data.admins.findIndex((a) => a.email === email);
+    if (idx < 0) {
+      res.writeHead(404, cors);
+      res.end(JSON.stringify({ error: "Admin not found." }));
+      return;
+    }
+    data.admins.splice(idx, 1);
+    await writeAdminsRecord(data);
+    res.writeHead(200, cors);
+    res.end(JSON.stringify({ ok: true, email }));
+    return;
+  }
+
   res.writeHead(404, cors);
   res.end(JSON.stringify({ error: "Not found" }));
 }
@@ -1451,7 +1500,8 @@ http
       url.pathname === "/api/admin/login" ||
       url.pathname === "/api/admin/logout" ||
       url.pathname === "/api/admin/me" ||
-      url.pathname === "/api/admin/reset-password"
+      url.pathname === "/api/admin/reset-password" ||
+      url.pathname === "/api/admin/delete-account"
     ) {
       await handleAdminAuthApi(req, res, url);
       return;
@@ -1630,7 +1680,9 @@ http
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST/DELETE /api/event-session — browser unlock cookie; DELETE clears session");
-    console.log("POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/reset-password + GET /api/admin/me");
+    console.log(
+      "POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/reset-password | /api/admin/delete-account + GET /api/admin/me"
+    );
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );
