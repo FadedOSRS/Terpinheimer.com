@@ -705,8 +705,36 @@
         <div id="admin-profile-section" class="admin-profile-section" hidden>
           <header class="admin-profile-header">
             <div class="admin-profile-intro">
-              <h1 class="admin-profile-title">Admin dashboard</h1>
-              <p class="admin-profile-email muted" id="admin-profile-email"></p>
+              <div class="admin-profile-title-row">
+                <h1 class="admin-profile-title">Admin dashboard</h1>
+                <span class="admin-site-role-badge" title="You have administrator access to this site">Site Admin</span>
+              </div>
+              <div class="admin-profile-identity muted">
+                <p class="admin-profile-email-line" id="admin-profile-email"></p>
+                <div class="admin-profile-rsn-row">
+                  <label class="admin-profile-rsn-label" for="admin-linked-rsn-input">Set RSN:</label>
+                  <input
+                    id="admin-linked-rsn-input"
+                    type="text"
+                    class="admin-input admin-linked-rsn-input"
+                    maxlength="32"
+                    autocomplete="username"
+                    spellcheck="false"
+                    placeholder="Exact OSRS name"
+                    aria-describedby="admin-linked-rsn-hint"
+                  />
+                  <button type="button" class="btn btn-ghost admin-linked-rsn-save" id="admin-linked-rsn-save">
+                    Save
+                  </button>
+                  <a href="#/members" class="wom-link admin-linked-rsn-profile" id="admin-linked-rsn-profile" hidden>
+                    Member page
+                  </a>
+                </div>
+                <p id="admin-linked-rsn-hint" class="admin-linked-rsn-hint">
+                  Links your login to <a href="#/members" class="wom-link">Members</a> so staff can find the right profile (use the same spelling as in-game).
+                </p>
+                <p id="admin-linked-rsn-status" class="admin-form-status admin-linked-rsn-status muted" role="status" hidden></p>
+              </div>
             </div>
             <button type="button" class="btn btn-ghost admin-profile-signout" id="admin-logout-btn">Sign out</button>
           </header>

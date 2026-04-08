@@ -2856,18 +2856,79 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   border-bottom: 2px solid var(--panel-edge);
 }
 
+.admin-profile-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.admin-site-role-badge {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bg-canvas-deep);
+  background: linear-gradient(180deg, var(--amber) 0%, #c9790a 100%);
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
 .admin-profile-title {
   font-family: var(--font-display);
   font-size: clamp(1.45rem, 3.5vw, 1.85rem);
   font-weight: 700;
   color: var(--cream);
-  margin: 0 0 0.35rem;
+  margin: 0;
   line-height: 1.2;
 }
 
-.admin-profile-email {
-  margin: 0;
+.admin-profile-identity {
   font-size: 0.95rem;
+  line-height: 1.5;
+  max-width: 46rem;
+}
+
+.admin-profile-email-line {
+  margin: 0 0 0.65rem;
+}
+
+.admin-profile-rsn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.admin-profile-rsn-label {
+  font-weight: 600;
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+.admin-linked-rsn-input {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  max-width: 16rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.88rem;
+}
+
+.admin-linked-rsn-hint {
+  margin: 0 0 0.25rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.admin-linked-rsn-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
 }
 
 .admin-profile-signout {

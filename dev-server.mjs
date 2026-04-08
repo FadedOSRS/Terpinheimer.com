@@ -86,6 +86,17 @@ function isValidAdminEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/** Optional link to `#/members/<name>` — matches site member URLs (trim, max 32, safe chars). */
+function normalizeLinkedRsnForStorage(raw) {
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!t) return undefined;
+  if (t.length > 32) return undefined;
+  if (!/^[A-Za-z0-9 _.'-]+$/.test(t)) return undefined;
+  return t;
+}
+
 function sanitizeAdminsRecord(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   const adminsIn = Array.isArray(data.admins) ? data.admins : [];
@@ -93,7 +104,8 @@ function sanitizeAdminsRecord(raw) {
     .filter((a) => a && typeof a === "object")
     .map((a) => {
       const email = normalizeAdminEmail(a.email);
-      return {
+      const linkedRsn = normalizeLinkedRsnForStorage(a.linkedRsn);
+      const base = {
         id: typeof a.id === "string" && a.id ? a.id : crypto.randomUUID(),
         email,
         passwordHash: typeof a.passwordHash === "string" ? a.passwordHash : "",
@@ -101,6 +113,8 @@ function sanitizeAdminsRecord(raw) {
         updatedAt: typeof a.updatedAt === "string" ? a.updatedAt : new Date().toISOString(),
         lastLoginAt: typeof a.lastLoginAt === "string" ? a.lastLoginAt : undefined,
       };
+      if (linkedRsn) base.linkedRsn = linkedRsn;
+      return base;
     })
     .filter((a) => a.email && a.passwordHash);
   return { admins };
@@ -227,7 +241,16 @@ async function handleAdminAuthApi(req, res, url) {
       return;
     }
     res.writeHead(200, cors);
-    res.end(JSON.stringify({ authenticated: true, admin: { email: admin.email, lastLoginAt: admin.lastLoginAt } }));
+    res.end(
+      JSON.stringify({
+        authenticated: true,
+        admin: {
+          email: admin.email,
+          lastLoginAt: admin.lastLoginAt,
+          linkedRsn: admin.linkedRsn || null,
+        },
+      })
+    );
     return;
   }
 
@@ -263,6 +286,41 @@ async function handleAdminAuthApi(req, res, url) {
   if (!body || typeof body !== "object") {
     res.writeHead(400, cors);
     res.end(JSON.stringify({ error: "Invalid JSON body" }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/link-rsn") {
+    const loggedInAdminEmail = readAdminSessionFromRequest(req);
+    if (!loggedInAdminEmail) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Login required." }));
+      return;
+    }
+    const raw = body.rsn != null ? String(body.rsn) : "";
+    const normalized = normalizeLinkedRsnForStorage(raw);
+    if (raw.trim() && !normalized) {
+      res.writeHead(400, cors);
+      res.end(
+        JSON.stringify({
+          error:
+            "Invalid RSN — use 1–32 characters: letters, numbers, spaces, hyphen, underscore, period, or apostrophe.",
+        })
+      );
+      return;
+    }
+    const data = await readAdminsRecord();
+    const admin = data.admins.find((a) => a.email === loggedInAdminEmail);
+    if (!admin) {
+      res.writeHead(404, cors);
+      res.end(JSON.stringify({ error: "Admin record not found." }));
+      return;
+    }
+    if (normalized) admin.linkedRsn = normalized;
+    else delete admin.linkedRsn;
+    admin.updatedAt = new Date().toISOString();
+    await writeAdminsRecord(data);
+    res.writeHead(200, cors);
+    res.end(JSON.stringify({ ok: true, linkedRsn: admin.linkedRsn || null }));
     return;
   }
 
@@ -1510,6 +1568,7 @@ http
       url.pathname === "/api/admin/login" ||
       url.pathname === "/api/admin/logout" ||
       url.pathname === "/api/admin/me" ||
+      url.pathname === "/api/admin/link-rsn" ||
       url.pathname === "/api/admin/reset-password" ||
       url.pathname === "/api/admin/delete-account"
     ) {
@@ -1691,7 +1750,7 @@ http
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST/DELETE /api/event-session — browser unlock cookie; DELETE clears session");
     console.log(
-      "POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/reset-password | /api/admin/delete-account + GET /api/admin/me"
+      "POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/link-rsn | /api/admin/reset-password | /api/admin/delete-account + GET /api/admin/me"
     );
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"

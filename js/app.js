@@ -3730,6 +3730,35 @@
 
       if (emailEl) emailEl.textContent = email ? `Signed in as ${email}` : "";
 
+      const rsnInp = document.getElementById("admin-linked-rsn-input");
+      const rsnProf = document.getElementById("admin-linked-rsn-profile");
+      const rsnSt = document.getElementById("admin-linked-rsn-status");
+      if (signedIn && onProfile) {
+        const lr = j.admin?.linkedRsn ? String(j.admin.linkedRsn) : "";
+        if (rsnInp) rsnInp.value = lr;
+        if (rsnProf) {
+          if (lr) {
+            rsnProf.href = memberProfileHref(lr);
+            rsnProf.hidden = false;
+          } else {
+            rsnProf.hidden = true;
+          }
+        }
+        if (rsnSt) {
+          rsnSt.textContent = "";
+          rsnSt.hidden = true;
+          rsnSt.classList.remove("admin-form-status--error");
+          rsnSt.classList.add("muted");
+        }
+      } else {
+        if (rsnInp) rsnInp.value = "";
+        if (rsnProf) rsnProf.hidden = true;
+        if (rsnSt) {
+          rsnSt.textContent = "";
+          rsnSt.hidden = true;
+        }
+      }
+
       if (hint) {
         hint.hidden = !signedIn || onProfile;
         const disp = hint.querySelector("[data-admin-email-display]");
@@ -3740,6 +3769,15 @@
       if (resetPanel) resetPanel.hidden = !signedIn || !onProfile;
     } catch {
       if (emailEl) emailEl.textContent = "";
+      const rsnInp0 = document.getElementById("admin-linked-rsn-input");
+      const rsnProf0 = document.getElementById("admin-linked-rsn-profile");
+      const rsnSt0 = document.getElementById("admin-linked-rsn-status");
+      if (rsnInp0) rsnInp0.value = "";
+      if (rsnProf0) rsnProf0.hidden = true;
+      if (rsnSt0) {
+        rsnSt0.textContent = "";
+        rsnSt0.hidden = true;
+      }
       if (hint) hint.hidden = true;
       if (loginCard) loginCard.hidden = false;
       if (resetPanel) resetPanel.hidden = true;
@@ -3875,6 +3913,57 @@
         deleteForm.reset();
       } catch {
         setAdminStatus("admin-delete-status", "Could not reach the server.", true);
+      }
+    });
+
+    document.getElementById("admin-linked-rsn-save")?.addEventListener("click", async () => {
+      const inp = document.getElementById("admin-linked-rsn-input");
+      const st = document.getElementById("admin-linked-rsn-status");
+      const prof = document.getElementById("admin-linked-rsn-profile");
+      const rsn = String(inp?.value || "").trim();
+      if (st) {
+        st.hidden = false;
+        st.textContent = "Saving…";
+        st.classList.remove("admin-form-status--error");
+        st.classList.add("muted");
+      }
+      try {
+        const r = await fetch("/api/admin/link-rsn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ rsn }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (st) {
+            st.textContent = j.error || "Could not save RSN.";
+            st.classList.add("admin-form-status--error");
+            st.classList.remove("muted");
+          }
+          return;
+        }
+        if (inp && j.linkedRsn) inp.value = String(j.linkedRsn);
+        else if (inp) inp.value = "";
+        if (prof) {
+          if (j.linkedRsn) {
+            prof.href = memberProfileHref(String(j.linkedRsn));
+            prof.hidden = false;
+          } else {
+            prof.hidden = true;
+          }
+        }
+        if (st) {
+          st.textContent = j.linkedRsn ? "Saved — linked to your member profile URL." : "RSN cleared.";
+          st.classList.remove("admin-form-status--error");
+          st.classList.add("muted");
+        }
+      } catch {
+        if (st) {
+          st.textContent = "Could not reach the server.";
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
       }
     });
 
