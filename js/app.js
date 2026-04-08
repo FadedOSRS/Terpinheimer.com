@@ -1319,12 +1319,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (mv) mv.hidden = false;
@@ -1373,12 +1375,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (hv) hv.hidden = false;
@@ -1470,12 +1474,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (evw) evw.hidden = false;
@@ -1618,12 +1624,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (listv) listv.hidden = false;
@@ -3629,12 +3637,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (bingov) bingov.hidden = false;
@@ -3643,6 +3653,169 @@
     fillBingoDimSelectsOnce();
     bindBingoPageOnce();
     void bingoRefreshAccessGate();
+  }
+
+  let adminPageBound = false;
+  function setAdminStatus(elId, text, isError) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("load-error", !!isError);
+    el.classList.toggle("muted", !isError);
+  }
+
+  async function refreshAdminSessionStatus() {
+    const signupPanel = document.getElementById("admin-signup-panel");
+    const resetPanel = document.getElementById("admin-reset-panel");
+    try {
+      const r = await fetch("/api/admin/me", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+      if (j.authenticated && j.admin?.email) {
+        setAdminStatus("admin-auth-status", `Logged in as ${j.admin.email}`, false);
+        if (signupPanel) signupPanel.hidden = false;
+        if (resetPanel) resetPanel.hidden = false;
+        return;
+      }
+      setAdminStatus("admin-auth-status", "Not logged in.", false);
+      if (signupPanel) signupPanel.hidden = true;
+      if (resetPanel) resetPanel.hidden = true;
+    } catch {
+      setAdminStatus("admin-auth-status", "Could not reach the server.", true);
+      if (signupPanel) signupPanel.hidden = true;
+      if (resetPanel) resetPanel.hidden = true;
+    }
+  }
+
+  function bindAdminPageOnce() {
+    if (adminPageBound) return;
+    adminPageBound = true;
+
+    const loginForm = document.getElementById("admin-login-form");
+    loginForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(loginForm);
+      const payload = {
+        email: String(fd.get("email") || "").trim(),
+        password: String(fd.get("password") || ""),
+      };
+      setAdminStatus("admin-login-status", "Logging in...", false);
+      try {
+        const r = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setAdminStatus("admin-login-status", j.error || "Login failed.", true);
+          return;
+        }
+        setAdminStatus("admin-login-status", "Login successful.", false);
+        loginForm.reset();
+        await refreshAdminSessionStatus();
+      } catch {
+        setAdminStatus("admin-login-status", "Could not reach the server.", true);
+      }
+    });
+
+    const signupForm = document.getElementById("admin-signup-form");
+    signupForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(signupForm);
+      const payload = {
+        email: String(fd.get("email") || "").trim(),
+        password: String(fd.get("password") || ""),
+        signupKey: String(fd.get("signupKey") || ""),
+      };
+      setAdminStatus("admin-signup-status", "Creating admin...", false);
+      try {
+        const r = await fetch("/api/admin/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setAdminStatus("admin-signup-status", j.error || "Could not create admin.", true);
+          return;
+        }
+        setAdminStatus("admin-signup-status", "Admin created.", false);
+        signupForm.reset();
+      } catch {
+        setAdminStatus("admin-signup-status", "Could not reach the server.", true);
+      }
+    });
+
+    const resetForm = document.getElementById("admin-reset-form");
+    resetForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(resetForm);
+      const payload = {
+        email: String(fd.get("email") || "").trim(),
+        newPassword: String(fd.get("newPassword") || ""),
+        ownerResetKey: String(fd.get("ownerResetKey") || ""),
+      };
+      setAdminStatus("admin-reset-status", "Resetting password...", false);
+      try {
+        const r = await fetch("/api/admin/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setAdminStatus("admin-reset-status", j.error || "Password reset failed.", true);
+          return;
+        }
+        setAdminStatus("admin-reset-status", `Password reset for ${j.email || payload.email}.`, false);
+        resetForm.reset();
+      } catch {
+        setAdminStatus("admin-reset-status", "Could not reach the server.", true);
+      }
+    });
+
+    const logoutBtn = document.getElementById("admin-logout-btn");
+    logoutBtn?.addEventListener("click", async () => {
+      setAdminStatus("admin-auth-status", "Logging out...", false);
+      try {
+        await fetch("/api/admin/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+      } catch {
+        /* ignore */
+      }
+      await refreshAdminSessionStatus();
+    });
+  }
+
+  function showAdminView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
+    if (mapv) mapv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (adminv) adminv.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Admin | Terpinheimer";
+    bindAdminPageOnce();
+    void refreshAdminSessionStatus();
   }
 
 
@@ -3680,6 +3853,11 @@
 
     if (path === "/map") {
       showMapView();
+      return;
+    }
+
+    if (path === "/admin") {
+      showAdminView();
       return;
     }
 
@@ -4647,12 +4825,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (plugv) plugv.hidden = false;
@@ -4670,12 +4850,14 @@
     const plugv = document.getElementById("plugin-view");
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
+    if (adminv) adminv.hidden = true;
     if (mapv) mapv.hidden = false;
     document.body.classList.add("map-route-live");
     window.scrollTo(0, 0);

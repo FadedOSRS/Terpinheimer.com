@@ -45,6 +45,7 @@
         <a href="#/map">Map</a>
         <a href="#/bingo">Bingo</a>
         <a href="#/plugin">Plugin</a>
+        <a href="#/admin">Admin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
     </div>
@@ -127,7 +128,7 @@
           </section>
         </div>
 
-        <section class="member-panel member-wide">
+        <section class="member-panel member-wide" id="admin-reset-panel" hidden>
           <h2 class="member-section-title">Drops &amp; collection log</h2>
           <ul class="activity-log" id="member-recent"></ul>
         </section>
@@ -581,6 +582,88 @@
             <p class="live-map-hint muted" id="map-live-empty-hint" hidden>No players on this plane.</p>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="admin-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Admin</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Admin access</h1>
+          <hr class="rule" />
+          <p class="lead muted">Admin account signup/login and owner-only password resets.</p>
+        </header>
+
+        <section class="member-panel member-wide" id="admin-signup-panel" hidden>
+          <h2 class="member-section-title">Current session</h2>
+          <p id="admin-auth-status" class="muted">Checking…</p>
+          <button type="button" class="btn btn-ghost" id="admin-logout-btn">Logout</button>
+        </section>
+
+        <section class="member-panel member-wide">
+          <h2 class="member-section-title">Admin login</h2>
+          <form id="admin-login-form" class="event-add-form">
+            <fieldset class="event-form-fieldset">
+              <label class="event-add-label">
+                <span>Email</span>
+                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+              </label>
+              <label class="event-add-label">
+                <span>Password</span>
+                <input name="password" type="password" required class="event-add-input" autocomplete="current-password" />
+              </label>
+              <button type="submit" class="btn btn-primary event-add-submit">Login</button>
+            </fieldset>
+            <p id="admin-login-status" class="event-add-status muted" role="status"></p>
+          </form>
+        </section>
+
+        <section class="member-panel member-wide">
+          <h2 class="member-section-title">Create admin account</h2>
+          <form id="admin-signup-form" class="event-add-form">
+            <fieldset class="event-form-fieldset">
+              <label class="event-add-label">
+                <span>Email</span>
+                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+              </label>
+              <label class="event-add-label">
+                <span>Password</span>
+                <input name="password" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
+              </label>
+              <label class="event-add-label">
+                <span>Signup key</span>
+                <input name="signupKey" type="password" required class="event-add-input" autocomplete="off" />
+              </label>
+              <button type="submit" class="btn btn-primary event-add-submit">Create admin</button>
+            </fieldset>
+            <p id="admin-signup-status" class="event-add-status muted" role="status"></p>
+          </form>
+        </section>
+
+        <section class="member-panel member-wide">
+          <h2 class="member-section-title">Manual password reset (owner only)</h2>
+          <p class="muted">No self-service forgot-password exists. Use this when an admin forgets their password.</p>
+          <form id="admin-reset-form" class="event-add-form">
+            <fieldset class="event-form-fieldset">
+              <label class="event-add-label">
+                <span>Admin email</span>
+                <input name="email" type="email" required class="event-add-input" autocomplete="username" />
+              </label>
+              <label class="event-add-label">
+                <span>New password</span>
+                <input name="newPassword" type="password" required minlength="8" class="event-add-input" autocomplete="new-password" />
+              </label>
+              <label class="event-add-label">
+                <span>Owner reset key</span>
+                <input name="ownerResetKey" type="password" required class="event-add-input" autocomplete="off" />
+              </label>
+              <button type="submit" class="btn btn-primary event-add-submit">Reset password</button>
+            </fieldset>
+            <p id="admin-reset-status" class="event-add-status muted" role="status"></p>
+          </form>
+        </section>
       </div>
     </div>
 

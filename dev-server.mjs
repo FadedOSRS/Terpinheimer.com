@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 5173;
@@ -48,6 +49,7 @@ function resolveCustomEventsPath() {
 }
 
 const CUSTOM_EVENTS_PATH = resolveCustomEventsPath();
+const ADMIN_USERS_PATH = resolveAdminUsersPath();
 
 const LIVE_MAP_SECRET = (process.env.LIVE_MAP_SECRET || "").trim();
 const LIVE_MAP_TTL_MS =
@@ -62,6 +64,339 @@ const liveMapPlayersByKey = new Map();
 const MAX_BODY = 32768;
 const EVENT_SESSION_COOKIE = "th_ev";
 const EVENT_SESSION_DAYS = 7;
+const ADMIN_SESSION_COOKIE = "th_admin";
+const ADMIN_SESSION_DAYS = 14;
+const scryptAsync = promisify(crypto.scrypt);
+
+function resolveAdminUsersPath() {
+  const file = process.env.ADMIN_USERS_PATH?.trim();
+  if (file) return path.isAbsolute(file) ? file : path.join(__dirname, file);
+  const dir = process.env.ADMIN_USERS_DIR?.trim();
+  if (dir) return path.join(dir, "admin-users.json");
+  return path.join(__dirname, "_data", "admin-users.json");
+}
+
+function normalizeAdminEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isValidAdminEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function sanitizeAdminsRecord(raw) {
+  const data = raw && typeof raw === "object" ? raw : {};
+  const adminsIn = Array.isArray(data.admins) ? data.admins : [];
+  const admins = adminsIn
+    .filter((a) => a && typeof a === "object")
+    .map((a) => {
+      const email = normalizeAdminEmail(a.email);
+      return {
+        id: typeof a.id === "string" && a.id ? a.id : crypto.randomUUID(),
+        email,
+        passwordHash: typeof a.passwordHash === "string" ? a.passwordHash : "",
+        createdAt: typeof a.createdAt === "string" ? a.createdAt : new Date().toISOString(),
+        updatedAt: typeof a.updatedAt === "string" ? a.updatedAt : new Date().toISOString(),
+        lastLoginAt: typeof a.lastLoginAt === "string" ? a.lastLoginAt : undefined,
+      };
+    })
+    .filter((a) => a.email && a.passwordHash);
+  return { admins };
+}
+
+async function readAdminsRecord() {
+  try {
+    const raw = await fs.promises.readFile(ADMIN_USERS_PATH, "utf8");
+    return sanitizeAdminsRecord(JSON.parse(raw));
+  } catch {
+    return { admins: [] };
+  }
+}
+
+async function writeAdminsRecord(data) {
+  const normalized = sanitizeAdminsRecord(data);
+  await fs.promises.mkdir(path.dirname(ADMIN_USERS_PATH), { recursive: true });
+  await fs.promises.writeFile(ADMIN_USERS_PATH, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+}
+
+function splitPasswordHash(stored) {
+  const parts = String(stored || "").split("$");
+  if (parts.length !== 4 || parts[0] !== "scrypt") return null;
+  return {
+    salt: parts[1],
+    hashHex: parts[2],
+    keyLen: Number(parts[3]),
+  };
+}
+
+async function hashAdminPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const keyLen = 64;
+  const derived = await scryptAsync(password, salt, keyLen);
+  return `scrypt$${salt}$${Buffer.from(derived).toString("hex")}$${keyLen}`;
+}
+
+async function verifyAdminPassword(password, storedHash) {
+  const parsed = splitPasswordHash(storedHash);
+  if (!parsed || !Number.isFinite(parsed.keyLen) || parsed.keyLen < 16 || !/^[a-f0-9]+$/i.test(parsed.salt)) return false;
+  const derived = await scryptAsync(password, parsed.salt, parsed.keyLen);
+  const providedHex = Buffer.from(derived).toString("hex");
+  if (providedHex.length !== parsed.hashHex.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(providedHex, "utf8"), Buffer.from(parsed.hashHex, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+function buildAdminSessionToken(email, secret) {
+  const exp = Date.now() + ADMIN_SESSION_DAYS * 86400000;
+  const payload = `${exp}.${email}`;
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return `${payload}.${sig}`;
+}
+
+function verifyAdminSessionToken(token, secret) {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length < 3) return null;
+  const exp = parts[0];
+  const sig = parts[parts.length - 1];
+  const email = parts.slice(1, -1).join(".");
+  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{64}$/i.test(sig)) return null;
+  if (Date.now() > Number(exp)) return null;
+  const payload = `${exp}.${email}`;
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))) return null;
+  } catch {
+    return null;
+  }
+  const normalizedEmail = normalizeAdminEmail(email);
+  return normalizedEmail && isValidAdminEmail(normalizedEmail) ? normalizedEmail : null;
+}
+
+function readAdminSessionFromRequest(req) {
+  const secret = process.env.ADMIN_AUTH_SECRET?.trim();
+  if (!secret) return null;
+  const tok = getCookieHeader(req, ADMIN_SESSION_COOKIE);
+  if (!tok) return null;
+  return verifyAdminSessionToken(tok, secret);
+}
+
+async function handleAdminAuthApi(req, res, url) {
+  const cors = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  };
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    res.end();
+    return;
+  }
+
+  const secret = process.env.ADMIN_AUTH_SECRET?.trim();
+  if (!secret) {
+    res.writeHead(503, cors);
+    res.end(JSON.stringify({ error: "ADMIN_AUTH_SECRET must be set." }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/me") {
+    if (req.method !== "GET") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    const email = readAdminSessionFromRequest(req);
+    if (!email) {
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ authenticated: false }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    const admin = data.admins.find((a) => a.email === email);
+    if (!admin) {
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ authenticated: false }));
+      return;
+    }
+    res.writeHead(200, cors);
+    res.end(JSON.stringify({ authenticated: true, admin: { email: admin.email, lastLoginAt: admin.lastLoginAt } }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/logout") {
+    if (req.method !== "POST") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    const secure = cookieSecureDirective(req);
+    const clearCookie = `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+    res.writeHead(200, {
+      ...cors,
+      "Set-Cookie": clearCookie,
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, cors);
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  const read = await readRequestBody(req, 8192);
+  if (read.error) {
+    res.writeHead(413, cors);
+    res.end(JSON.stringify({ error: "Body too large" }));
+    return;
+  }
+  const body = parseJsonBody(read.buf);
+  if (!body || typeof body !== "object") {
+    res.writeHead(400, cors);
+    res.end(JSON.stringify({ error: "Invalid JSON body" }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/signup") {
+    const loggedInAdminEmail = readAdminSessionFromRequest(req);
+    if (!loggedInAdminEmail) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Login required." }));
+      return;
+    }
+    const signupKey = process.env.ADMIN_SIGNUP_KEY?.trim();
+    if (!signupKey || signupKey.length < 8) {
+      res.writeHead(503, cors);
+      res.end(JSON.stringify({ error: "ADMIN_SIGNUP_KEY must be set (min 8 characters)." }));
+      return;
+    }
+    const providedKey = String(body.signupKey || "").trim();
+    if (!timingSafeEqualString(providedKey, signupKey)) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Invalid signup key" }));
+      return;
+    }
+    const email = normalizeAdminEmail(body.email);
+    const password = String(body.password || "");
+    if (!isValidAdminEmail(email)) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Valid email is required." }));
+      return;
+    }
+    if (password.length < 8 || password.length > 128) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Password must be 8-128 characters." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    if (data.admins.some((a) => a.email === email)) {
+      res.writeHead(409, cors);
+      res.end(JSON.stringify({ error: "Admin already exists." }));
+      return;
+    }
+    const now = new Date().toISOString();
+    const passwordHash = await hashAdminPassword(password);
+    data.admins.push({
+      id: crypto.randomUUID(),
+      email,
+      passwordHash,
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: undefined,
+    });
+    await writeAdminsRecord(data);
+    res.writeHead(201, cors);
+    res.end(JSON.stringify({ ok: true, admin: { email } }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/login") {
+    const email = normalizeAdminEmail(body.email);
+    const password = String(body.password || "");
+    if (!isValidAdminEmail(email) || !password) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Email and password are required." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    const admin = data.admins.find((a) => a.email === email);
+    if (!admin || !(await verifyAdminPassword(password, admin.passwordHash))) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Invalid credentials" }));
+      return;
+    }
+    admin.lastLoginAt = new Date().toISOString();
+    admin.updatedAt = admin.lastLoginAt;
+    await writeAdminsRecord(data);
+    const token = buildAdminSessionToken(admin.email, secret);
+    const maxAge = ADMIN_SESSION_DAYS * 86400;
+    const secure = cookieSecureDirective(req);
+    const cookieLine = `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+    res.writeHead(200, {
+      ...cors,
+      "Set-Cookie": cookieLine,
+    });
+    res.end(JSON.stringify({ ok: true, admin: { email: admin.email } }));
+    return;
+  }
+
+  if (url.pathname === "/api/admin/reset-password") {
+    const loggedInAdminEmail = readAdminSessionFromRequest(req);
+    if (!loggedInAdminEmail) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Login required." }));
+      return;
+    }
+    const ownerResetKey = process.env.ADMIN_OWNER_RESET_KEY?.trim();
+    if (!ownerResetKey || ownerResetKey.length < 10) {
+      res.writeHead(503, cors);
+      res.end(JSON.stringify({ error: "ADMIN_OWNER_RESET_KEY must be set (min 10 characters)." }));
+      return;
+    }
+    const provided = String(body.ownerResetKey || "").trim();
+    if (!timingSafeEqualString(provided, ownerResetKey)) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Invalid owner reset key." }));
+      return;
+    }
+    const email = normalizeAdminEmail(body.email);
+    const newPassword = String(body.newPassword || "");
+    if (!isValidAdminEmail(email)) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Valid email is required." }));
+      return;
+    }
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "New password must be 8-128 characters." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    const admin = data.admins.find((a) => a.email === email);
+    if (!admin) {
+      res.writeHead(404, cors);
+      res.end(JSON.stringify({ error: "Admin not found." }));
+      return;
+    }
+    admin.passwordHash = await hashAdminPassword(newPassword);
+    admin.updatedAt = new Date().toISOString();
+    await writeAdminsRecord(data);
+    res.writeHead(200, cors);
+    res.end(JSON.stringify({ ok: true, email: admin.email }));
+    return;
+  }
+
+  res.writeHead(404, cors);
+  res.end(JSON.stringify({ error: "Not found" }));
+}
 
 function getCookieHeader(req, name) {
   const raw = req.headers.cookie;
@@ -1111,6 +1446,17 @@ http
       return;
     }
 
+    if (
+      url.pathname === "/api/admin/signup" ||
+      url.pathname === "/api/admin/login" ||
+      url.pathname === "/api/admin/logout" ||
+      url.pathname === "/api/admin/me" ||
+      url.pathname === "/api/admin/reset-password"
+    ) {
+      await handleAdminAuthApi(req, res, url);
+      return;
+    }
+
     if (url.pathname === "/api/runelite/clan-events" || url.pathname === "/api/runelite/clan-calendar-summary") {
       await handleRuneliteClanEventsApi(req, res, url);
       return;
@@ -1284,6 +1630,7 @@ http
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
     console.log("GET/POST/DELETE /api/event-session — browser unlock cookie; DELETE clears session");
+    console.log("POST /api/admin/signup | /api/admin/login | /api/admin/logout | /api/admin/reset-password + GET /api/admin/me");
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );

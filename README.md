@@ -99,3 +99,37 @@ No build step is required beyond installing dependencies. If you use **Render**,
 - **RuneProfile API:** requested via `/rp-api` when same-origin
 
 Discord invite: `DISCORD_INVITE_URL` in `js/app.js` and matching `href` on `[data-discord-link]` in `index.html`.
+
+## Admin auth API (manual resets only)
+
+This project now includes simple file-backed admin auth in `dev-server.mjs`.
+
+- Passwords are hashed with Node `scrypt` and stored in `_data/admin-users.json` (or `ADMIN_USERS_*` path env vars).
+- Login issues an HttpOnly cookie (`th_admin`).
+- There is **no self-service forgot-password endpoint**.
+- If someone forgets a password, reset it manually with `POST /api/admin/reset-password` using `ADMIN_OWNER_RESET_KEY`.
+
+### Required env vars
+
+Set these in `.env` (local) and in hosting provider env settings (production):
+
+- `ADMIN_AUTH_SECRET` (min 16 chars)
+- `ADMIN_SIGNUP_KEY` (min 8 chars)
+- `ADMIN_OWNER_RESET_KEY` (min 10 chars)
+
+### API routes
+
+- `POST /api/admin/signup`  
+  Body: `{ "email": "admin@example.com", "password": "new-pass", "signupKey": "..." }`
+- `POST /api/admin/login`  
+  Body: `{ "email": "admin@example.com", "password": "..." }`
+- `POST /api/admin/logout`
+- `GET /api/admin/me`
+- `POST /api/admin/reset-password`  
+  Body: `{ "email": "admin@example.com", "newPassword": "new-pass", "ownerResetKey": "..." }`
+
+### Example: reset forgotten password
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:5173/api/admin/reset-password" -ContentType "application/json" -Body '{"email":"admin@example.com","newPassword":"NewStrongPass123!","ownerResetKey":"YOUR_OWNER_RESET_KEY"}'
+```
