@@ -2818,6 +2818,15 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   margin-bottom: 1.25rem;
 }
 
+.admin-session-pending {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-edge);
+  background: rgba(22, 29, 38, 0.55);
+  font-size: 0.95rem;
+}
+
 .admin-portal-hero {
   text-align: center;
   margin-bottom: 1.75rem;

@@ -1428,6 +1428,8 @@
   const MIN_ORGANIZER_CODE_LEN = 6;
   /** Mirrors server session cookie for POST /api/custom-events when cookies fail (mobile in-app browsers). */
   const EVENT_SESSION_STORAGE_KEY = "th_ev_sess";
+  /** After “Back” from the designer, stay on public preview until “Open designer” (avoids re-opening for admins). */
+  const BINGO_PREVIEW_ONLY_KEY = "th_bingo_preview";
 
   /** Mobile browsers sometimes emit a space between date and time; Date.parse needs a T. */
   function parseDatetimeLocalInput(raw) {
@@ -3124,6 +3126,22 @@
         }
       }
 
+      let bingoPreviewOnly = false;
+      try {
+        bingoPreviewOnly = sessionStorage.getItem(BINGO_PREVIEW_ONLY_KEY) === "1";
+      } catch {
+        /* ignore */
+      }
+      /*
+       * User clicked Back: always stay on public preview until “Open designer” / unlock again.
+       * Covers (a) site admin auto-open and (b) any race where the editor would re-mount before session clears.
+       */
+      if (bingoPreviewOnly) {
+        bingoShowDesignerLocked();
+        setOpenDesignerOffer(!!j.unlocked);
+        return true;
+      }
+
       if (j.organizerViaAdmin) {
         bingoShowDesignerUnlocked();
         setOpenDesignerOffer(false);
@@ -3444,6 +3462,11 @@
     });
 
     document.getElementById("bingo-open-designer-btn")?.addEventListener("click", () => {
+      try {
+        sessionStorage.removeItem(BINGO_PREVIEW_ONLY_KEY);
+      } catch {
+        /* ignore */
+      }
       bingoShowDesignerUnlocked();
     });
 
@@ -3455,6 +3478,7 @@
       }
       try {
         sessionStorage.removeItem(EVENT_SESSION_STORAGE_KEY);
+        sessionStorage.setItem(BINGO_PREVIEW_ONLY_KEY, "1");
       } catch {
         /* ignore */
       }
@@ -3464,7 +3488,9 @@
         st.classList.remove("load-error");
         st.classList.add("muted");
       }
-      void bingoRefreshAccessGate();
+      /* Leave the editor immediately; then sync gate (secret vs site admin session). */
+      bingoShowDesignerLocked();
+      await bingoRefreshAccessGate();
     });
 
     document.getElementById("bingo-clear-done")?.addEventListener("click", () => {
@@ -3658,6 +3684,11 @@
           st.classList.remove("load-error");
           st.classList.add("muted");
         }
+        try {
+          sessionStorage.removeItem(BINGO_PREVIEW_ONLY_KEY);
+        } catch {
+          /* ignore */
+        }
         bingoShowDesignerUnlocked();
       } catch {
         if (st) {
@@ -3715,6 +3746,8 @@
   }
 
   const ADMIN_LOGIN_PENDING_KEY = "th_admin_login_pending";
+  /** Incremented on each /admin/profile navigation; stale /api/admin/me results are ignored (spam-click guard). */
+  let adminProfileRouteGeneration = 0;
 
   /** After POST /api/admin/login, some browsers need a short delay before the session cookie is included on GET /api/admin/me. */
   async function fetchAdminMeForProfileGate(postLoginWarmup) {
@@ -3738,6 +3771,16 @@
     const profSec = document.getElementById("admin-profile-section");
     const crumbAuth = document.getElementById("admin-crumb-auth");
     const crumbProf = document.getElementById("admin-crumb-profile");
+    const pendingEl = document.getElementById("admin-session-pending");
+    if (mode === "pending") {
+      if (authSec) authSec.hidden = true;
+      if (profSec) profSec.hidden = true;
+      if (pendingEl) pendingEl.hidden = false;
+      if (crumbAuth) crumbAuth.hidden = false;
+      if (crumbProf) crumbProf.hidden = true;
+      return;
+    }
+    if (pendingEl) pendingEl.hidden = true;
     const auth = mode === "auth";
     if (authSec) authSec.hidden = !auth;
     if (profSec) profSec.hidden = auth;
@@ -4078,7 +4121,8 @@
 
     if (path === "/admin/profile") {
       showAdminShell();
-      setAdminSubview("profile");
+      const gen = ++adminProfileRouteGeneration;
+      setAdminSubview("pending");
       document.title = "Admin dashboard | Terpinheimer";
       void (async () => {
         try {
@@ -4090,11 +4134,13 @@
             /* ignore */
           }
           const j = await fetchAdminMeForProfileGate(postLogin);
+          if (gen !== adminProfileRouteGeneration) return;
           const signedIn = !!(j && j.authenticated && j.admin?.email);
           if (!signedIn) {
             window.location.hash = "#/admin";
             return;
           }
+          setAdminSubview("profile");
           await refreshAdminSessionStatus();
         } catch {
           try {
@@ -4102,6 +4148,7 @@
           } catch {
             /* ignore */
           }
+          if (gen !== adminProfileRouteGeneration) return;
           window.location.hash = "#/admin";
         }
       })();
