@@ -51,6 +51,21 @@ function resolveCustomEventsPath() {
 const CUSTOM_EVENTS_PATH = resolveCustomEventsPath();
 const ADMIN_USERS_PATH = resolveAdminUsersPath();
 
+/** Visitor feedback (FAB dialog); admin-only GET. Override with SITE_FEEDBACK_PATH or SITE_FEEDBACK_DIR. */
+function resolveSiteFeedbackPath() {
+  const file = process.env.SITE_FEEDBACK_PATH?.trim();
+  if (file) {
+    return path.isAbsolute(file) ? file : path.join(__dirname, file);
+  }
+  const dir = process.env.SITE_FEEDBACK_DIR?.trim();
+  if (dir) {
+    return path.join(dir, "site-feedback.json");
+  }
+  return path.join(__dirname, "_data", "site-feedback.json");
+}
+
+const SITE_FEEDBACK_PATH = resolveSiteFeedbackPath();
+
 const LIVE_MAP_SECRET = (process.env.LIVE_MAP_SECRET || "").trim();
 const LIVE_MAP_TTL_MS =
   Number.isFinite(Number(process.env.LIVE_MAP_PLAYER_TTL_MS)) && Number(process.env.LIVE_MAP_PLAYER_TTL_MS) > 0
@@ -882,6 +897,147 @@ async function writeCustomEvents(events) {
   await fs.promises.rename(tmp, CUSTOM_EVENTS_PATH);
 }
 
+async function readSiteFeedbackStore() {
+  try {
+    const raw = await fs.promises.readFile(SITE_FEEDBACK_PATH, "utf8");
+    const j = JSON.parse(raw);
+    const entries = Array.isArray(j.entries) ? j.entries : [];
+    return { entries };
+  } catch {
+    return { entries: [] };
+  }
+}
+
+async function writeSiteFeedbackStore(store) {
+  await fs.promises.mkdir(path.dirname(SITE_FEEDBACK_PATH), { recursive: true });
+  const tmp = `${SITE_FEEDBACK_PATH}.${process.pid}.${Date.now()}.tmp`;
+  const payload = `${JSON.stringify(store, null, 2)}\n`;
+  await fs.promises.writeFile(tmp, payload, "utf8");
+  await fs.promises.rename(tmp, SITE_FEEDBACK_PATH);
+}
+
+function sanitizeFeedbackMessage(raw) {
+  return String(raw ?? "")
+    .replace(/\u0000/g, "")
+    .trim();
+}
+
+function sanitizeFeedbackName(raw) {
+  const t = String(raw ?? "").replace(/\u0000/g, "").trim().slice(0, 80);
+  if (!t) return "";
+  if (/[<>]/.test(t)) return "";
+  return t;
+}
+
+function sanitizeFeedbackPage(raw) {
+  const t = String(raw ?? "")
+    .replace(/\u0000/g, "")
+    .trim()
+    .slice(0, 500);
+  if (!t) return "";
+  try {
+    const u = new URL(t);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.href;
+  } catch {
+    return t.startsWith("/") || t.startsWith("#") ? t.slice(0, 500) : "";
+  }
+}
+
+/** Public POST + admin GET for site feedback (stored JSON; same hosting notes as custom-events). */
+async function handleSiteFeedbackApi(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204).end();
+    return;
+  }
+
+  if (req.method === "GET") {
+    const secret = process.env.ADMIN_AUTH_SECRET?.trim();
+    if (!secret) {
+      res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin auth is not configured on the server." }));
+      return;
+    }
+    const email = readAdminSessionFromRequest(req);
+    if (!email) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin sign-in required." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    if (!data.admins.some((a) => a.email === email)) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin sign-in required." }));
+      return;
+    }
+    try {
+      const store = await readSiteFeedbackStore();
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ entries: store.entries }));
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read feedback." }));
+    }
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  const read = await readRequestBody(req, Math.min(MAX_BODY, 65536));
+  if (read.error) {
+    res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Body too large." }));
+    return;
+  }
+
+  const body = parseJsonBody(read.buf);
+  if (!body || typeof body !== "object") {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid JSON." }));
+    return;
+  }
+
+  const message = sanitizeFeedbackMessage(body.message);
+  if (message.length < 1 || message.length > 4000) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Message must be 1–4000 characters." }));
+    return;
+  }
+
+  const nameRaw = sanitizeFeedbackName(body.name);
+  const page = sanitizeFeedbackPage(body.page);
+
+  const entry = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    message,
+    name: nameRaw || undefined,
+    page: page || undefined,
+  };
+
+  try {
+    const store = await readSiteFeedbackStore();
+    store.entries.unshift(entry);
+    if (store.entries.length > 500) store.entries.length = 500;
+    await writeSiteFeedbackStore(store);
+  } catch {
+    res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Could not save feedback." }));
+    return;
+  }
+
+  res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({ ok: true, id: entry.id }));
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -1615,6 +1771,11 @@ http
       return;
     }
 
+    if (url.pathname === "/api/site-feedback") {
+      await handleSiteFeedbackApi(req, res);
+      return;
+    }
+
     if (url.pathname === "/api/public/site-admin-for") {
       await handlePublicSiteAdminForPlayer(req, res, url);
       return;
@@ -1802,6 +1963,7 @@ http
   .listen(PORT, () => {
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
     console.log(`Clan events data file: ${CUSTOM_EVENTS_PATH}`);
+    console.log(`Site feedback data file: ${SITE_FEEDBACK_PATH}`);
     console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
@@ -1813,6 +1975,7 @@ http
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );
+    console.log("POST /api/site-feedback — public feedback; GET /api/site-feedback — admin session only");
     console.log(
       "GET /api/runelite/clan-events (alias …/clan-calendar-summary) — JSON + ACTIVE|PENDING|NONE summary; ?format=array for raw list"
     );

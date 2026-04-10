@@ -2319,6 +2319,212 @@ p + .plugin-guide-list {
   border-color: #00d632;
 }
 
+/* Floating feedback (comments / suggestions) — fixed bottom-right */
+.feedback-fab {
+  position: fixed;
+  z-index: 85;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem 0.55rem 0.75rem;
+  margin: 0;
+  border: 2px solid var(--maroon-deep);
+  border-radius: 999px;
+  background: linear-gradient(165deg, var(--maroon) 0%, var(--maroon-deep) 100%);
+  color: var(--cream);
+  box-shadow: var(--shadow-hard), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  font-family: var(--font-body, inherit);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.feedback-fab:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.feedback-fab:active {
+  transform: translate(1px, 1px);
+}
+
+.feedback-fab:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+}
+
+.feedback-fab-icon {
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.feedback-fab-label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .feedback-fab-label {
+    display: none;
+  }
+
+  .feedback-fab {
+    padding: 0.65rem;
+    border-radius: 50%;
+  }
+}
+
+.feedback-dialog {
+  border: none;
+  padding: 0;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--cream);
+  box-shadow: var(--shadow-hard);
+}
+
+.feedback-dialog::backdrop {
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.feedback-dialog-inner {
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+.feedback-dialog-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--cream);
+  margin: 0 0 0.65rem;
+  line-height: 1.25;
+}
+
+.feedback-dialog-lead {
+  margin: 0 0 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.feedback-form {
+  margin: 0;
+}
+
+.feedback-form-label {
+  display: block;
+  margin-bottom: 0.85rem;
+}
+
+.feedback-form-label-text {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 0.35rem;
+}
+
+.feedback-form-input,
+.feedback-form-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.feedback-form-textarea {
+  resize: vertical;
+  min-height: 6rem;
+  line-height: 1.45;
+}
+
+.feedback-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.feedback-dialog-actions--form {
+  margin-top: 0.35rem;
+  justify-content: flex-end;
+}
+
+.feedback-dialog-actions--form .btn-primary {
+  min-width: 6.5rem;
+}
+
+@media (min-width: 420px) {
+  .feedback-dialog-actions--form {
+    flex-wrap: nowrap;
+  }
+}
+
+.admin-feedback-inbox {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--panel-edge);
+}
+
+.admin-feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-feedback-item {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-edge);
+  background: rgba(22, 29, 38, 0.55);
+}
+
+.admin-feedback-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.88rem;
+}
+
+.admin-feedback-item-time {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.admin-feedback-item-name {
+  color: var(--cream);
+  font-weight: 600;
+}
+
+.admin-feedback-item-anon {
+  font-size: 0.88rem;
+}
+
+.admin-feedback-item-page {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.admin-feedback-item-body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.admin-feedback-empty {
+  margin: 0.5rem 0 0;
+}
+
 .home-donate-inner {
   text-align: center;
   max-width: 32rem;

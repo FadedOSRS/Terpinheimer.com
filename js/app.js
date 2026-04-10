@@ -1701,6 +1701,7 @@
   };
   let bingoSaveTimer = null;
   let bingoBindingsDone = false;
+  let feedbackFabBound = false;
   let bingoPublicPreviewGridBound = false;
   let bingoDimsFilled = false;
   let bingoImageTargetIndex = null;
@@ -3802,6 +3803,7 @@
       const email = signedIn ? String(j.admin.email) : "";
 
       if (!signedIn && onProfile) {
+        clearAdminFeedbackInbox();
         window.location.hash = "#/admin";
         return;
       }
@@ -3845,7 +3847,14 @@
       if (loginCard) loginCard.hidden = signedIn && !onProfile;
 
       if (resetPanel) resetPanel.hidden = !signedIn || !onProfile;
+
+      if (signedIn && onProfile) {
+        void loadAdminFeedbackInbox();
+      } else {
+        clearAdminFeedbackInbox();
+      }
     } catch {
+      clearAdminFeedbackInbox();
       if (emailEl) emailEl.textContent = "";
       const rsnInp0 = document.getElementById("admin-linked-rsn-input");
       const rsnProf0 = document.getElementById("admin-linked-rsn-profile");
@@ -4436,6 +4445,161 @@
   function applyDiscordInviteLinks() {
     document.querySelectorAll("[data-discord-link]").forEach((a) => {
       a.href = DISCORD_INVITE_URL;
+    });
+  }
+
+  function setFeedbackFormStatus(msg, isError) {
+    const st = document.getElementById("feedback-form-status");
+    if (!st) return;
+    if (!msg) {
+      st.textContent = "";
+      st.hidden = true;
+      st.classList.remove("admin-form-status--error");
+      st.classList.add("muted");
+      return;
+    }
+    st.textContent = msg;
+    st.hidden = false;
+    st.classList.toggle("admin-form-status--error", !!isError);
+    st.classList.toggle("muted", !isError);
+  }
+
+  function clearAdminFeedbackInbox() {
+    const list = document.getElementById("admin-feedback-list");
+    const empty = document.getElementById("admin-feedback-empty");
+    const st = document.getElementById("admin-feedback-status");
+    if (list) list.innerHTML = "";
+    if (empty) empty.hidden = true;
+    if (st) {
+      st.textContent = "";
+      st.hidden = true;
+    }
+  }
+
+  async function loadAdminFeedbackInbox() {
+    const list = document.getElementById("admin-feedback-list");
+    const empty = document.getElementById("admin-feedback-empty");
+    const st = document.getElementById("admin-feedback-status");
+    if (!list) return;
+    try {
+      const r = await fetch("/api/site-feedback", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (st) {
+          st.textContent = j.error || "Could not load feedback.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (st) {
+        st.textContent = "";
+        st.hidden = true;
+        st.classList.remove("admin-form-status--error");
+        st.classList.add("muted");
+      }
+      const entries = Array.isArray(j.entries) ? j.entries : [];
+      if (!entries.length) {
+        list.innerHTML = "";
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+      list.innerHTML = entries
+        .map((row) => {
+          const when = row.createdAt
+            ? new Date(row.createdAt).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })
+            : "—";
+          const name = row.name ? String(row.name) : "";
+          const page = row.page ? String(row.page) : "";
+          const msg = row.message != null ? String(row.message) : "";
+          const nameLine = name
+            ? `<span class="admin-feedback-item-name">${escHtml(name)}</span>`
+            : `<span class="muted admin-feedback-item-anon">Anonymous</span>`;
+          const pageLine = page
+            ? `<p class="admin-feedback-item-page muted">Page: <code class="plugin-code">${escHtml(page)}</code></p>`
+            : "";
+          return `<li class="admin-feedback-item">
+            <div class="admin-feedback-item-meta">
+              <time class="admin-feedback-item-time">${escHtml(when)}</time>
+              ${nameLine}
+            </div>
+            ${pageLine}
+            <p class="admin-feedback-item-body">${escHtml(msg).replace(/\n/g, "<br />")}</p>
+          </li>`;
+        })
+        .join("");
+    } catch {
+      if (st) {
+        st.textContent = "Could not load feedback (network error).";
+        st.hidden = false;
+        st.classList.add("admin-form-status--error");
+        st.classList.remove("muted");
+      }
+    }
+  }
+
+  function bindFeedbackFabOnce() {
+    if (feedbackFabBound) return;
+    const fab = document.getElementById("feedback-fab");
+    const dlg = document.getElementById("feedback-dialog");
+    const form = document.getElementById("feedback-form");
+    const cancel = document.getElementById("feedback-cancel-btn");
+    if (!fab || !dlg) return;
+    feedbackFabBound = true;
+    fab.addEventListener("click", () => {
+      if (typeof dlg.showModal === "function") {
+        setFeedbackFormStatus("", false);
+        dlg.showModal();
+        fab.setAttribute("aria-expanded", "true");
+      }
+    });
+    dlg.addEventListener("close", () => {
+      fab.setAttribute("aria-expanded", "false");
+    });
+    cancel?.addEventListener("click", () => {
+      if (typeof dlg.close === "function") dlg.close();
+    });
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const message = String(fd.get("message") || "").trim();
+      const name = String(fd.get("name") || "").trim();
+      if (message.length < 1) {
+        setFeedbackFormStatus("Please enter a message.", true);
+        return;
+      }
+      const btn = document.getElementById("feedback-submit-btn");
+      if (btn) btn.disabled = true;
+      setFeedbackFormStatus("Sending…", false);
+      try {
+        const r = await fetch("/api/site-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            name: name || undefined,
+            page: String(location.href || "").slice(0, 500),
+          }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setFeedbackFormStatus(j.error || "Could not send feedback.", true);
+          return;
+        }
+        form.reset();
+        setFeedbackFormStatus("", false);
+        if (typeof dlg.close === "function") dlg.close();
+        if (currentHashPath() === "/admin/profile") void loadAdminFeedbackInbox();
+      } catch {
+        setFeedbackFormStatus("Could not reach the server. Try again when you’re on the live site.", true);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     });
   }
 
@@ -5557,6 +5721,7 @@
   })();
 
   applyDiscordInviteLinks();
+  bindFeedbackFabOnce();
 
   load().catch(async (e) => {
     cachedMemberships = [];

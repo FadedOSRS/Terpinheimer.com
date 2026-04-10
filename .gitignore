@@ -27,3 +27,4 @@ desktop.ini
 
 # Clan calendar (local data; do not commit — empty file in repo overwrote prod on each deploy)
 _data/custom-events.json
+_data/site-feedback.json

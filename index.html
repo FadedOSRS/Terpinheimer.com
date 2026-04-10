@@ -806,6 +806,16 @@
             </div>
           </section>
 
+          <section class="admin-feedback-inbox" id="admin-feedback-section" aria-labelledby="admin-feedback-heading">
+            <h2 id="admin-feedback-heading" class="admin-dashboard-heading">Site feedback inbox</h2>
+            <p class="muted admin-dashboard-lead">
+              Messages from the Feedback button on any page (newest first). Stored on the server only.
+            </p>
+            <p id="admin-feedback-status" class="admin-form-status muted" role="status" hidden></p>
+            <ul id="admin-feedback-list" class="admin-feedback-list"></ul>
+            <p id="admin-feedback-empty" class="muted admin-feedback-empty" hidden>No messages yet.</p>
+          </section>
+
         <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">
           <h2 class="admin-owner-tools-title">Owner tools</h2>
           <p class="muted admin-owner-tools-lead">
@@ -1057,6 +1067,65 @@
       <span class="muted">Player data from <a href="https://wiseoldman.net/groups/23745" class="wom-link" target="_blank" rel="noopener">Wise Old Man</a>. Not affiliated with Jagex.</span>
     </div>
   </footer>
+
+  <button
+    type="button"
+    class="feedback-fab"
+    id="feedback-fab"
+    aria-label="Comments and suggestions"
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    aria-controls="feedback-dialog"
+    title="Comments & suggestions"
+  >
+    <svg class="feedback-fab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"
+      />
+    </svg>
+    <span class="feedback-fab-label">Feedback</span>
+  </button>
+
+  <dialog class="feedback-dialog" id="feedback-dialog" aria-labelledby="feedback-dialog-title">
+    <div class="feedback-dialog-inner">
+      <h2 id="feedback-dialog-title" class="feedback-dialog-title">Comments & suggestions</h2>
+      <p class="muted feedback-dialog-lead">
+        Your message is saved for site admins only (visible on the admin dashboard after sign-in). No Discord account required.
+      </p>
+      <form id="feedback-form" class="feedback-form" novalidate>
+        <label class="feedback-form-label" for="feedback-name">
+          <span class="feedback-form-label-text">Name <span class="muted">(optional)</span></span>
+          <input
+            id="feedback-name"
+            name="name"
+            type="text"
+            class="admin-input feedback-form-input"
+            maxlength="80"
+            autocomplete="nickname"
+            placeholder="e.g. RSN or first name"
+          />
+        </label>
+        <label class="feedback-form-label" for="feedback-message">
+          <span class="feedback-form-label-text">Message</span>
+          <textarea
+            id="feedback-message"
+            name="message"
+            class="admin-input feedback-form-textarea"
+            required
+            maxlength="4000"
+            rows="5"
+            placeholder="Ideas, bug reports, or site feedback…"
+          ></textarea>
+        </label>
+        <p id="feedback-form-status" class="admin-form-status muted" role="status" hidden></p>
+        <div class="feedback-dialog-actions feedback-dialog-actions--form">
+          <button type="submit" class="btn btn-primary" id="feedback-submit-btn">Send</button>
+          <button type="button" class="btn btn-ghost" id="feedback-cancel-btn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
