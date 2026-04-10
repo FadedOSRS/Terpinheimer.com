@@ -829,10 +829,60 @@
         <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">
           <h2 class="admin-owner-tools-title">Owner tools</h2>
           <p class="muted admin-owner-tools-lead">
-            Password resets and account removal require your session plus the owner reset key. There is no self-serve “forgot password” for admins.
+            Creating admins, resetting passwords, and removing accounts require your session. Use the owner reset key for create, reset, and delete, or the signup key where noted on the public admin page. There is no self-serve “forgot password” for admins.
           </p>
 
           <div class="admin-owner-grid">
+            <div class="admin-owner-block">
+              <h3 class="admin-owner-block-title">Create admin account</h3>
+              <p class="muted admin-owner-block-warning">
+                Adds a new administrator. Requires your owner reset key (same as reset and delete below).
+              </p>
+              <form id="admin-owner-create-form" class="admin-form" autocomplete="on">
+                <fieldset class="admin-form-fieldset">
+                  <label class="admin-label" for="admin-owner-create-username">
+                    <span class="admin-label-text">Username</span>
+                    <input
+                      id="admin-owner-create-username"
+                      name="username"
+                      type="text"
+                      required
+                      minlength="3"
+                      maxlength="64"
+                      class="admin-input"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="admin-label" for="admin-owner-create-password">
+                    <span class="admin-label-text">Password</span>
+                    <input
+                      id="admin-owner-create-password"
+                      name="password"
+                      type="password"
+                      required
+                      minlength="8"
+                      class="admin-input"
+                      autocomplete="new-password"
+                    />
+                  </label>
+                  <label class="admin-label" for="admin-owner-create-owner-key">
+                    <span class="admin-label-text">Owner reset key</span>
+                    <input
+                      id="admin-owner-create-owner-key"
+                      name="ownerResetKey"
+                      type="password"
+                      required
+                      class="admin-input"
+                      autocomplete="off"
+                    />
+                  </label>
+                  <button type="submit" class="btn btn-primary admin-submit">Create admin account</button>
+                </fieldset>
+                <p id="admin-owner-create-status" class="admin-form-status muted" role="status"></p>
+              </form>
+            </div>
+
             <div class="admin-owner-block">
               <h3 class="admin-owner-block-title">Reset password</h3>
               <form id="admin-reset-form" class="admin-form">

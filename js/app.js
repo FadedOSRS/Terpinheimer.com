@@ -3958,6 +3958,39 @@
       }
     });
 
+    const ownerCreateForm = document.getElementById("admin-owner-create-form");
+    ownerCreateForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(ownerCreateForm);
+      const payload = {
+        username: String(fd.get("username") || "").trim(),
+        password: String(fd.get("password") || ""),
+        ownerResetKey: String(fd.get("ownerResetKey") || ""),
+      };
+      setAdminStatus("admin-owner-create-status", "Creating admin...", false);
+      try {
+        const r = await fetch("/api/admin/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setAdminStatus("admin-owner-create-status", j.error || "Could not create admin.", true);
+          return;
+        }
+        setAdminStatus(
+          "admin-owner-create-status",
+          `Created admin “${j.admin?.username || payload.username}”. They can sign in from the admin page.`,
+          false
+        );
+        ownerCreateForm.reset();
+      } catch {
+        setAdminStatus("admin-owner-create-status", "Could not reach the server.", true);
+      }
+    });
+
     const resetForm = document.getElementById("admin-reset-form");
     resetForm?.addEventListener("submit", async (e) => {
       e.preventDefault();

@@ -421,14 +421,44 @@ async function handleAdminAuthApi(req, res, url) {
         return;
       }
     }
-    const signupKey = process.env.ADMIN_SIGNUP_KEY?.trim();
-    if (!signupKey || signupKey.length < 8) {
-      res.writeHead(503, cors);
-      res.end(JSON.stringify({ error: "ADMIN_SIGNUP_KEY must be set (min 8 characters)." }));
-      return;
+    const signupKeyEnv = process.env.ADMIN_SIGNUP_KEY?.trim();
+    const ownerResetKeyEnv = process.env.ADMIN_OWNER_RESET_KEY?.trim();
+    const providedSignup = String(body.signupKey || "").trim();
+    const providedOwner = String(body.ownerResetKey || "").trim();
+
+    let keyAuthorized = false;
+    if (bootstrap) {
+      if (!signupKeyEnv || signupKeyEnv.length < 8) {
+        res.writeHead(503, cors);
+        res.end(JSON.stringify({ error: "ADMIN_SIGNUP_KEY must be set (min 8 characters)." }));
+        return;
+      }
+      if (timingSafeEqualString(providedSignup, signupKeyEnv)) keyAuthorized = true;
+    } else {
+      let ok = false;
+      if (signupKeyEnv && signupKeyEnv.length >= 8 && timingSafeEqualString(providedSignup, signupKeyEnv)) {
+        ok = true;
+      }
+      if (
+        !ok &&
+        ownerResetKeyEnv &&
+        ownerResetKeyEnv.length >= 10 &&
+        timingSafeEqualString(providedOwner, ownerResetKeyEnv)
+      ) {
+        ok = true;
+      }
+      if (!ok) {
+        res.writeHead(401, cors);
+        res.end(
+          JSON.stringify({
+            error: "Invalid signup key or owner reset key.",
+          })
+        );
+        return;
+      }
     }
-    const providedKey = String(body.signupKey || "").trim();
-    if (!timingSafeEqualString(providedKey, signupKey)) {
+
+    if (bootstrap && !keyAuthorized) {
       res.writeHead(401, cors);
       res.end(JSON.stringify({ error: "Invalid signup key" }));
       return;
