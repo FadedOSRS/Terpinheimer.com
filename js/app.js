@@ -1702,6 +1702,9 @@
   let bingoSaveTimer = null;
   let bingoBindingsDone = false;
   let feedbackFabBound = false;
+  let feedbackInboxCache = null;
+  let feedbackInboxControlsBound = false;
+  const FEEDBACK_FILTER_STORAGE_KEY = "th_admin_feedback_filter";
   let bingoPublicPreviewGridBound = false;
   let bingoDimsFilled = false;
   let bingoImageTargetIndex = null;
@@ -3750,6 +3753,16 @@
   /** Incremented on each /admin/profile navigation; stale /api/admin/me results are ignored (spam-click guard). */
   let adminProfileRouteGeneration = 0;
 
+  function adminAccountLabel(admin) {
+    if (!admin || typeof admin !== "object") return "";
+    const v = admin.username ?? admin.email;
+    return v != null && String(v).trim() !== "" ? String(v).trim() : "";
+  }
+
+  function adminMeIsSignedIn(j) {
+    return !!(j && j.authenticated && adminAccountLabel(j.admin));
+  }
+
   /** After POST /api/admin/login, some browsers need a short delay before the session cookie is included on GET /api/admin/me. */
   async function fetchAdminMeForProfileGate(postLoginWarmup) {
     const attempts = postLoginWarmup ? 6 : 1;
@@ -3759,7 +3772,7 @@
       try {
         const r = await fetch("/api/admin/me", { credentials: "include" });
         const j = await r.json().catch(() => ({}));
-        if (j.authenticated && j.admin?.email) return j;
+        if (adminMeIsSignedIn(j)) return j;
       } catch {
         /* retry when postLoginWarmup */
       }
@@ -3799,8 +3812,8 @@
     try {
       const r = await fetch("/api/admin/me", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
-      const signedIn = !!(j.authenticated && j.admin?.email);
-      const email = signedIn ? String(j.admin.email) : "";
+      const signedIn = adminMeIsSignedIn(j);
+      const loginLabel = signedIn ? adminAccountLabel(j.admin) : "";
 
       if (!signedIn && onProfile) {
         clearAdminFeedbackInbox();
@@ -3808,7 +3821,7 @@
         return;
       }
 
-      if (emailEl) emailEl.textContent = email ? `Signed in as ${email}` : "";
+      if (emailEl) emailEl.textContent = loginLabel ? `Signed in as ${loginLabel}` : "";
 
       const rsnInp = document.getElementById("admin-linked-rsn-input");
       const rsnProf = document.getElementById("admin-linked-rsn-profile");
@@ -3841,8 +3854,8 @@
 
       if (hint) {
         hint.hidden = !signedIn || onProfile;
-        const disp = hint.querySelector("[data-admin-email-display]");
-        if (disp) disp.textContent = email;
+        const disp = hint.querySelector("[data-admin-username-display]");
+        if (disp) disp.textContent = loginLabel;
       }
       if (loginCard) loginCard.hidden = signedIn && !onProfile;
 
@@ -3881,7 +3894,7 @@
       e.preventDefault();
       const fd = new FormData(loginForm);
       const payload = {
-        email: String(fd.get("email") || "").trim(),
+        username: String(fd.get("username") || "").trim(),
         password: String(fd.get("password") || ""),
       };
       setAdminStatus("admin-login-status", "Logging in...", false);
@@ -3920,7 +3933,7 @@
       e.preventDefault();
       const fd = new FormData(signupForm);
       const payload = {
-        email: String(fd.get("email") || "").trim(),
+        username: String(fd.get("username") || "").trim(),
         password: String(fd.get("password") || ""),
         signupKey: String(fd.get("signupKey") || ""),
       };
@@ -3950,7 +3963,7 @@
       e.preventDefault();
       const fd = new FormData(resetForm);
       const payload = {
-        email: String(fd.get("email") || "").trim(),
+        username: String(fd.get("username") || "").trim(),
         newPassword: String(fd.get("newPassword") || ""),
         ownerResetKey: String(fd.get("ownerResetKey") || ""),
       };
@@ -3967,7 +3980,11 @@
           setAdminStatus("admin-reset-status", j.error || "Password reset failed.", true);
           return;
         }
-        setAdminStatus("admin-reset-status", `Password reset for ${j.email || payload.email}.`, false);
+        setAdminStatus(
+          "admin-reset-status",
+          `Password reset for ${j.username || j.email || payload.username}.`,
+          false
+        );
         resetForm.reset();
       } catch {
         setAdminStatus("admin-reset-status", "Could not reach the server.", true);
@@ -3979,10 +3996,10 @@
       e.preventDefault();
       const fd = new FormData(deleteForm);
       const payload = {
-        email: String(fd.get("email") || "").trim(),
+        username: String(fd.get("username") || "").trim(),
         ownerResetKey: String(fd.get("ownerResetKey") || ""),
       };
-      if (!window.confirm(`Delete admin account ${payload.email}? This cannot be undone.`)) return;
+      if (!window.confirm(`Delete admin account ${payload.username}? This cannot be undone.`)) return;
       setAdminStatus("admin-delete-status", "Deleting admin account...", false);
       try {
         const r = await fetch("/api/admin/delete-account", {
@@ -3996,7 +4013,7 @@
           setAdminStatus("admin-delete-status", j.error || "Delete failed.", true);
           return;
         }
-        setAdminStatus("admin-delete-status", `Deleted ${j.email || payload.email}.`, false);
+        setAdminStatus("admin-delete-status", `Deleted ${j.username || j.email || payload.username}.`, false);
         deleteForm.reset();
       } catch {
         setAdminStatus("admin-delete-status", "Could not reach the server.", true);
@@ -4144,7 +4161,7 @@
           }
           const j = await fetchAdminMeForProfileGate(postLogin);
           if (gen !== adminProfileRouteGeneration) return;
-          const signedIn = !!(j && j.authenticated && j.admin?.email);
+          const signedIn = adminMeIsSignedIn(j);
           if (!signedIn) {
             window.location.hash = "#/admin";
             return;
@@ -4465,6 +4482,7 @@
   }
 
   function clearAdminFeedbackInbox() {
+    feedbackInboxCache = null;
     const list = document.getElementById("admin-feedback-list");
     const empty = document.getElementById("admin-feedback-empty");
     const st = document.getElementById("admin-feedback-status");
@@ -4476,6 +4494,168 @@
     }
   }
 
+  function normalizeFeedbackStatusClient(raw) {
+    const s = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+    if (s === "in-progress") return "in_progress";
+    if (s === "open" || s === "in_progress" || s === "resolved") return s;
+    return "open";
+  }
+
+  function feedbackStatusLabel(st) {
+    const k = normalizeFeedbackStatusClient(st);
+    if (k === "resolved") return "Resolved";
+    if (k === "in_progress") return "In progress";
+    return "Open";
+  }
+
+  function persistFeedbackFilter(value) {
+    try {
+      sessionStorage.setItem(FEEDBACK_FILTER_STORAGE_KEY, value);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function syncFeedbackFilterFromStorage() {
+    const sel = document.getElementById("admin-feedback-filter");
+    if (!sel) return;
+    try {
+      const v = sessionStorage.getItem(FEEDBACK_FILTER_STORAGE_KEY);
+      if (v === "open" || v === "in_progress" || v === "resolved") {
+        sel.value = v;
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    sel.value = "open";
+  }
+
+  function renderAdminFeedbackInbox() {
+    const list = document.getElementById("admin-feedback-list");
+    const empty = document.getElementById("admin-feedback-empty");
+    if (!list || !feedbackInboxCache) return;
+    const entries = feedbackInboxCache;
+    const filterVal = normalizeFeedbackStatusClient(
+      document.getElementById("admin-feedback-filter")?.value || "open"
+    );
+    const filtered = entries.filter((row) => normalizeFeedbackStatusClient(row.status) === filterVal);
+    if (!filtered.length) {
+      list.innerHTML = "";
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = entries.length
+          ? "No feedback in this category."
+          : "No messages yet.";
+      }
+      return;
+    }
+    if (empty) empty.hidden = true;
+    list.innerHTML = filtered
+      .map((row) => {
+        const when = row.createdAt
+          ? new Date(row.createdAt).toLocaleString(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "—";
+        const name = row.name ? String(row.name) : "";
+        const page = row.page ? String(row.page) : "";
+        const msg = row.message != null ? String(row.message) : "";
+        const st = normalizeFeedbackStatusClient(row.status);
+        const id = row.id ? String(row.id) : "";
+        const nameLine = name
+          ? `<span class="admin-feedback-item-name">${escHtml(name)}</span>`
+          : `<span class="muted admin-feedback-item-anon">Anonymous</span>`;
+        const pageLine = page
+          ? `<p class="admin-feedback-item-page muted">Page: <code class="plugin-code">${escHtml(page)}</code></p>`
+          : "";
+        const selOpen = st === "open" ? " selected" : "";
+        const selProg = st === "in_progress" ? " selected" : "";
+        const selRes = st === "resolved" ? " selected" : "";
+        const badgeClass =
+          st === "resolved" ? "resolved" : st === "in_progress" ? "in_progress" : "open";
+        return `<li class="admin-feedback-item">
+            <div class="admin-feedback-item-head">
+              <div class="admin-feedback-item-meta">
+                <time class="admin-feedback-item-time">${escHtml(when)}</time>
+                ${nameLine}
+                <span class="admin-feedback-badge admin-feedback-badge--${badgeClass}">${escHtml(
+                  feedbackStatusLabel(st)
+                )}</span>
+              </div>
+              <div class="admin-feedback-item-actions">
+                <label class="admin-feedback-status-label">
+                  <span class="admin-feedback-status-label-text">Status</span>
+                  <select
+                    class="admin-input admin-feedback-status-select"
+                    data-feedback-id="${escHtml(id)}"
+                    data-prev-status="${escHtml(st)}"
+                    aria-label="Set feedback status"
+                  >
+                    <option value="open"${selOpen}>Open</option>
+                    <option value="in_progress"${selProg}>In progress</option>
+                    <option value="resolved"${selRes}>Resolved</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            ${pageLine}
+            <p class="admin-feedback-item-body">${escHtml(msg).replace(/\n/g, "<br />")}</p>
+          </li>`;
+      })
+      .join("");
+  }
+
+  function bindAdminFeedbackInboxControlsOnce() {
+    if (feedbackInboxControlsBound) return;
+    const filter = document.getElementById("admin-feedback-filter");
+    const list = document.getElementById("admin-feedback-list");
+    if (!filter || !list) return;
+    feedbackInboxControlsBound = true;
+    filter.addEventListener("change", () => {
+      persistFeedbackFilter(filter.value);
+      renderAdminFeedbackInbox();
+    });
+    list.addEventListener("change", async (e) => {
+      const sel = e.target;
+      if (!sel || !sel.classList || !sel.classList.contains("admin-feedback-status-select")) return;
+      const id = sel.getAttribute("data-feedback-id");
+      if (!id) return;
+      const status = normalizeFeedbackStatusClient(sel.value);
+      const prev = sel.getAttribute("data-prev-status") || "open";
+      sel.disabled = true;
+      try {
+        const r = await fetch("/api/site-feedback", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "updateStatus", id, status }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          window.alert(j.error || "Could not update status.");
+          sel.value = prev;
+          return;
+        }
+        if (feedbackInboxCache) {
+          const row = feedbackInboxCache.find((x) => x && String(x.id) === id);
+          if (row) row.status = status;
+        }
+        sel.setAttribute("data-prev-status", status);
+        renderAdminFeedbackInbox();
+      } catch {
+        window.alert("Could not reach the server.");
+        sel.value = prev;
+      } finally {
+        sel.disabled = false;
+      }
+    });
+  }
+
   async function loadAdminFeedbackInbox() {
     const list = document.getElementById("admin-feedback-list");
     const empty = document.getElementById("admin-feedback-empty");
@@ -4485,6 +4665,7 @@
       const r = await fetch("/api/site-feedback", { credentials: "include" });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
+        feedbackInboxCache = null;
         if (st) {
           st.textContent = j.error || "Could not load feedback.";
           st.hidden = false;
@@ -4500,40 +4681,16 @@
         st.classList.add("muted");
       }
       const entries = Array.isArray(j.entries) ? j.entries : [];
-      if (!entries.length) {
-        list.innerHTML = "";
-        if (empty) empty.hidden = false;
-        return;
-      }
-      if (empty) empty.hidden = true;
-      list.innerHTML = entries
-        .map((row) => {
-          const when = row.createdAt
-            ? new Date(row.createdAt).toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })
-            : "—";
-          const name = row.name ? String(row.name) : "";
-          const page = row.page ? String(row.page) : "";
-          const msg = row.message != null ? String(row.message) : "";
-          const nameLine = name
-            ? `<span class="admin-feedback-item-name">${escHtml(name)}</span>`
-            : `<span class="muted admin-feedback-item-anon">Anonymous</span>`;
-          const pageLine = page
-            ? `<p class="admin-feedback-item-page muted">Page: <code class="plugin-code">${escHtml(page)}</code></p>`
-            : "";
-          return `<li class="admin-feedback-item">
-            <div class="admin-feedback-item-meta">
-              <time class="admin-feedback-item-time">${escHtml(when)}</time>
-              ${nameLine}
-            </div>
-            ${pageLine}
-            <p class="admin-feedback-item-body">${escHtml(msg).replace(/\n/g, "<br />")}</p>
-          </li>`;
-        })
-        .join("");
+      feedbackInboxCache = entries.map((row) =>
+        row && typeof row === "object"
+          ? { ...row, status: normalizeFeedbackStatusClient(row.status) }
+          : row
+      );
+      syncFeedbackFilterFromStorage();
+      bindAdminFeedbackInboxControlsOnce();
+      renderAdminFeedbackInbox();
     } catch {
+      feedbackInboxCache = null;
       if (st) {
         st.textContent = "Could not load feedback (network error).";
         st.hidden = false;
@@ -4594,7 +4751,9 @@
         form.reset();
         setFeedbackFormStatus("", false);
         if (typeof dlg.close === "function") dlg.close();
-        if (currentHashPath() === "/admin/profile") void loadAdminFeedbackInbox();
+        if (currentHashPath() === "/admin/profile") {
+          void loadAdminFeedbackInbox();
+        }
       } catch {
         setFeedbackFormStatus("Could not reach the server. Try again when you’re on the live site.", true);
       } finally {
@@ -5089,7 +5248,7 @@
       try {
         const ar = await fetch("/api/admin/me", { credentials: "include" });
         const aj = await ar.json().catch(() => ({}));
-        adminCanDelete = !!(aj.authenticated && aj.admin?.email);
+        adminCanDelete = !!(aj.authenticated && adminAccountLabel(aj.admin));
       } catch {
         /* ignore */
       }

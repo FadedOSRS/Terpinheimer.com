@@ -2469,6 +2469,25 @@ p + .plugin-guide-list {
   border-top: 1px solid var(--panel-edge);
 }
 
+.admin-feedback-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.admin-feedback-filter-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+select.admin-feedback-filter {
+  min-width: 11rem;
+  max-width: 100%;
+}
+
 .admin-feedback-list {
   list-style: none;
   margin: 0;
@@ -2485,13 +2504,76 @@ p + .plugin-guide-list {
   background: rgba(22, 29, 38, 0.55);
 }
 
+.admin-feedback-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.45rem;
+}
+
 .admin-feedback-item-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem 1rem;
-  margin-bottom: 0.45rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
   font-size: 0.88rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-feedback-item-actions {
+  flex: 0 0 auto;
+}
+
+.admin-feedback-status-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.admin-feedback-status-label-text {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, rgba(255, 255, 255, 0.55));
+}
+
+select.admin-feedback-status-select {
+  min-width: 9.5rem;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.admin-feedback-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-feedback-badge--open {
+  background: rgba(212, 168, 75, 0.2);
+  color: var(--amber);
+  border: 1px solid rgba(212, 168, 75, 0.45);
+}
+
+.admin-feedback-badge--in_progress {
+  background: rgba(100, 149, 237, 0.18);
+  color: #9eb7ff;
+  border: 1px solid rgba(100, 149, 237, 0.4);
+}
+
+.admin-feedback-badge--resolved {
+  background: rgba(96, 180, 96, 0.18);
+  color: #8fd98f;
+  border: 1px solid rgba(96, 180, 96, 0.4);
 }
 
 .admin-feedback-item-time {

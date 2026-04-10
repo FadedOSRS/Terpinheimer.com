@@ -612,7 +612,7 @@
         </header>
 
         <p id="admin-auth-signed-in-hint" class="admin-auth-signed-in-hint muted" hidden>
-          Signed in as <strong data-admin-email-display></strong>.
+          Signed in as <strong data-admin-username-display></strong>.
           <a href="#/admin/profile" class="wom-link">Open admin dashboard</a>
         </p>
 
@@ -622,21 +622,21 @@
               <span class="admin-auth-card-icon admin-auth-card-icon--lock" aria-hidden="true"></span>
               <div>
                 <h2 class="admin-auth-card-title">Sign in</h2>
-                <p class="admin-auth-card-desc muted">Use your admin email and password.</p>
+                <p class="admin-auth-card-desc muted">Use your admin username and password.</p>
               </div>
             </header>
             <form id="admin-login-form" class="admin-form" autocomplete="on">
               <fieldset class="admin-form-fieldset">
-                <label class="admin-label" for="admin-login-email">
-                  <span class="admin-label-text">Email</span>
+                <label class="admin-label" for="admin-login-username">
+                  <span class="admin-label-text">Username</span>
                   <input
-                    id="admin-login-email"
-                    name="email"
-                    type="email"
+                    id="admin-login-username"
+                    name="username"
+                    type="text"
                     required
                     class="admin-input"
                     autocomplete="username"
-                    inputmode="email"
+                    spellcheck="false"
                   />
                 </label>
                 <label class="admin-label" for="admin-login-password">
@@ -666,16 +666,18 @@
             </header>
             <form id="admin-signup-form" class="admin-form" autocomplete="on">
               <fieldset class="admin-form-fieldset">
-                <label class="admin-label" for="admin-signup-email">
-                  <span class="admin-label-text">Email</span>
+                <label class="admin-label" for="admin-signup-username">
+                  <span class="admin-label-text">Username</span>
                   <input
-                    id="admin-signup-email"
-                    name="email"
-                    type="email"
+                    id="admin-signup-username"
+                    name="username"
+                    type="text"
                     required
+                    minlength="3"
+                    maxlength="64"
                     class="admin-input"
                     autocomplete="username"
-                    inputmode="email"
+                    spellcheck="false"
                   />
                 </label>
                 <label class="admin-label" for="admin-signup-password">
@@ -811,6 +813,14 @@
             <p class="muted admin-dashboard-lead">
               Messages from the Feedback button on any page (newest first). Stored on the server only.
             </p>
+            <div class="admin-feedback-toolbar">
+              <label class="admin-feedback-filter-label" for="admin-feedback-filter">Show</label>
+              <select id="admin-feedback-filter" class="admin-input admin-feedback-filter" aria-label="Filter by status">
+                <option value="open" selected>Open</option>
+                <option value="in_progress">In progress</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
             <p id="admin-feedback-status" class="admin-form-status muted" role="status" hidden></p>
             <ul id="admin-feedback-list" class="admin-feedback-list"></ul>
             <p id="admin-feedback-empty" class="muted admin-feedback-empty" hidden>No messages yet.</p>
@@ -827,15 +837,16 @@
               <h3 class="admin-owner-block-title">Reset password</h3>
               <form id="admin-reset-form" class="admin-form">
                 <fieldset class="admin-form-fieldset">
-                  <label class="admin-label" for="admin-reset-email">
-                    <span class="admin-label-text">Admin email</span>
+                  <label class="admin-label" for="admin-reset-username">
+                    <span class="admin-label-text">Admin username</span>
                     <input
-                      id="admin-reset-email"
-                      name="email"
-                      type="email"
+                      id="admin-reset-username"
+                      name="username"
+                      type="text"
                       required
                       class="admin-input"
                       autocomplete="username"
+                      spellcheck="false"
                     />
                   </label>
                   <label class="admin-label" for="admin-reset-newpw">
@@ -872,15 +883,16 @@
               <p class="muted admin-owner-block-warning">Permanent. You cannot delete the account you are signed in with.</p>
               <form id="admin-delete-form" class="admin-form">
                 <fieldset class="admin-form-fieldset">
-                  <label class="admin-label" for="admin-delete-email">
-                    <span class="admin-label-text">Admin email</span>
+                  <label class="admin-label" for="admin-delete-username">
+                    <span class="admin-label-text">Admin username</span>
                     <input
-                      id="admin-delete-email"
-                      name="email"
-                      type="email"
+                      id="admin-delete-username"
+                      name="username"
+                      type="text"
                       required
                       class="admin-input"
                       autocomplete="username"
+                      spellcheck="false"
                     />
                   </label>
                   <label class="admin-label" for="admin-delete-owner-key">

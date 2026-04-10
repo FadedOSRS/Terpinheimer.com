@@ -91,14 +91,33 @@ function resolveAdminUsersPath() {
   return path.join(__dirname, "_data", "admin-users.json");
 }
 
-function normalizeAdminEmail(email) {
-  return String(email || "")
+/** Normalized admin login id (lowercase); supports legacy email-shaped accounts. */
+function normalizeAdminIdentifier(raw) {
+  return String(raw || "")
     .trim()
     .toLowerCase();
 }
 
-function isValidAdminEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+function isValidAdminEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+/** New accounts: 3–64 chars, letters/digits/._- only (after normalize). */
+function isValidAdminUsername(s) {
+  if (!s || typeof s !== "string") return false;
+  if (s.length < 3 || s.length > 64) return false;
+  return /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/.test(s);
+}
+
+function isValidLoginIdentifier(s) {
+  return isValidAdminEmail(s) || isValidAdminUsername(s);
+}
+
+function adminUsernameFromBody(body) {
+  if (!body || typeof body !== "object") return "";
+  if (body.username != null && String(body.username).trim() !== "") return normalizeAdminIdentifier(body.username);
+  if (body.email != null && String(body.email).trim() !== "") return normalizeAdminIdentifier(body.email);
+  return "";
 }
 
 /** Optional link to `#/members/<name>` — matches site member URLs (trim, max 32, safe chars). */
@@ -170,11 +189,11 @@ function sanitizeAdminsRecord(raw) {
   const admins = adminsIn
     .filter((a) => a && typeof a === "object")
     .map((a) => {
-      const email = normalizeAdminEmail(a.email);
+      const username = normalizeAdminIdentifier(a.username ?? a.email);
       const linkedRsn = normalizeLinkedRsnForStorage(a.linkedRsn);
       const base = {
         id: typeof a.id === "string" && a.id ? a.id : crypto.randomUUID(),
-        email,
+        username,
         passwordHash: typeof a.passwordHash === "string" ? a.passwordHash : "",
         createdAt: typeof a.createdAt === "string" ? a.createdAt : new Date().toISOString(),
         updatedAt: typeof a.updatedAt === "string" ? a.updatedAt : new Date().toISOString(),
@@ -183,7 +202,7 @@ function sanitizeAdminsRecord(raw) {
       if (linkedRsn) base.linkedRsn = linkedRsn;
       return base;
     })
-    .filter((a) => a.email && a.passwordHash);
+    .filter((a) => a.username && a.passwordHash);
   return { admins };
 }
 
@@ -232,9 +251,9 @@ async function verifyAdminPassword(password, storedHash) {
   }
 }
 
-function buildAdminSessionToken(email, secret) {
+function buildAdminSessionToken(loginId, secret) {
   const exp = Date.now() + ADMIN_SESSION_DAYS * 86400000;
-  const payload = `${exp}.${email}`;
+  const payload = `${exp}.${loginId}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return `${payload}.${sig}`;
 }
@@ -245,18 +264,18 @@ function verifyAdminSessionToken(token, secret) {
   if (parts.length < 3) return null;
   const exp = parts[0];
   const sig = parts[parts.length - 1];
-  const email = parts.slice(1, -1).join(".");
+  const loginIdRaw = parts.slice(1, -1).join(".");
   if (!/^\d+$/.test(exp) || !/^[a-f0-9]{64}$/i.test(sig)) return null;
   if (Date.now() > Number(exp)) return null;
-  const payload = `${exp}.${email}`;
+  const payload = `${exp}.${loginIdRaw}`;
   const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   try {
     if (!crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))) return null;
   } catch {
     return null;
   }
-  const normalizedEmail = normalizeAdminEmail(email);
-  return normalizedEmail && isValidAdminEmail(normalizedEmail) ? normalizedEmail : null;
+  const id = normalizeAdminIdentifier(loginIdRaw);
+  return id && isValidLoginIdentifier(id) ? id : null;
 }
 
 function readAdminSessionFromRequest(req) {
@@ -293,15 +312,15 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Method not allowed" }));
       return;
     }
-    const email = readAdminSessionFromRequest(req);
-    if (!email) {
+    const sessionId = readAdminSessionFromRequest(req);
+    if (!sessionId) {
       const data0 = await readAdminsRecord();
       res.writeHead(200, cors);
       res.end(JSON.stringify({ authenticated: false, bootstrapAllowed: data0.admins.length === 0 }));
       return;
     }
     const data = await readAdminsRecord();
-    const admin = data.admins.find((a) => a.email === email);
+    const admin = data.admins.find((a) => a.username === sessionId);
     if (!admin) {
       res.writeHead(200, cors);
       res.end(JSON.stringify({ authenticated: false }));
@@ -312,7 +331,7 @@ async function handleAdminAuthApi(req, res, url) {
       JSON.stringify({
         authenticated: true,
         admin: {
-          email: admin.email,
+          username: admin.username,
           lastLoginAt: admin.lastLoginAt,
           linkedRsn: admin.linkedRsn || null,
         },
@@ -357,8 +376,8 @@ async function handleAdminAuthApi(req, res, url) {
   }
 
   if (url.pathname === "/api/admin/link-rsn") {
-    const loggedInAdminEmail = readAdminSessionFromRequest(req);
-    if (!loggedInAdminEmail) {
+    const loggedInAdmin = readAdminSessionFromRequest(req);
+    if (!loggedInAdmin) {
       res.writeHead(401, cors);
       res.end(JSON.stringify({ error: "Login required." }));
       return;
@@ -376,7 +395,7 @@ async function handleAdminAuthApi(req, res, url) {
       return;
     }
     const data = await readAdminsRecord();
-    const admin = data.admins.find((a) => a.email === loggedInAdminEmail);
+    const admin = data.admins.find((a) => a.username === loggedInAdmin);
     if (!admin) {
       res.writeHead(404, cors);
       res.end(JSON.stringify({ error: "Admin record not found." }));
@@ -395,8 +414,8 @@ async function handleAdminAuthApi(req, res, url) {
     const data = await readAdminsRecord();
     const bootstrap = data.admins.length === 0;
     if (!bootstrap) {
-      const loggedInAdminEmail = readAdminSessionFromRequest(req);
-      if (!loggedInAdminEmail) {
+      const loggedInAdmin = readAdminSessionFromRequest(req);
+      if (!loggedInAdmin) {
         res.writeHead(401, cors);
         res.end(JSON.stringify({ error: "Login required." }));
         return;
@@ -414,11 +433,16 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Invalid signup key" }));
       return;
     }
-    const email = normalizeAdminEmail(body.email);
+    const username = adminUsernameFromBody(body);
     const password = String(body.password || "");
-    if (!isValidAdminEmail(email)) {
+    if (!isValidAdminUsername(username)) {
       res.writeHead(400, cors);
-      res.end(JSON.stringify({ error: "Valid email is required." }));
+      res.end(
+        JSON.stringify({
+          error:
+            "Valid username is required (3–64 characters: letters, numbers, period, underscore, hyphen).",
+        })
+      );
       return;
     }
     if (password.length < 8 || password.length > 128) {
@@ -426,7 +450,7 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Password must be 8-128 characters." }));
       return;
     }
-    if (data.admins.some((a) => a.email === email)) {
+    if (data.admins.some((a) => a.username === username)) {
       res.writeHead(409, cors);
       res.end(JSON.stringify({ error: "Admin already exists." }));
       return;
@@ -435,7 +459,7 @@ async function handleAdminAuthApi(req, res, url) {
     const passwordHash = await hashAdminPassword(password);
     data.admins.push({
       id: crypto.randomUUID(),
-      email,
+      username,
       passwordHash,
       createdAt: now,
       updatedAt: now,
@@ -443,20 +467,20 @@ async function handleAdminAuthApi(req, res, url) {
     });
     await writeAdminsRecord(data);
     res.writeHead(201, cors);
-    res.end(JSON.stringify({ ok: true, admin: { email } }));
+    res.end(JSON.stringify({ ok: true, admin: { username } }));
     return;
   }
 
   if (url.pathname === "/api/admin/login") {
-    const email = normalizeAdminEmail(body.email);
+    const loginId = adminUsernameFromBody(body);
     const password = String(body.password || "");
-    if (!isValidAdminEmail(email) || !password) {
+    if (!isValidLoginIdentifier(loginId) || !password) {
       res.writeHead(400, cors);
-      res.end(JSON.stringify({ error: "Email and password are required." }));
+      res.end(JSON.stringify({ error: "Username and password are required." }));
       return;
     }
     const data = await readAdminsRecord();
-    const admin = data.admins.find((a) => a.email === email);
+    const admin = data.admins.find((a) => a.username === loginId);
     if (!admin || !(await verifyAdminPassword(password, admin.passwordHash))) {
       res.writeHead(401, cors);
       res.end(JSON.stringify({ error: "Invalid credentials" }));
@@ -465,7 +489,7 @@ async function handleAdminAuthApi(req, res, url) {
     admin.lastLoginAt = new Date().toISOString();
     admin.updatedAt = admin.lastLoginAt;
     await writeAdminsRecord(data);
-    const token = buildAdminSessionToken(admin.email, secret);
+    const token = buildAdminSessionToken(admin.username, secret);
     const maxAge = ADMIN_SESSION_DAYS * 86400;
     const secure = cookieSecureDirective(req);
     const cookieLine = `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
@@ -473,13 +497,13 @@ async function handleAdminAuthApi(req, res, url) {
       ...cors,
       "Set-Cookie": cookieLine,
     });
-    res.end(JSON.stringify({ ok: true, admin: { email: admin.email } }));
+    res.end(JSON.stringify({ ok: true, admin: { username: admin.username } }));
     return;
   }
 
   if (url.pathname === "/api/admin/reset-password") {
-    const loggedInAdminEmail = readAdminSessionFromRequest(req);
-    if (!loggedInAdminEmail) {
+    const loggedInAdmin = readAdminSessionFromRequest(req);
+    if (!loggedInAdmin) {
       res.writeHead(401, cors);
       res.end(JSON.stringify({ error: "Login required." }));
       return;
@@ -496,11 +520,11 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Invalid owner reset key." }));
       return;
     }
-    const email = normalizeAdminEmail(body.email);
+    const targetUser = adminUsernameFromBody(body);
     const newPassword = String(body.newPassword || "");
-    if (!isValidAdminEmail(email)) {
+    if (!isValidLoginIdentifier(targetUser)) {
       res.writeHead(400, cors);
-      res.end(JSON.stringify({ error: "Valid email is required." }));
+      res.end(JSON.stringify({ error: "Valid username is required." }));
       return;
     }
     if (newPassword.length < 8 || newPassword.length > 128) {
@@ -509,7 +533,7 @@ async function handleAdminAuthApi(req, res, url) {
       return;
     }
     const data = await readAdminsRecord();
-    const admin = data.admins.find((a) => a.email === email);
+    const admin = data.admins.find((a) => a.username === targetUser);
     if (!admin) {
       res.writeHead(404, cors);
       res.end(JSON.stringify({ error: "Admin not found." }));
@@ -519,13 +543,13 @@ async function handleAdminAuthApi(req, res, url) {
     admin.updatedAt = new Date().toISOString();
     await writeAdminsRecord(data);
     res.writeHead(200, cors);
-    res.end(JSON.stringify({ ok: true, email: admin.email }));
+    res.end(JSON.stringify({ ok: true, username: admin.username }));
     return;
   }
 
   if (url.pathname === "/api/admin/delete-account") {
-    const loggedInAdminEmail = readAdminSessionFromRequest(req);
-    if (!loggedInAdminEmail) {
+    const loggedInAdmin = readAdminSessionFromRequest(req);
+    if (!loggedInAdmin) {
       res.writeHead(401, cors);
       res.end(JSON.stringify({ error: "Login required." }));
       return;
@@ -542,10 +566,10 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Invalid owner reset key." }));
       return;
     }
-    const email = normalizeAdminEmail(body.email);
-    if (!isValidAdminEmail(email)) {
+    const targetUser = adminUsernameFromBody(body);
+    if (!isValidLoginIdentifier(targetUser)) {
       res.writeHead(400, cors);
-      res.end(JSON.stringify({ error: "Valid email is required." }));
+      res.end(JSON.stringify({ error: "Valid username is required." }));
       return;
     }
     const data = await readAdminsRecord();
@@ -554,12 +578,12 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ error: "Cannot delete the last remaining admin." }));
       return;
     }
-    if (email === loggedInAdminEmail) {
+    if (targetUser === loggedInAdmin) {
       res.writeHead(400, cors);
       res.end(JSON.stringify({ error: "Cannot delete the currently logged-in admin account." }));
       return;
     }
-    const idx = data.admins.findIndex((a) => a.email === email);
+    const idx = data.admins.findIndex((a) => a.username === targetUser);
     if (idx < 0) {
       res.writeHead(404, cors);
       res.end(JSON.stringify({ error: "Admin not found." }));
@@ -568,7 +592,7 @@ async function handleAdminAuthApi(req, res, url) {
     data.admins.splice(idx, 1);
     await writeAdminsRecord(data);
     res.writeHead(200, cors);
-    res.end(JSON.stringify({ ok: true, email }));
+    res.end(JSON.stringify({ ok: true, username: targetUser }));
     return;
   }
 
@@ -651,10 +675,10 @@ async function handleEventSessionApi(req, res) {
   if (req.method === "GET") {
     const tok = getCookieHeader(req, EVENT_SESSION_COOKIE);
     const unlocked = verifyEventSessionToken(tok, secret);
-    const adminEmail = readAdminSessionFromRequest(req);
-    const effectiveUnlocked = unlocked || !!adminEmail;
+    const adminSessionId = readAdminSessionFromRequest(req);
+    const effectiveUnlocked = unlocked || !!adminSessionId;
     /** Bingo: skip the “Open designer” step when organizers use admin sign-in only (no event-session cookie). */
-    const organizerViaAdmin = !!adminEmail && !unlocked;
+    const organizerViaAdmin = !!adminSessionId && !unlocked;
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
       JSON.stringify({
@@ -944,7 +968,23 @@ function sanitizeFeedbackPage(raw) {
   }
 }
 
-/** Public POST + admin GET for site feedback (stored JSON; same hosting notes as custom-events). */
+const FEEDBACK_STATUS_SET = new Set(["open", "in_progress", "resolved"]);
+
+function normalizeFeedbackStatus(raw) {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (s === "in-progress") return "in_progress";
+  if (FEEDBACK_STATUS_SET.has(s)) return s;
+  return "open";
+}
+
+function isFeedbackEntryId(id) {
+  return typeof id === "string" && /^[a-f0-9-]{36}$/i.test(id.trim());
+}
+
+/** Public POST (new message) + admin POST (update status) + admin GET for site feedback. */
 async function handleSiteFeedbackApi(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -962,22 +1002,27 @@ async function handleSiteFeedbackApi(req, res) {
       res.end(JSON.stringify({ error: "Admin auth is not configured on the server." }));
       return;
     }
-    const email = readAdminSessionFromRequest(req);
-    if (!email) {
+    const sessionId = readAdminSessionFromRequest(req);
+    if (!sessionId) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ error: "Admin sign-in required." }));
       return;
     }
     const data = await readAdminsRecord();
-    if (!data.admins.some((a) => a.email === email)) {
+    if (!data.admins.some((a) => a.username === sessionId)) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ error: "Admin sign-in required." }));
       return;
     }
     try {
       const store = await readSiteFeedbackStore();
+      const entries = (store.entries || []).map((e) =>
+        e && typeof e === "object"
+          ? { ...e, status: normalizeFeedbackStatus(e.status) }
+          : e
+      );
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ entries: store.entries }));
+      res.end(JSON.stringify({ entries }));
     } catch {
       res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ error: "Could not read feedback." }));
@@ -1005,6 +1050,60 @@ async function handleSiteFeedbackApi(req, res) {
     return;
   }
 
+  const action = typeof body.action === "string" ? body.action.trim().toLowerCase() : "";
+  if (action === "updatestatus" || action === "update_status") {
+    const secret = process.env.ADMIN_AUTH_SECRET?.trim();
+    if (!secret) {
+      res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin auth is not configured on the server." }));
+      return;
+    }
+    const sessionId = readAdminSessionFromRequest(req);
+    if (!sessionId) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin sign-in required." }));
+      return;
+    }
+    const data = await readAdminsRecord();
+    if (!data.admins.some((a) => a.username === sessionId)) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Admin sign-in required." }));
+      return;
+    }
+    const id = typeof body.id === "string" ? body.id.trim() : "";
+    if (!isFeedbackEntryId(id)) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Missing or invalid feedback id." }));
+      return;
+    }
+    const status = normalizeFeedbackStatus(body.status);
+    let store;
+    try {
+      store = await readSiteFeedbackStore();
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read feedback." }));
+      return;
+    }
+    const idx = (store.entries || []).findIndex((e) => e && e.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Feedback not found." }));
+      return;
+    }
+    store.entries[idx] = { ...store.entries[idx], status };
+    try {
+      await writeSiteFeedbackStore(store);
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not save feedback." }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: true, id, status }));
+    return;
+  }
+
   const message = sanitizeFeedbackMessage(body.message);
   if (message.length < 1 || message.length > 4000) {
     res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
@@ -1021,6 +1120,7 @@ async function handleSiteFeedbackApi(req, res) {
     message,
     name: nameRaw || undefined,
     page: page || undefined,
+    status: "open",
   };
 
   try {
@@ -1975,7 +2075,9 @@ http
     console.log(
       "GET/POST/DELETE /api/custom-events — calendar (POST create / POST action:delete / DELETE ?id=; cookie or JSON secret)"
     );
-    console.log("POST /api/site-feedback — public feedback; GET /api/site-feedback — admin session only");
+    console.log(
+      "POST /api/site-feedback — public new message; POST { action: updateStatus, id, status } — admin; GET — admin"
+    );
     console.log(
       "GET /api/runelite/clan-events (alias …/clan-calendar-summary) — JSON + ACTIVE|PENDING|NONE summary; ?format=array for raw list"
     );
