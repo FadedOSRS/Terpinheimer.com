@@ -35,6 +35,26 @@ function loadDotEnv() {
 }
 loadDotEnv();
 
+/** GitHub org / deploy owner for the canonical Terpinheimer site (Owner tools UI is shown only here). */
+const FADED_OSRS_SITE_OWNER = "FadedOSRS";
+
+/**
+ * True when this Node process is the FadedOSRS deployment (see GET /api/site/features).
+ * Checks SITE_DEPLOY_OWNER first, then GITHUB_REPOSITORY / VERCEL_GIT_REPO_OWNER.
+ */
+function isFadedOsrsSiteDeploy() {
+  const explicit = (process.env.SITE_DEPLOY_OWNER || "").trim();
+  if (explicit) return explicit.toLowerCase() === FADED_OSRS_SITE_OWNER.toLowerCase();
+  const ghRepo = (process.env.GITHUB_REPOSITORY || "").trim();
+  if (ghRepo.includes("/")) {
+    const owner = ghRepo.split("/")[0].trim();
+    if (owner) return owner.toLowerCase() === FADED_OSRS_SITE_OWNER.toLowerCase();
+  }
+  const vercelOwner = (process.env.VERCEL_GIT_REPO_OWNER || "").trim();
+  if (vercelOwner) return vercelOwner.toLowerCase() === FADED_OSRS_SITE_OWNER.toLowerCase();
+  return false;
+}
+
 /** Clan events JSON file. On hosts with an ephemeral filesystem (default Render), data is lost on restart/deploy unless you use a persistent disk or set these env vars. */
 function resolveCustomEventsPath() {
   const file = process.env.CUSTOM_EVENTS_PATH?.trim();
@@ -65,6 +85,78 @@ function resolveSiteFeedbackPath() {
 }
 
 const SITE_FEEDBACK_PATH = resolveSiteFeedbackPath();
+
+/** Clan join applications (public POST, Bandosian admin GET). Override with CLAN_APPLICATIONS_PATH or CLAN_APPLICATIONS_DIR. */
+function resolveClanApplicationsPath() {
+  const file = process.env.CLAN_APPLICATIONS_PATH?.trim();
+  if (file) {
+    return path.isAbsolute(file) ? file : path.join(__dirname, file);
+  }
+  const dir = process.env.CLAN_APPLICATIONS_DIR?.trim();
+  if (dir) {
+    return path.join(dir, "clan-applications.json");
+  }
+  return path.join(__dirname, "_data", "clan-applications.json");
+}
+
+const CLAN_APPLICATIONS_PATH = resolveClanApplicationsPath();
+
+/** Wise Old Man group (Terpinheimer) — used to verify Bandosian rank for application inbox. */
+const WOM_API_GROUP_ID = 23745;
+const WOM_API_BASE = "https://api.wiseoldman.net/v2";
+
+let womGroupMembershipsCache = { at: 0, list: null };
+
+async function fetchWomGroupMembershipsCached() {
+  const ttl = 120000;
+  const now = Date.now();
+  if (womGroupMembershipsCache.list && now - womGroupMembershipsCache.at < ttl) {
+    return womGroupMembershipsCache.list;
+  }
+  try {
+    const r = await fetch(`${WOM_API_BASE}/groups/${WOM_API_GROUP_ID}`, {
+      headers: { Accept: "application/json", "User-Agent": "TerpinheimerSite/1.0" },
+    });
+    if (!r.ok) {
+      womGroupMembershipsCache = { at: now, list: null };
+      return null;
+    }
+    const j = await r.json();
+    const list = Array.isArray(j.memberships) ? j.memberships : [];
+    womGroupMembershipsCache = { at: now, list };
+    return list;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeWomUsernameKey(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function womRoleForLinkedRsn(memberships, linkedRsn) {
+  const want = normalizeWomUsernameKey(linkedRsn);
+  if (!want) return null;
+  for (const m of memberships || []) {
+    const u = m?.player?.username;
+    if (!u) continue;
+    if (normalizeWomUsernameKey(u) !== want) continue;
+    return String(m.role || "").trim().toLowerCase() || null;
+  }
+  return null;
+}
+
+async function linkedRsnHasWomRole(linkedRsn, roleSlug) {
+  const want = String(roleSlug || "").trim().toLowerCase();
+  if (!want) return false;
+  const mem = await fetchWomGroupMembershipsCached();
+  if (!mem) return false;
+  const role = womRoleForLinkedRsn(mem, linkedRsn);
+  return role === want;
+}
 
 const LIVE_MAP_SECRET = (process.env.LIVE_MAP_SECRET || "").trim();
 const LIVE_MAP_TTL_MS =
@@ -326,6 +418,10 @@ async function handleAdminAuthApi(req, res, url) {
       res.end(JSON.stringify({ authenticated: false }));
       return;
     }
+    let showApplicationInbox = false;
+    if (isFadedOsrsSiteDeploy() && admin.linkedRsn) {
+      showApplicationInbox = await linkedRsnHasWomRole(admin.linkedRsn, "bandosian");
+    }
     res.writeHead(200, cors);
     res.end(
       JSON.stringify({
@@ -334,6 +430,7 @@ async function handleAdminAuthApi(req, res, url) {
           username: admin.username,
           lastLoginAt: admin.lastLoginAt,
           linkedRsn: admin.linkedRsn || null,
+          showApplicationInbox,
         },
       })
     );
@@ -1168,6 +1265,200 @@ async function handleSiteFeedbackApi(req, res) {
   res.end(JSON.stringify({ ok: true, id: entry.id }));
 }
 
+async function readClanApplicationsStore() {
+  try {
+    const raw = await fs.promises.readFile(CLAN_APPLICATIONS_PATH, "utf8");
+    const j = JSON.parse(raw);
+    const entries = Array.isArray(j.entries) ? j.entries : [];
+    return { entries };
+  } catch {
+    return { entries: [] };
+  }
+}
+
+async function writeClanApplicationsStore(store) {
+  await fs.promises.mkdir(path.dirname(CLAN_APPLICATIONS_PATH), { recursive: true });
+  const tmp = `${CLAN_APPLICATIONS_PATH}.${process.pid}.${Date.now()}.tmp`;
+  await fs.promises.writeFile(tmp, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  await fs.promises.rename(tmp, CLAN_APPLICATIONS_PATH);
+}
+
+function sanitizeApplicationDiscord(raw) {
+  const t = String(raw ?? "").replace(/\u0000/g, "").trim().slice(0, 80);
+  if (!t) return "";
+  if (/[<>]/.test(t)) return "";
+  return t;
+}
+
+async function assertBandosianApplicationViewer(req) {
+  if (!isFadedOsrsSiteDeploy()) {
+    return {
+      ok: false,
+      code: 403,
+      msg: "Application inbox is only available on the main Terpinheimer deployment (FadedOSRS).",
+    };
+  }
+  const secret = process.env.ADMIN_AUTH_SECRET?.trim();
+  if (!secret) {
+    return { ok: false, code: 503, msg: "Admin auth is not configured on the server." };
+  }
+  const sessionId = readAdminSessionFromRequest(req);
+  if (!sessionId) return { ok: false, code: 401, msg: "Admin sign-in required." };
+  const data = await readAdminsRecord();
+  const admin = data.admins.find((a) => a.username === sessionId);
+  if (!admin) return { ok: false, code: 401, msg: "Admin sign-in required." };
+  if (!admin.linkedRsn || !(await linkedRsnHasWomRole(admin.linkedRsn, "bandosian"))) {
+    return {
+      ok: false,
+      code: 403,
+      msg:
+        "Application inbox is only available when your linked RSN has the Bandosian clan rank on Wise Old Man.",
+    };
+  }
+  return { ok: true, admin };
+}
+
+/** Public POST (new application) + Bandosian-admin GET + status updates. */
+async function handleClanApplicationsApi(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204).end();
+    return;
+  }
+
+  if (req.method === "GET") {
+    const gate = await assertBandosianApplicationViewer(req);
+    if (!gate.ok) {
+      res.writeHead(gate.code, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: gate.msg }));
+      return;
+    }
+    try {
+      const store = await readClanApplicationsStore();
+      const entries = (store.entries || []).map((e) =>
+        e && typeof e === "object" ? { ...e, status: normalizeFeedbackStatus(e.status) } : e
+      );
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ entries }));
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read applications." }));
+    }
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  const read = await readRequestBody(req, Math.min(MAX_BODY, 65536));
+  if (read.error) {
+    res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Body too large." }));
+    return;
+  }
+
+  const body = parseJsonBody(read.buf);
+  if (!body || typeof body !== "object") {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Invalid JSON." }));
+    return;
+  }
+
+  const action = typeof body.action === "string" ? body.action.trim().toLowerCase() : "";
+  if (action === "updatestatus" || action === "update_status") {
+    const gate = await assertBandosianApplicationViewer(req);
+    if (!gate.ok) {
+      res.writeHead(gate.code, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: gate.msg }));
+      return;
+    }
+    const id = typeof body.id === "string" ? body.id.trim() : "";
+    if (!isFeedbackEntryId(id)) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Missing or invalid application id." }));
+      return;
+    }
+    const status = normalizeFeedbackStatus(body.status);
+    let store;
+    try {
+      store = await readClanApplicationsStore();
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not read applications." }));
+      return;
+    }
+    const idx = (store.entries || []).findIndex((e) => e && e.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Application not found." }));
+      return;
+    }
+    store.entries[idx] = { ...store.entries[idx], status };
+    try {
+      await writeClanApplicationsStore(store);
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Could not save applications." }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: true, id, status }));
+    return;
+  }
+
+  const rsn = normalizeLinkedRsnForStorage(body.rsn != null ? String(body.rsn) : "");
+  if (!rsn) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(
+      JSON.stringify({
+        error:
+          "Valid RSN is required (1–32 characters: letters, numbers, spaces, hyphen, underscore, period, or apostrophe).",
+      })
+    );
+    return;
+  }
+
+  const message = sanitizeFeedbackMessage(body.message);
+  if (message.length < 1 || message.length > 4000) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Message must be 1–4000 characters." }));
+    return;
+  }
+
+  const discord = sanitizeApplicationDiscord(body.discord);
+  const page = sanitizeFeedbackPage(body.page);
+
+  const entry = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    rsn,
+    message,
+    discord: discord || undefined,
+    page: page || undefined,
+    status: "open",
+  };
+
+  try {
+    const store = await readClanApplicationsStore();
+    store.entries.unshift(entry);
+    if (store.entries.length > 500) store.entries.length = 500;
+    await writeClanApplicationsStore(store);
+  } catch {
+    res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Could not save application." }));
+    return;
+  }
+
+  res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({ ok: true, id: entry.id }));
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -1906,8 +2197,42 @@ http
       return;
     }
 
+    if (url.pathname === "/api/clan-applications") {
+      await handleClanApplicationsApi(req, res);
+      return;
+    }
+
     if (url.pathname === "/api/public/site-admin-for") {
       await handlePublicSiteAdminForPlayer(req, res, url);
+      return;
+    }
+
+    if (url.pathname === "/api/site/features") {
+      const cors = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      };
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, cors);
+        res.end();
+        return;
+      }
+      if (req.method !== "GET") {
+        res.writeHead(405, cors);
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+      res.writeHead(200, {
+        ...cors,
+        "Cache-Control": "private, max-age=60",
+      });
+      res.end(
+        JSON.stringify({
+          showAdminOwnerTools: isFadedOsrsSiteDeploy(),
+          showBandosianApplicationInbox: isFadedOsrsSiteDeploy(),
+        })
+      );
       return;
     }
 
@@ -2094,6 +2419,7 @@ http
     console.log(`Terpinheimer site: http://localhost:${PORT}`);
     console.log(`Clan events data file: ${CUSTOM_EVENTS_PATH}`);
     console.log(`Site feedback data file: ${SITE_FEEDBACK_PATH}`);
+    console.log(`Clan applications data file: ${CLAN_APPLICATIONS_PATH}`);
     console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");
@@ -2107,6 +2433,9 @@ http
     );
     console.log(
       "POST /api/site-feedback — public new message; POST { action: updateStatus, id, status } — admin; GET — admin"
+    );
+    console.log(
+      "POST /api/clan-applications — public apply; GET + POST updateStatus — admin with Bandosian WOM rank (linked RSN)"
     );
     console.log(
       "GET /api/runelite/clan-events (alias …/clan-calendar-summary) — JSON + ACTIVE|PENDING|NONE summary; ?format=array for raw list"

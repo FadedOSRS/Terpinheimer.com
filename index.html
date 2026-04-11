@@ -45,6 +45,7 @@
         <a href="#/map">Map</a>
         <a href="#/bingo">Bingo</a>
         <a href="#/plugin">Plugin</a>
+        <a href="#/apply">Apply</a>
         <a href="#/admin/profile">Admin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
@@ -588,6 +589,68 @@
       </div>
     </div>
 
+    <div id="apply-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Apply</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Join Terpinheimer</h1>
+          <hr class="rule" />
+          <p class="lead muted">
+            Submit a clan application. Recruitment staff with the Bandosian rank review submissions on the admin dashboard.
+          </p>
+        </header>
+
+        <section class="member-panel member-wide plugin-panel">
+          <form id="clan-apply-form" class="admin-form" novalidate>
+            <fieldset class="admin-form-fieldset">
+              <label class="admin-label" for="clan-apply-rsn">
+                <span class="admin-label-text">OSRS RSN</span>
+                <input
+                  id="clan-apply-rsn"
+                  name="rsn"
+                  type="text"
+                  required
+                  maxlength="32"
+                  class="admin-input"
+                  autocomplete="username"
+                  spellcheck="false"
+                  placeholder="Exact in-game name"
+                />
+              </label>
+              <label class="admin-label" for="clan-apply-discord">
+                <span class="admin-label-text">Discord <span class="muted">(optional)</span></span>
+                <input
+                  id="clan-apply-discord"
+                  name="discord"
+                  type="text"
+                  maxlength="80"
+                  class="admin-input"
+                  autocomplete="off"
+                  placeholder="Username#0000 or @handle"
+                />
+              </label>
+              <label class="admin-label" for="clan-apply-message">
+                <span class="admin-label-text">Tell us about yourself</span>
+                <textarea
+                  id="clan-apply-message"
+                  name="message"
+                  class="admin-input"
+                  required
+                  maxlength="4000"
+                  rows="6"
+                  placeholder="Goals, experience, how you found us…"
+                ></textarea>
+              </label>
+              <button type="submit" class="btn btn-primary">Submit application</button>
+            </fieldset>
+            <p id="clan-apply-status" class="admin-form-status muted" role="status" hidden></p>
+          </form>
+        </section>
+      </div>
+    </div>
+
     <div id="admin-view" class="plugin-view admin-portal-view" hidden>
       <div class="container admin-portal-container">
         <nav id="admin-crumb-auth" class="member-crumb admin-portal-crumb" aria-label="Breadcrumb">
@@ -824,6 +887,30 @@
             <p id="admin-feedback-status" class="admin-form-status muted" role="status" hidden></p>
             <ul id="admin-feedback-list" class="admin-feedback-list"></ul>
             <p id="admin-feedback-empty" class="muted admin-feedback-empty" hidden>No messages yet.</p>
+          </section>
+
+          <section
+            class="admin-feedback-inbox admin-application-inbox"
+            id="admin-application-inbox-section"
+            hidden
+            aria-labelledby="admin-application-heading"
+          >
+            <h2 id="admin-application-heading" class="admin-dashboard-heading">Application inbox</h2>
+            <p class="muted admin-dashboard-lead">
+              Clan join applications from the <a href="#/apply" class="wom-link">Apply</a> page (newest first). Shown
+              only on the main site when your linked RSN has the <strong>Bandosian</strong> rank on Wise Old Man.
+            </p>
+            <div class="admin-feedback-toolbar">
+              <label class="admin-feedback-filter-label" for="admin-application-filter">Show</label>
+              <select id="admin-application-filter" class="admin-input admin-feedback-filter" aria-label="Filter applications by status">
+                <option value="open" selected>Open</option>
+                <option value="in_progress">In progress</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
+            <p id="admin-application-status" class="admin-form-status muted" role="status" hidden></p>
+            <ul id="admin-application-list" class="admin-feedback-list"></ul>
+            <p id="admin-application-empty" class="muted admin-feedback-empty" hidden>No applications yet.</p>
           </section>
 
         <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">

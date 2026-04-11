@@ -1350,6 +1350,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
@@ -1357,6 +1358,7 @@
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (mv) mv.hidden = false;
@@ -1411,6 +1413,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
     if (evw) evw.hidden = true;
@@ -1418,6 +1421,7 @@
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (hv) hv.hidden = false;
@@ -1512,6 +1516,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -1519,6 +1524,7 @@
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (evw) evw.hidden = false;
@@ -1662,6 +1668,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (evw) evw.hidden = true;
@@ -1669,6 +1676,7 @@
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (listv) listv.hidden = false;
@@ -1702,9 +1710,13 @@
   let bingoSaveTimer = null;
   let bingoBindingsDone = false;
   let feedbackFabBound = false;
+  let clanApplyFormBound = false;
   let feedbackInboxCache = null;
   let feedbackInboxControlsBound = false;
   const FEEDBACK_FILTER_STORAGE_KEY = "th_admin_feedback_filter";
+  let applicationInboxCache = null;
+  let applicationInboxControlsBound = false;
+  const APPLICATION_FILTER_STORAGE_KEY = "th_admin_application_filter";
   let bingoPublicPreviewGridBound = false;
   let bingoDimsFilled = false;
   let bingoImageTargetIndex = null;
@@ -3714,6 +3726,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -3721,6 +3734,7 @@
     if (plugv) plugv.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (bingov) bingov.hidden = false;
@@ -3761,6 +3775,24 @@
 
   function adminMeIsSignedIn(j) {
     return !!(j && j.authenticated && adminAccountLabel(j.admin));
+  }
+
+  let siteFeaturesCache = null;
+
+  /** Public deploy flags (e.g. Owner tools only on FadedOSRS production). Cached for the page session. */
+  async function getSiteFeatures() {
+    if (siteFeaturesCache) return siteFeaturesCache;
+    try {
+      const r = await fetch("/api/site/features");
+      const j = await r.json().catch(() => ({}));
+      siteFeaturesCache = {
+        showAdminOwnerTools: !!j.showAdminOwnerTools,
+        showBandosianApplicationInbox: !!j.showBandosianApplicationInbox,
+      };
+    } catch {
+      siteFeaturesCache = { showAdminOwnerTools: false, showBandosianApplicationInbox: false };
+    }
+    return siteFeaturesCache;
   }
 
   /** After POST /api/admin/login, some browsers need a short delay before the session cookie is included on GET /api/admin/me. */
@@ -3804,6 +3836,7 @@
 
   async function refreshAdminSessionStatus() {
     const resetPanel = document.getElementById("admin-reset-panel");
+    const appInboxSec = document.getElementById("admin-application-inbox-section");
     const hint = document.getElementById("admin-auth-signed-in-hint");
     const emailEl = document.getElementById("admin-profile-email");
     const loginCard = document.getElementById("admin-login-card");
@@ -3817,6 +3850,7 @@
 
       if (!signedIn && onProfile) {
         clearAdminFeedbackInbox();
+        clearAdminApplicationInbox();
         window.location.hash = "#/admin";
         return;
       }
@@ -3859,15 +3893,29 @@
       }
       if (loginCard) loginCard.hidden = signedIn && !onProfile;
 
-      if (resetPanel) resetPanel.hidden = !signedIn || !onProfile;
+      const feats = await getSiteFeatures();
+      const showOwnerTools = !!feats.showAdminOwnerTools;
+      if (resetPanel) resetPanel.hidden = !signedIn || !onProfile || !showOwnerTools;
+
+      const showAppInbox = !!(j.admin?.showApplicationInbox);
+      if (appInboxSec) {
+        appInboxSec.hidden = !signedIn || !onProfile || !showAppInbox;
+      }
 
       if (signedIn && onProfile) {
         void loadAdminFeedbackInbox();
+        if (showAppInbox) {
+          void loadAdminApplicationInbox();
+        } else {
+          clearAdminApplicationInbox();
+        }
       } else {
         clearAdminFeedbackInbox();
+        clearAdminApplicationInbox();
       }
     } catch {
       clearAdminFeedbackInbox();
+      clearAdminApplicationInbox();
       if (emailEl) emailEl.textContent = "";
       const rsnInp0 = document.getElementById("admin-linked-rsn-input");
       const rsnProf0 = document.getElementById("admin-linked-rsn-profile");
@@ -3881,6 +3929,8 @@
       if (hint) hint.hidden = true;
       if (loginCard) loginCard.hidden = false;
       if (resetPanel) resetPanel.hidden = true;
+      const appInboxHide = document.getElementById("admin-application-inbox-section");
+      if (appInboxHide) appInboxHide.hidden = true;
       if (onProfile) window.location.hash = "#/admin";
     }
   }
@@ -4095,6 +4145,7 @@
           st.classList.remove("admin-form-status--error");
           st.classList.add("muted");
         }
+        void refreshAdminSessionStatus();
       } catch {
         if (st) {
           st.textContent = "Could not reach the server.";
@@ -4128,6 +4179,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -4135,6 +4187,7 @@
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (adminv) adminv.hidden = false;
@@ -4175,6 +4228,11 @@
 
     if (path === "/map") {
       showMapView();
+      return;
+    }
+
+    if (path === "/apply") {
+      showApplyView();
       return;
     }
 
@@ -4733,6 +4791,210 @@
     }
   }
 
+  function clearAdminApplicationInbox() {
+    applicationInboxCache = null;
+    const list = document.getElementById("admin-application-list");
+    const empty = document.getElementById("admin-application-empty");
+    const st = document.getElementById("admin-application-status");
+    if (list) list.innerHTML = "";
+    if (empty) empty.hidden = true;
+    if (st) {
+      st.textContent = "";
+      st.hidden = true;
+    }
+  }
+
+  function persistApplicationFilter(value) {
+    try {
+      sessionStorage.setItem(APPLICATION_FILTER_STORAGE_KEY, value);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function syncApplicationFilterFromStorage() {
+    const sel = document.getElementById("admin-application-filter");
+    if (!sel) return;
+    try {
+      const v = sessionStorage.getItem(APPLICATION_FILTER_STORAGE_KEY);
+      if (v === "open" || v === "in_progress" || v === "resolved") {
+        sel.value = v;
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    sel.value = "open";
+  }
+
+  function renderAdminApplicationInbox() {
+    const list = document.getElementById("admin-application-list");
+    const empty = document.getElementById("admin-application-empty");
+    if (!list || !applicationInboxCache) return;
+    const entries = applicationInboxCache;
+    const filterVal = normalizeFeedbackStatusClient(
+      document.getElementById("admin-application-filter")?.value || "open"
+    );
+    const filtered = entries.filter((row) => normalizeFeedbackStatusClient(row.status) === filterVal);
+    if (!filtered.length) {
+      list.innerHTML = "";
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = entries.length
+          ? "No applications in this category."
+          : "No applications yet.";
+      }
+      return;
+    }
+    if (empty) empty.hidden = true;
+    list.innerHTML = filtered
+      .map((row) => {
+        const when = row.createdAt
+          ? new Date(row.createdAt).toLocaleString(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "—";
+        const rsn = row.rsn ? String(row.rsn) : "";
+        const discord = row.discord ? String(row.discord) : "";
+        const page = row.page ? String(row.page) : "";
+        const msg = row.message != null ? String(row.message) : "";
+        const st = normalizeFeedbackStatusClient(row.status);
+        const id = row.id ? String(row.id) : "";
+        const selOpen = st === "open" ? " selected" : "";
+        const selProg = st === "in_progress" ? " selected" : "";
+        const selRes = st === "resolved" ? " selected" : "";
+        const badgeClass =
+          st === "resolved" ? "resolved" : st === "in_progress" ? "in_progress" : "open";
+        const discordLine = discord
+          ? `<p class="admin-feedback-item-page muted">Discord: <code class="plugin-code">${escHtml(discord)}</code></p>`
+          : "";
+        const pageLine = page
+          ? `<p class="admin-feedback-item-page muted">Page: <code class="plugin-code">${escHtml(page)}</code></p>`
+          : "";
+        return `<li class="admin-feedback-item">
+            <div class="admin-feedback-item-head">
+              <div class="admin-feedback-item-meta">
+                <time class="admin-feedback-item-time">${escHtml(when)}</time>
+                <span class="admin-feedback-item-name">${escHtml(rsn || "—")}</span>
+                <span class="admin-feedback-badge admin-feedback-badge--${badgeClass}">${escHtml(
+                  feedbackStatusLabel(st)
+                )}</span>
+              </div>
+              <div class="admin-feedback-item-actions">
+                <label class="admin-feedback-status-label">
+                  <span class="admin-feedback-status-label-text">Status</span>
+                  <select
+                    class="admin-input admin-application-status-select"
+                    data-application-id="${escHtml(id)}"
+                    data-prev-status="${escHtml(st)}"
+                    aria-label="Set application status"
+                  >
+                    <option value="open"${selOpen}>Open</option>
+                    <option value="in_progress"${selProg}>In progress</option>
+                    <option value="resolved"${selRes}>Resolved</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            ${discordLine}
+            ${pageLine}
+            <p class="admin-feedback-item-body">${escHtml(msg).replace(/\n/g, "<br />")}</p>
+          </li>`;
+      })
+      .join("");
+  }
+
+  function bindAdminApplicationInboxControlsOnce() {
+    if (applicationInboxControlsBound) return;
+    const filter = document.getElementById("admin-application-filter");
+    const list = document.getElementById("admin-application-list");
+    if (!filter || !list) return;
+    applicationInboxControlsBound = true;
+    filter.addEventListener("change", () => {
+      persistApplicationFilter(filter.value);
+      renderAdminApplicationInbox();
+    });
+    list.addEventListener("change", async (e) => {
+      const sel = e.target;
+      if (!sel || !sel.classList || !sel.classList.contains("admin-application-status-select")) return;
+      const id = sel.getAttribute("data-application-id");
+      if (!id) return;
+      const status = normalizeFeedbackStatusClient(sel.value);
+      const prev = sel.getAttribute("data-prev-status") || "open";
+      sel.disabled = true;
+      try {
+        const r = await fetch("/api/clan-applications", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "updateStatus", id, status }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          window.alert(j.error || "Could not update status.");
+          sel.value = prev;
+          return;
+        }
+        if (applicationInboxCache) {
+          const row = applicationInboxCache.find((x) => x && String(x.id) === id);
+          if (row) row.status = status;
+        }
+        sel.setAttribute("data-prev-status", status);
+        renderAdminApplicationInbox();
+      } catch {
+        window.alert("Could not reach the server.");
+        sel.value = prev;
+      } finally {
+        sel.disabled = false;
+      }
+    });
+  }
+
+  async function loadAdminApplicationInbox() {
+    const list = document.getElementById("admin-application-list");
+    const empty = document.getElementById("admin-application-empty");
+    const st = document.getElementById("admin-application-status");
+    if (!list) return;
+    try {
+      const r = await fetch("/api/clan-applications", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        applicationInboxCache = null;
+        if (st) {
+          st.textContent = j.error || "Could not load applications.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (st) {
+        st.textContent = "";
+        st.hidden = true;
+        st.classList.remove("admin-form-status--error");
+        st.classList.add("muted");
+      }
+      const entries = Array.isArray(j.entries) ? j.entries : [];
+      applicationInboxCache = entries.map((row) =>
+        row && typeof row === "object"
+          ? { ...row, status: normalizeFeedbackStatusClient(row.status) }
+          : row
+      );
+      syncApplicationFilterFromStorage();
+      bindAdminApplicationInboxControlsOnce();
+      renderAdminApplicationInbox();
+    } catch {
+      applicationInboxCache = null;
+      if (st) {
+        st.textContent = "Could not load applications (network error).";
+        st.hidden = false;
+        st.classList.add("admin-form-status--error");
+        st.classList.remove("muted");
+      }
+    }
+  }
+
   function bindFeedbackFabOnce() {
     if (feedbackFabBound) return;
     const fab = document.getElementById("feedback-fab");
@@ -4791,6 +5053,72 @@
         setFeedbackFormStatus("Could not reach the server. Try again when you’re on the live site.", true);
       } finally {
         if (btn) btn.disabled = false;
+      }
+    });
+  }
+
+  function bindClanApplyFormOnce() {
+    if (clanApplyFormBound) return;
+    const form = document.getElementById("clan-apply-form");
+    if (!form) return;
+    clanApplyFormBound = true;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const rsn = String(fd.get("rsn") || "").trim();
+      const message = String(fd.get("message") || "").trim();
+      const discord = String(fd.get("discord") || "").trim();
+      const st = document.getElementById("clan-apply-status");
+      if (!rsn || message.length < 1) {
+        if (st) {
+          st.textContent = "RSN and message are required.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (st) {
+        st.textContent = "Sending…";
+        st.hidden = false;
+        st.classList.remove("admin-form-status--error");
+        st.classList.add("muted");
+      }
+      try {
+        const r = await fetch("/api/clan-applications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rsn,
+            message,
+            discord: discord || undefined,
+            page: String(location.href || "").slice(0, 500),
+          }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (st) {
+            st.textContent = j.error || "Could not submit application.";
+            st.classList.add("admin-form-status--error");
+            st.classList.remove("muted");
+          }
+          return;
+        }
+        form.reset();
+        if (st) {
+          st.textContent = "Application sent. Staff will follow up when they can.";
+          st.classList.remove("admin-form-status--error");
+          st.classList.add("muted");
+        }
+        if (currentHashPath() === "/admin/profile") {
+          void loadAdminApplicationInbox();
+        }
+      } catch {
+        if (st) {
+          st.textContent = "Could not reach the server. Try again on the live site.";
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
       }
     });
   }
@@ -5697,6 +6025,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -5704,11 +6033,39 @@
     if (bingov) bingov.hidden = true;
     if (mapv) mapv.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (plugv) plugv.hidden = false;
     window.scrollTo(0, 0);
     document.title = "Plugin | Terpinheimer";
+    applyDiscordInviteLinks();
+  }
+
+  function showApplyView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
+    if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (applyv) applyv.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Apply | Terpinheimer";
     applyDiscordInviteLinks();
   }
 
@@ -5722,6 +6079,7 @@
     const bingov = document.getElementById("bingo-view");
     const mapv = document.getElementById("map-view");
     const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -5729,6 +6087,7 @@
     if (plugv) plugv.hidden = true;
     if (bingov) bingov.hidden = true;
     if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
     if (mapv) mapv.hidden = false;
     document.body.classList.add("map-route-live");
     window.scrollTo(0, 0);
@@ -5914,6 +6273,7 @@
 
   applyDiscordInviteLinks();
   bindFeedbackFabOnce();
+  bindClanApplyFormOnce();
 
   load().catch(async (e) => {
     cachedMemberships = [];
