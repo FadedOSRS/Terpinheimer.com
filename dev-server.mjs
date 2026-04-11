@@ -1073,6 +1073,33 @@ function sanitizeFeedbackMessage(raw) {
     .trim();
 }
 
+const APPLICATION_ANSWER_MAX_LEN = 4000;
+const MIN_APPLICATION_ANSWER_WORDS = 5;
+
+function wordCountApplicationAnswer(s) {
+  return String(s ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+/** Long-form application answers: trimmed, length-capped, no embedded nulls. */
+function sanitizeApplicationAnswer(raw) {
+  return String(raw ?? "")
+    .replace(/\u0000/g, "")
+    .trim()
+    .slice(0, APPLICATION_ANSWER_MAX_LEN);
+}
+
+/** Calendar posting willingness: yes or no only. */
+function sanitizeWillingPostCalendar(raw) {
+  const t = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (t === "yes" || t === "no") return t;
+  return "";
+}
+
 function sanitizeFeedbackName(raw) {
   const t = String(raw ?? "").replace(/\u0000/g, "").trim().slice(0, 80);
   if (!t) return "";
@@ -1424,14 +1451,65 @@ async function handleClanApplicationsApi(req, res) {
     return;
   }
 
-  const message = sanitizeFeedbackMessage(body.message);
-  if (message.length < 1 || message.length > 4000) {
+  const message = sanitizeApplicationAnswer(body.message);
+  if (message.length < 1) {
     res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: "Message must be 1–4000 characters." }));
+    res.end(JSON.stringify({ error: "Tell us about yourself is required." }));
+    return;
+  }
+  if (wordCountApplicationAnswer(message) < MIN_APPLICATION_ANSWER_WORDS) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(
+      JSON.stringify({
+        error: `Each written answer must be at least ${MIN_APPLICATION_ANSWER_WORDS} words (about yourself).`,
+      })
+    );
     return;
   }
 
   const discord = sanitizeApplicationDiscord(body.discord);
+  if (!discord) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Discord username or handle is required." }));
+    return;
+  }
+
+  const timezoneActivity = sanitizeApplicationAnswer(body.timezoneActivity);
+  const willingPostCalendar = sanitizeWillingPostCalendar(body.willingPostCalendar);
+  const eventsPerWeek = sanitizeApplicationAnswer(body.eventsPerWeek);
+  const missedScheduledEvent = sanitizeApplicationAnswer(body.missedScheduledEvent);
+  const whyEventHoster = sanitizeApplicationAnswer(body.whyEventHoster);
+  const unfairComplaint = sanitizeApplicationAnswer(body.unfairComplaint);
+
+  if (!willingPostCalendar) {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(
+      JSON.stringify({
+        error: "Select Yes or No for posting events to the calendar.",
+      })
+    );
+    return;
+  }
+
+  const essayFields = [
+    { key: "timezoneActivity", label: "Timezone and activity", value: timezoneActivity },
+    { key: "eventsPerWeek", label: "Events per week", value: eventsPerWeek },
+    { key: "missedScheduledEvent", label: "Missing a scheduled event", value: missedScheduledEvent },
+    { key: "whyEventHoster", label: "Why Event Host", value: whyEventHoster },
+    { key: "unfairComplaint", label: "Unfair results complaint", value: unfairComplaint },
+  ];
+  for (const f of essayFields) {
+    if (!f.value || wordCountApplicationAnswer(f.value) < MIN_APPLICATION_ANSWER_WORDS) {
+      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          error: `"${f.label}" must be at least ${MIN_APPLICATION_ANSWER_WORDS} words.`,
+        })
+      );
+      return;
+    }
+  }
+
   const page = sanitizeFeedbackPage(body.page);
 
   const entry = {
@@ -1439,7 +1517,13 @@ async function handleClanApplicationsApi(req, res) {
     createdAt: new Date().toISOString(),
     rsn,
     message,
-    discord: discord || undefined,
+    discord,
+    timezoneActivity,
+    willingPostCalendar,
+    eventsPerWeek,
+    missedScheduledEvent,
+    whyEventHoster,
+    unfairComplaint,
     page: page || undefined,
     status: "open",
   };

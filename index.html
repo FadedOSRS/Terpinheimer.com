@@ -595,10 +595,10 @@
           <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Apply</span>
         </nav>
         <header class="members-list-header">
-          <h1 class="section-title members-list-heading">Join Terpinheimer</h1>
+          <h1 class="section-title members-list-heading">Join terpinheimer Event Staff</h1>
           <hr class="rule" />
           <p class="lead muted">
-            Submit a clan application. Recruitment staff with the Bandosian rank review submissions on the admin dashboard.
+            Submit a Clan Application. The Event Manager/Owner will review your application and respond back to you via Discord.
           </p>
         </header>
 
@@ -620,11 +620,12 @@
                 />
               </label>
               <label class="admin-label" for="clan-apply-discord">
-                <span class="admin-label-text">Discord <span class="muted">(optional)</span></span>
+                <span class="admin-label-text">Discord</span>
                 <input
                   id="clan-apply-discord"
                   name="discord"
                   type="text"
+                  required
                   maxlength="80"
                   class="admin-input"
                   autocomplete="off"
@@ -636,13 +637,91 @@
                 <textarea
                   id="clan-apply-message"
                   name="message"
-                  class="admin-input"
+                  class="admin-input clan-apply-essay"
                   required
                   maxlength="4000"
                   rows="6"
-                  placeholder="Goals, experience, how you found us…"
+                  placeholder="Goals, experience, how you found us… (at least 5 words)"
                 ></textarea>
               </label>
+              <label class="admin-label" for="clan-apply-timezone">
+                <span class="admin-label-text">What timezone are you in, and what times are you usually active?</span>
+                <textarea
+                  id="clan-apply-timezone"
+                  name="timezoneActivity"
+                  class="admin-input clan-apply-essay"
+                  required
+                  maxlength="4000"
+                  rows="4"
+                  placeholder="e.g. US Eastern, most active weekday evenings… (at least 5 words)"
+                ></textarea>
+              </label>
+              <label class="admin-label" for="clan-apply-calendar">
+                <span class="admin-label-text"
+                  >Are you willing to log into the website and post events on the calendar so they go to Discord, the plugin, and the website?</span>
+                <select
+                  id="clan-apply-calendar"
+                  name="willingPostCalendar"
+                  class="admin-input"
+                  required
+                  aria-label="Willing to post events to the calendar"
+                >
+                  <option value="" disabled selected>Select Yes or No</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+              <label class="admin-label" for="clan-apply-frequency">
+                <span class="admin-label-text">On average, how often can you host events per week?</span>
+                <textarea
+                  id="clan-apply-frequency"
+                  name="eventsPerWeek"
+                  class="admin-input clan-apply-essay"
+                  required
+                  maxlength="4000"
+                  rows="3"
+                  placeholder="Be specific (at least 5 words)"
+                ></textarea>
+              </label>
+              <label class="admin-label" for="clan-apply-missed">
+                <span class="admin-label-text">How would you handle not being able to attend an event you scheduled?</span>
+                <textarea
+                  id="clan-apply-missed"
+                  name="missedScheduledEvent"
+                  class="admin-input clan-apply-essay"
+                  required
+                  maxlength="4000"
+                  rows="4"
+                  placeholder="Your approach (at least 5 words)"
+                ></textarea>
+              </label>
+              <label class="admin-label" for="clan-apply-why">
+                <span class="admin-label-text">Why do you want to become an Event Hoster?</span>
+                <textarea
+                  id="clan-apply-why"
+                  name="whyEventHoster"
+                  class="admin-input clan-apply-essay"
+                  required
+                  maxlength="4000"
+                  rows="4"
+                  placeholder="Your motivation (at least 5 words)"
+                ></textarea>
+              </label>
+              <label class="admin-label" for="clan-apply-unfair">
+                <span class="admin-label-text">How would you handle a player complaining about unfair results?</span>
+                <textarea
+                  id="clan-apply-unfair"
+                  name="unfairComplaint"
+                  class="admin-input clan-apply-essay"
+                  required
+                  maxlength="4000"
+                  rows="4"
+                  placeholder="Your approach (at least 5 words)"
+                ></textarea>
+              </label>
+              <p class="muted clan-apply-hint">
+                Written answers must be at least <strong>5 words</strong> each. OSRS RSN and Discord are required.
+              </p>
               <button type="submit" class="btn btn-primary">Submit application</button>
             </fieldset>
             <p id="clan-apply-status" class="admin-form-status muted" role="status" hidden></p>

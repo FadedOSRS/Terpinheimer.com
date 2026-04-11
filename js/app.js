@@ -4827,6 +4827,16 @@
     sel.value = "open";
   }
 
+  const APPLICATION_INBOX_FIELD_LABELS = [
+    { key: "message", label: "Tell us about yourself" },
+    { key: "timezoneActivity", label: "Timezone and activity" },
+    { key: "willingPostCalendar", label: "Posting events to the calendar" },
+    { key: "eventsPerWeek", label: "Events per week" },
+    { key: "missedScheduledEvent", label: "Missing a scheduled event" },
+    { key: "whyEventHoster", label: "Why Event Host" },
+    { key: "unfairComplaint", label: "Unfair results complaint" },
+  ];
+
   function renderAdminApplicationInbox() {
     const list = document.getElementById("admin-application-list");
     const empty = document.getElementById("admin-application-empty");
@@ -4858,7 +4868,6 @@
         const rsn = row.rsn ? String(row.rsn) : "";
         const discord = row.discord ? String(row.discord) : "";
         const page = row.page ? String(row.page) : "";
-        const msg = row.message != null ? String(row.message) : "";
         const st = normalizeFeedbackStatusClient(row.status);
         const id = row.id ? String(row.id) : "";
         const selOpen = st === "open" ? " selected" : "";
@@ -4872,6 +4881,20 @@
         const pageLine = page
           ? `<p class="admin-feedback-item-page muted">Page: <code class="plugin-code">${escHtml(page)}</code></p>`
           : "";
+        const answerBlocks = APPLICATION_INBOX_FIELD_LABELS.map(({ key, label }) => {
+          const raw = row[key];
+          let text = raw != null ? String(raw).trim() : "";
+          if (!text) return "";
+          if (key === "willingPostCalendar") {
+            const t = text.toLowerCase();
+            if (t === "yes") text = "Yes";
+            else if (t === "no") text = "No";
+          }
+          return `<div class="admin-application-block">
+              <p class="admin-feedback-item-page muted"><strong>${escHtml(label)}</strong></p>
+              <p class="admin-feedback-item-body">${escHtml(text).replace(/\n/g, "<br />")}</p>
+            </div>`;
+        }).join("");
         return `<li class="admin-feedback-item">
             <div class="admin-feedback-item-head">
               <div class="admin-feedback-item-meta">
@@ -4899,7 +4922,7 @@
             </div>
             ${discordLine}
             ${pageLine}
-            <p class="admin-feedback-item-body">${escHtml(msg).replace(/\n/g, "<br />")}</p>
+            <div class="admin-application-answers">${answerBlocks}</div>
           </li>`;
       })
       .join("");
@@ -5057,6 +5080,15 @@
     });
   }
 
+  const MIN_CLAN_APPLY_WORDS = 5;
+
+  function countClanApplyWords(str) {
+    return String(str || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+  }
+
   function bindClanApplyFormOnce() {
     if (clanApplyFormBound) return;
     const form = document.getElementById("clan-apply-form");
@@ -5068,15 +5100,58 @@
       const rsn = String(fd.get("rsn") || "").trim();
       const message = String(fd.get("message") || "").trim();
       const discord = String(fd.get("discord") || "").trim();
+      const timezoneActivity = String(fd.get("timezoneActivity") || "").trim();
+      const willingPostCalendar = String(fd.get("willingPostCalendar") || "").trim().toLowerCase();
+      const eventsPerWeek = String(fd.get("eventsPerWeek") || "").trim();
+      const missedScheduledEvent = String(fd.get("missedScheduledEvent") || "").trim();
+      const whyEventHoster = String(fd.get("whyEventHoster") || "").trim();
+      const unfairComplaint = String(fd.get("unfairComplaint") || "").trim();
       const st = document.getElementById("clan-apply-status");
-      if (!rsn || message.length < 1) {
+      if (willingPostCalendar !== "yes" && willingPostCalendar !== "no") {
         if (st) {
-          st.textContent = "RSN and message are required.";
+          st.textContent = "Select Yes or No for posting events to the calendar.";
           st.hidden = false;
           st.classList.add("admin-form-status--error");
           st.classList.remove("muted");
         }
         return;
+      }
+      const essayChecks = [
+        { v: message, label: "Tell us about yourself" },
+        { v: timezoneActivity, label: "Timezone and activity" },
+        { v: eventsPerWeek, label: "Events per week" },
+        { v: missedScheduledEvent, label: "Missing a scheduled event" },
+        { v: whyEventHoster, label: "Why Event Host" },
+        { v: unfairComplaint, label: "Unfair results complaint" },
+      ];
+      if (!rsn) {
+        if (st) {
+          st.textContent = "OSRS RSN is required.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      if (!discord) {
+        if (st) {
+          st.textContent = "Discord is required.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+        }
+        return;
+      }
+      for (const row of essayChecks) {
+        if (countClanApplyWords(row.v) < MIN_CLAN_APPLY_WORDS) {
+          if (st) {
+            st.textContent = `"${row.label}" must be at least ${MIN_CLAN_APPLY_WORDS} words.`;
+            st.hidden = false;
+            st.classList.add("admin-form-status--error");
+            st.classList.remove("muted");
+          }
+          return;
+        }
       }
       if (st) {
         st.textContent = "Sending…";
@@ -5091,7 +5166,13 @@
           body: JSON.stringify({
             rsn,
             message,
-            discord: discord || undefined,
+            discord,
+            timezoneActivity,
+            willingPostCalendar,
+            eventsPerWeek,
+            missedScheduledEvent,
+            whyEventHoster,
+            unfairComplaint,
             page: String(location.href || "").slice(0, 500),
           }),
         });

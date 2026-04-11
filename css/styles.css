@@ -2603,6 +2603,14 @@ select.admin-feedback-status-select {
   color: var(--text-muted);
 }
 
+.admin-application-answers {
+  margin-top: 0.35rem;
+}
+
+.admin-application-block + .admin-application-block {
+  margin-top: 0.85rem;
+}
+
 .admin-feedback-empty {
   margin: 0.5rem 0 0;
 }
@@ -3716,6 +3724,17 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 .members-list-heading {
   font-size: clamp(1.5rem, 4vw, 2rem);
   margin-bottom: 0.35rem;
+}
+
+/* Apply page: title uses sentence case, not all-caps */
+#apply-view .members-list-heading {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.clan-apply-hint {
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0.75rem;
 }
 
 .members-toolbar {
