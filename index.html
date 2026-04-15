@@ -803,6 +803,20 @@
           <a href="#/admin/profile" class="wom-link">Open admin dashboard</a>
         </p>
 
+        <p
+          id="admin-auth-site-oauth-notice"
+          class="admin-auth-site-oauth-notice muted"
+          hidden
+          role="status"
+        >
+          You are signed in with <strong>Discord in the header</strong> (site member account). That does
+          <strong>not</strong> grant the administrator session. To reach the dashboard, use
+          <strong>Sign in with Discord</strong> below if your Discord user is linked to an admin on the server, or enter
+          your <strong>admin username or email</strong> and password from
+          <span class="admin-env-file-name">admin-users.json</span>—not your Discord name unless that is how the account
+          was created.
+        </p>
+
         <div class="admin-auth-cards">
           <article class="admin-auth-card admin-auth-card--discord" id="admin-discord-card">
             <header class="admin-auth-card-head">
@@ -832,7 +846,7 @@
             <form id="admin-login-form" class="admin-form" autocomplete="on">
               <fieldset class="admin-form-fieldset">
                 <label class="admin-label" for="admin-login-username">
-                  <span class="admin-label-text">Username</span>
+                  <span class="admin-label-text">Admin username or email</span>
                   <input
                     id="admin-login-username"
                     name="username"

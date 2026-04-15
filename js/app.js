@@ -4010,6 +4010,7 @@
     const resetPanel = document.getElementById("admin-reset-panel");
     const appInboxSec = document.getElementById("admin-application-inbox-section");
     const hint = document.getElementById("admin-auth-signed-in-hint");
+    const siteOauthNotice = document.getElementById("admin-auth-site-oauth-notice");
     const emailEl = document.getElementById("admin-profile-email");
     const loginCard = document.getElementById("admin-login-card");
     const path = currentHashPath();
@@ -4019,6 +4020,18 @@
       const j = await r.json().catch(() => ({}));
       const signedIn = adminMeIsSignedIn(j);
       const loginLabel = signedIn ? adminAccountLabel(j.admin) : "";
+
+      let siteDiscordOnly = false;
+      try {
+        const ro = await fetch("/api/oauth/me", { credentials: "include" });
+        const jo = await ro.json().catch(() => ({}));
+        if (jo.configured !== false && jo.authenticated && jo.user && !signedIn) {
+          siteDiscordOnly = true;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (siteOauthNotice) siteOauthNotice.hidden = !siteDiscordOnly;
 
       if (!signedIn && onProfile) {
         clearAdminFeedbackInbox();
@@ -4086,6 +4099,7 @@
         clearAdminApplicationInbox();
       }
     } catch {
+      if (siteOauthNotice) siteOauthNotice.hidden = true;
       clearAdminFeedbackInbox();
       clearAdminApplicationInbox();
       if (emailEl) emailEl.textContent = "";

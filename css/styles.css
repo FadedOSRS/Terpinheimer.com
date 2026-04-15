@@ -3172,6 +3172,23 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-weight: 600;
 }
 
+.admin-auth-site-oauth-notice {
+  max-width: 38rem;
+  margin: 0 auto 1.25rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(88, 101, 242, 0.45);
+  background: rgba(88, 101, 242, 0.08);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.admin-auth-site-oauth-notice strong {
+  color: var(--cream);
+  font-weight: 600;
+}
+
 .admin-profile-section {
   padding-bottom: 0.5rem;
 }
