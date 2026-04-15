@@ -1679,7 +1679,9 @@
       if (nameEl) nameEl.textContent = j.user.username || "Signed in";
       if (discordEl) discordEl.textContent = `Discord username: ${j.user.discordUsername || j.user.username || "-"}`;
       if (idEl) idEl.textContent = `Discord ID: ${j.user.id || "-"}`;
-      const roles = Array.isArray(j.user.roles) && j.user.roles.length ? j.user.roles.join(", ") : "member";
+      const roleList = Array.isArray(j.user.roles) && j.user.roles.length ? j.user.roles : ["member"];
+      const roles = roleList.join(", ");
+      const isMemberOnly = roleList.length === 1 && String(roleList[0]).trim().toLowerCase() === "member";
       if (rolesEl) rolesEl.textContent = `Roles: ${roles}`;
       if (avatarEl) {
         if (j.user.avatarUrl) {
@@ -1702,19 +1704,39 @@
           if (adminLinkEl) {
             adminLinkEl.textContent = "Open admin dashboard";
             adminLinkEl.setAttribute("href", "#/admin/profile");
+            adminLinkEl.hidden = false;
           }
+          if (adminLineEl) adminLineEl.hidden = false;
         } else {
-          if (adminLineEl) adminLineEl.textContent = "Admin session: not active for this account";
-          if (adminLinkEl) {
-            adminLinkEl.textContent = "Open admin sign-in";
-            adminLinkEl.setAttribute("href", "#/admin");
+          if (isMemberOnly) {
+            if (adminLineEl) adminLineEl.hidden = true;
+            if (adminLinkEl) adminLinkEl.hidden = true;
+          } else {
+            if (adminLineEl) {
+              adminLineEl.textContent = "Admin session: not active for this account";
+              adminLineEl.hidden = false;
+            }
+            if (adminLinkEl) {
+              adminLinkEl.textContent = "Open admin sign-in";
+              adminLinkEl.setAttribute("href", "#/admin");
+              adminLinkEl.hidden = false;
+            }
           }
         }
       } catch {
-        if (adminLineEl) adminLineEl.textContent = "Admin session: unavailable";
-        if (adminLinkEl) {
-          adminLinkEl.textContent = "Open admin sign-in";
-          adminLinkEl.setAttribute("href", "#/admin");
+        if (isMemberOnly) {
+          if (adminLineEl) adminLineEl.hidden = true;
+          if (adminLinkEl) adminLinkEl.hidden = true;
+        } else {
+          if (adminLineEl) {
+            adminLineEl.textContent = "Admin session: unavailable";
+            adminLineEl.hidden = false;
+          }
+          if (adminLinkEl) {
+            adminLinkEl.textContent = "Open admin sign-in";
+            adminLinkEl.setAttribute("href", "#/admin");
+            adminLinkEl.hidden = false;
+          }
         }
       }
       if (statusEl && params.get("oauth") === "success") {
