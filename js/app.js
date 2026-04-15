@@ -1429,7 +1429,7 @@
     }
     const trustedHtml = {
       discord_not_linked:
-        "<strong>Not linked as an admin.</strong> Discord sign-in worked, but this Discord user is not linked to an administrator on the server. Add <span class=\"admin-env-file-name\">discordUserId</span> to that admin row in <span class=\"admin-env-file-name\">admin-users.json</span> (see <span class=\"admin-env-file-name\">.env.example</span>), or set <span class=\"admin-env-file-name\">ADMIN_OAUTH_DISCORD_ID</span> + <span class=\"admin-env-file-name\">ADMIN_OAUTH_ADMIN_USERNAME</span>. The host must also have <span class=\"admin-env-file-name\">ADMIN_AUTH_SECRET</span> set. Then use <strong>Sign in with Discord</strong> again.",
+        "<strong>Not linked as an admin.</strong> Discord sign-in worked, but this Discord user is not linked to an administrator on the server. Add <span class=\"admin-env-file-name\">discordUserId</span> as a <strong>quoted</strong> string in <span class=\"admin-env-file-name\">admin-users.json</span>, or set <span class=\"admin-env-file-name\">ADMIN_OAUTH_DISCORD_ID</span> + <span class=\"admin-env-file-name\">ADMIN_OAUTH_ADMIN_USERNAME</span> on the host (see <span class=\"admin-env-file-name\">.env.example</span>). Ensure <span class=\"admin-env-file-name\">ADMIN_AUTH_SECRET</span> is set and the file lives on your persistent disk (e.g. Render <span class=\"admin-env-file-name\">ADMIN_USERS_DIR</span>). Then use <strong>Sign in with Discord</strong> again.",
       verify_failed:
         "<strong>Could not verify administrator session.</strong> Try <strong>Sign in with Discord</strong> again. If this continues, check the server logs and that OAuth credentials are configured.",
     };

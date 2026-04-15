@@ -347,7 +347,8 @@ async function findAdminLinkedToDiscord(profile) {
 async function readAdminsRecord() {
   try {
     const raw = await fs.promises.readFile(ADMIN_USERS_PATH, "utf8");
-    return sanitizeAdminsRecord(JSON.parse(raw));
+    const fixed = normalizeDiscordSnowflakeFieldsInJsonText(raw);
+    return sanitizeAdminsRecord(JSON.parse(fixed));
   } catch {
     return { admins: [] };
   }
@@ -539,7 +540,8 @@ function discordOAuthRedirectUri() {
 async function readOAuthUsersRecord() {
   try {
     const raw = await fs.promises.readFile(OAUTH_USERS_PATH, "utf8");
-    const j = JSON.parse(raw);
+    const fixed = normalizeDiscordSnowflakeFieldsInJsonText(raw);
+    const j = JSON.parse(fixed);
     const users = Array.isArray(j.users) ? j.users : [];
     return { users };
   } catch {
@@ -565,6 +567,20 @@ function extractDiscordUserIdFromJsonBody(rawText) {
   const asNumber = rawText.match(/"id"\s*:\s*(\d{10,25})(?=\s*[,}])/);
   if (asNumber) return asNumber[1];
   return "";
+}
+
+/**
+ * Same precision issue as OAuth profile: `admin-users.json` / `oauth-users.json` may store
+ * Discord snowflakes as JSON numbers; `JSON.parse` corrupts them. Rewrite numeric fields to strings in the raw text.
+ */
+function normalizeDiscordSnowflakeFieldsInJsonText(rawText) {
+  if (typeof rawText !== "string") return rawText;
+  let t = rawText;
+  for (const field of ["discordUserId", "providerUserId"]) {
+    const re = new RegExp(`"${field}"\\s*:\\s*(\\d{10,25})(?=\\s*[,}])`, "g");
+    t = t.replace(re, `"${field}":"$1"`);
+  }
+  return t;
 }
 
 function sanitizeOAuthDiscordProfile(j) {
