@@ -627,7 +627,7 @@
               >Continue with Discord</a
             >
             <p class="muted oauth-login-note">
-              Redirects to Discord, then back here. Your roles are stored for future features (default: <code class="plugin-code">member</code>).
+              Redirects to Discord, then back here. Your roles are stored for future features (default: <code class="plugin-code">member</code>). If the server links your Discord to a site admin account, you will also get an administrator session (open <a href="#/admin/profile" class="wom-link">Admin dashboard</a>).
             </p>
           </div>
         </section>
@@ -791,10 +791,10 @@
           <p class="admin-portal-eyebrow">Terpinheimer</p>
           <h1 class="admin-portal-title">Administrator sign-in</h1>
           <p class="admin-portal-lead muted">
-            Secure access for site administrators. New installs: create the first account on the right, then sign in here. Additional admins require an active session and signup key.
+            Secure access for site administrators. If your admin account is linked to Discord on the server, sign in with Discord below. Otherwise use username and password. New installs: create the first account on the right, then sign in. Additional admins require an active session and signup key.
             <span class="admin-portal-lead-sep"> </span>
             <span class="admin-portal-discord-hint"
-              ><strong>Discord “Sign in”</strong> for members is separate: use <a href="#/login" class="wom-link">Sign in</a> in the site header (not this page).</span>
+              >Member Discord sign-in (header <a href="#/login" class="wom-link">Sign in</a>) is for site accounts; admin access still requires a linked admin or password here.</span>
           </p>
         </header>
 
@@ -804,12 +804,29 @@
         </p>
 
         <div class="admin-auth-cards">
+          <article class="admin-auth-card admin-auth-card--discord" id="admin-discord-card">
+            <header class="admin-auth-card-head">
+              <span class="admin-auth-card-icon admin-auth-card-icon--discord" aria-hidden="true"></span>
+              <div>
+                <h2 class="admin-auth-card-title">Continue with Discord</h2>
+                <p class="admin-auth-card-desc muted">
+                  Recommended when your Discord user is linked to an admin on the server (see hosting <span class="admin-env-file-name">.env.example</span>).
+                </p>
+              </div>
+            </header>
+            <p class="admin-auth-card-actions">
+              <a class="btn btn-primary admin-discord-oauth-btn" href="/api/oauth/discord/login?after=admin"
+                >Sign in with Discord</a
+              >
+            </p>
+          </article>
+
           <article class="admin-auth-card admin-auth-card--login" id="admin-login-card">
             <header class="admin-auth-card-head">
               <span class="admin-auth-card-icon admin-auth-card-icon--lock" aria-hidden="true"></span>
               <div>
-                <h2 class="admin-auth-card-title">Sign in</h2>
-                <p class="admin-auth-card-desc muted">Use your admin username and password.</p>
+                <h2 class="admin-auth-card-title">Username and password</h2>
+                <p class="admin-auth-card-desc muted">Sign in with your admin credentials.</p>
               </div>
             </header>
             <form id="admin-login-form" class="admin-form" autocomplete="on">

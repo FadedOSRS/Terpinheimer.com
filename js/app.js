@@ -4436,6 +4436,18 @@
             return;
           }
           setAdminSubview("profile");
+          try {
+            const qp = getHashQueryParams();
+            if (qp.get("oauth") === "success") {
+              history.replaceState(
+                null,
+                "",
+                `${window.location.pathname}${window.location.search}#/admin/profile`
+              );
+            }
+          } catch {
+            /* ignore */
+          }
           await refreshAdminSessionStatus();
         } catch {
           try {
@@ -6435,8 +6447,15 @@
     try {
       const u = new URL(window.location.href);
       if (u.searchParams.get("oauth_discord") === "1") {
+        const afterAdmin = u.searchParams.get("after") === "admin";
         u.search = "";
-        history.replaceState(null, "", `${u.pathname}${u.search || ""}#/login?oauth=success`);
+        history.replaceState(
+          null,
+          "",
+          `${u.pathname}${u.search || ""}${
+            afterAdmin ? "#/admin/profile?oauth=success" : "#/login?oauth=success"
+          }`
+        );
         return;
       }
       if (u.searchParams.get("oauth_discord_error") === "1") {

@@ -309,10 +309,39 @@ function sanitizeAdminsRecord(raw) {
         lastLoginAt: typeof a.lastLoginAt === "string" ? a.lastLoginAt : undefined,
       };
       if (linkedRsn) base.linkedRsn = linkedRsn;
+      const dUid = a.discordUserId != null ? String(a.discordUserId).trim() : "";
+      if (dUid && /^\d{5,25}$/.test(dUid)) base.discordUserId = dUid;
       return base;
     })
     .filter((a) => a.username && a.passwordHash);
   return { admins };
+}
+
+/**
+ * Admin account tied to Discord OAuth (optional discordUserId on admin JSON, or env — see callback).
+ */
+async function findAdminLinkedToDiscord(profile) {
+  if (!profile || !profile.id) return null;
+  const data = await readAdminsRecord();
+  const byJson = data.admins.find((a) => a.discordUserId && String(a.discordUserId) === profile.id);
+  if (byJson) return byJson;
+
+  const envId = process.env.ADMIN_OAUTH_DISCORD_ID?.trim();
+  const envAdminUser = normalizeAdminIdentifier(process.env.ADMIN_OAUTH_ADMIN_USERNAME || "");
+  if (envId && profile.id === envId && envAdminUser) {
+    const adm = data.admins.find((x) => x.username === envAdminUser);
+    if (adm) return adm;
+  }
+
+  const matchDiscName = (process.env.ADMIN_OAUTH_MATCH_DISCORD_USERNAME || "").trim().toLowerCase();
+  const envAdminForName = normalizeAdminIdentifier(process.env.ADMIN_OAUTH_ADMIN_USERNAME || "");
+  const pUser = profile.username ? String(profile.username).trim().toLowerCase() : "";
+  if (matchDiscName && envAdminForName && pUser && pUser === matchDiscName) {
+    const adm = data.admins.find((x) => x.username === envAdminForName);
+    if (adm) return adm;
+  }
+
+  return null;
 }
 
 async function readAdminsRecord() {
@@ -436,34 +465,55 @@ function readOAuthSessionFromRequest(req) {
   return verifyOAuthSessionToken(tok, secret);
 }
 
-function buildDiscordOAuthState(secret) {
+function buildDiscordOAuthState(secret, opts = {}) {
+  const afterAdmin = opts.afterAdmin === true;
   const exp = Date.now() + 600000;
   const nonce = crypto.randomBytes(24).toString("hex");
-  const payload = `${exp}.${nonce}`;
+  const payload = afterAdmin ? `${exp}.${nonce}.admin` : `${exp}.${nonce}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(`${payload}.${sig}`, "utf8").toString("base64url");
 }
 
-function verifyDiscordOAuthState(state, secret) {
-  if (!state || typeof state !== "string") return false;
+/** Validates OAuth `state` from Discord; `afterAdmin` means return user to admin dashboard after login. */
+function parseDiscordOAuthState(state, secret) {
+  if (!state || typeof state !== "string") return { valid: false, afterAdmin: false };
   let raw;
   try {
     raw = Buffer.from(state, "base64url").toString("utf8");
   } catch {
-    return false;
+    return { valid: false, afterAdmin: false };
   }
   const parts = raw.split(".");
-  if (parts.length !== 3) return false;
-  const [exp, nonce, sig] = parts;
-  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{48}$/i.test(nonce) || !/^[a-f0-9]{64}$/i.test(sig)) return false;
-  if (Date.now() > Number(exp)) return false;
-  const payload = `${exp}.${nonce}`;
+  let exp;
+  let nonce;
+  let sig;
+  let afterAdmin = false;
+  if (parts.length === 3) {
+    [exp, nonce, sig] = parts;
+  } else if (parts.length === 4) {
+    const tag = parts[2];
+    if (tag !== "admin") return { valid: false, afterAdmin: false };
+    afterAdmin = true;
+    exp = parts[0];
+    nonce = parts[1];
+    sig = parts[3];
+  } else {
+    return { valid: false, afterAdmin: false };
+  }
+  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{48}$/i.test(nonce) || !/^[a-f0-9]{64}$/i.test(sig)) {
+    return { valid: false, afterAdmin: false };
+  }
+  if (Date.now() > Number(exp)) return { valid: false, afterAdmin: false };
+  const payload = afterAdmin ? `${exp}.${nonce}.admin` : `${exp}.${nonce}`;
   const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   try {
-    return crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"));
+    if (!crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))) {
+      return { valid: false, afterAdmin: false };
+    }
   } catch {
-    return false;
+    return { valid: false, afterAdmin: false };
   }
+  return { valid: true, afterAdmin };
 }
 
 function publicSiteOrigin() {
@@ -627,7 +677,8 @@ async function handleOAuthApi(req, res, url) {
       );
       return;
     }
-    const state = buildDiscordOAuthState(oauthSecret);
+    const afterAdmin = url.searchParams.get("after") === "admin";
+    const state = buildDiscordOAuthState(oauthSecret, { afterAdmin });
     const scope = encodeURIComponent("identify email");
     const rUri = encodeURIComponent(redirectUri);
     const loc = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${rUri}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
@@ -661,7 +712,8 @@ async function handleOAuthApi(req, res, url) {
     }
     const state = url.searchParams.get("state") || "";
     const code = url.searchParams.get("code") || "";
-    if (!code || !verifyDiscordOAuthState(state, oauthSecret)) {
+    const parsedState = parseDiscordOAuthState(state, oauthSecret);
+    if (!code || !parsedState.valid) {
       res.writeHead(302, { Location: loginErrQs("invalid_state") });
       res.end();
       return;
@@ -750,10 +802,34 @@ async function handleOAuthApi(req, res, url) {
     const maxAge = OAUTH_SESSION_DAYS * 86400;
     const secure = cookieSecureDirective(req);
     const cookieLine = `${OAUTH_SESSION_COOKIE}=${encodeURIComponent(sessionTok)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
-    const successLoc = base ? `${base}/?oauth_discord=1` : "/?oauth_discord=1";
+    const cookies = [cookieLine];
+
+    const adminSecret = process.env.ADMIN_AUTH_SECRET?.trim();
+    const linkedAdmin = adminSecret ? await findAdminLinkedToDiscord(profile) : null;
+    if (linkedAdmin && adminSecret) {
+      try {
+        const admData = await readAdminsRecord();
+        const idx = admData.admins.findIndex((a) => a.username === linkedAdmin.username);
+        if (idx >= 0) {
+          admData.admins[idx].lastLoginAt = now;
+          admData.admins[idx].updatedAt = now;
+          await writeAdminsRecord(admData);
+        }
+      } catch {
+        /* still set admin cookie */
+      }
+      const adminTok = buildAdminSessionToken(linkedAdmin.username, adminSecret);
+      const adminMaxAge = ADMIN_SESSION_DAYS * 86400;
+      cookies.push(
+        `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(adminTok)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${adminMaxAge}${secure}`
+      );
+    }
+
+    const afterQs = parsedState.afterAdmin ? "&after=admin" : "";
+    const successLoc = base ? `${base}/?oauth_discord=1${afterQs}` : `/?oauth_discord=1${afterQs}`;
     res.writeHead(302, {
       Location: successLoc,
-      "Set-Cookie": cookieLine,
+      "Set-Cookie": cookies,
     });
     res.end();
     return;
