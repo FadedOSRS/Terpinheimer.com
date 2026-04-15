@@ -1680,8 +1680,9 @@
       if (discordEl) discordEl.textContent = `Discord username: ${j.user.discordUsername || j.user.username || "-"}`;
       if (idEl) idEl.textContent = `Discord ID: ${j.user.id || "-"}`;
       const roleList = Array.isArray(j.user.roles) && j.user.roles.length ? j.user.roles : ["member"];
-      const roles = roleList.join(", ");
-      const isMemberOnly = roleList.length === 1 && String(roleList[0]).trim().toLowerCase() === "member";
+      const normalizedRoles = roleList.map((r) => String(r).trim().toLowerCase()).filter(Boolean);
+      const roles = normalizedRoles.length ? normalizedRoles.join(", ") : "member";
+      const isMemberOnly = normalizedRoles.length > 0 && normalizedRoles.every((r) => r === "member");
       if (rolesEl) rolesEl.textContent = `Roles: ${roles}`;
       if (avatarEl) {
         if (j.user.avatarUrl) {
