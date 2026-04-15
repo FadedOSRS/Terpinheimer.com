@@ -1409,6 +1409,11 @@
     if (el) el.hidden = true;
   }
 
+  function hideOAuthProfileView() {
+    const el = document.getElementById("oauth-profile-view");
+    if (el) el.hidden = true;
+  }
+
   /** Query string after `#` route, e.g. `#/login?oauth=success` → `oauth=success`. */
   function getHashQueryParams() {
     const raw = window.location.hash ? window.location.hash.slice(1) : "";
@@ -1454,19 +1459,38 @@
 
   let oauthNavBound = false;
 
+  async function fetchOAuthMeSafe() {
+    try {
+      const r = await fetch("/api/oauth/me", { credentials: "include" });
+      let j = {};
+      try {
+        j = await r.json();
+      } catch {
+        j = {};
+      }
+      return j && typeof j === "object" ? j : {};
+    } catch {
+      return {};
+    }
+  }
+
   function bindOAuthNavOnce() {
     if (oauthNavBound) return;
     const btn = document.getElementById("nav-oauth-logout");
+    const profileSignoutBtn = document.getElementById("oauth-profile-signout");
     if (!btn) return;
     oauthNavBound = true;
-    btn.addEventListener("click", async () => {
+    const handleSignout = async () => {
       try {
         await fetch("/api/oauth/logout", { method: "POST", credentials: "include" });
       } catch {
         /* ignore */
       }
       await refreshOAuthSessionUi();
-    });
+      if (currentHashPath() === "/profile") window.location.hash = "#/login";
+    };
+    btn.addEventListener("click", handleSignout);
+    profileSignoutBtn?.addEventListener("click", handleSignout);
   }
 
   async function refreshOAuthSessionUi() {
@@ -1477,13 +1501,7 @@
     const slot = document.getElementById("nav-oauth-slot");
     if (!loginA || !userWrap) return;
     try {
-      const r = await fetch("/api/oauth/me", { credentials: "include" });
-      let j = {};
-      try {
-        j = await r.json();
-      } catch {
-        j = {};
-      }
+      const j = await fetchOAuthMeSafe();
       if (j.configured === false) {
         if (slot) slot.hidden = false;
         loginA.hidden = false;
@@ -1546,13 +1564,7 @@
       const unconf = document.getElementById("oauth-login-unconfigured");
       const actions = document.getElementById("oauth-login-actions");
       try {
-        const r = await fetch("/api/oauth/me", { credentials: "include" });
-        let j = {};
-        try {
-          j = await r.json();
-        } catch {
-          j = {};
-        }
+        const j = await fetchOAuthMeSafe();
         if (j.configured === false && unconf && actions) {
           unconf.hidden = false;
           actions.hidden = true;
@@ -1578,7 +1590,7 @@
             history.replaceState(
               null,
               "",
-              `${window.location.pathname}${window.location.search}#/login`
+              `${window.location.pathname}${window.location.search}#/profile`
             );
           } catch {
             /* ignore */
@@ -1607,9 +1619,96 @@
     })();
   }
 
+  function showOAuthProfileView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
+    const oauthLoginV = document.getElementById("oauth-login-view");
+    const oauthProfileV = document.getElementById("oauth-profile-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
+    if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
+    if (oauthLoginV) oauthLoginV.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (oauthProfileV) oauthProfileV.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "My profile | Terpinheimer";
+    bindOAuthNavOnce();
+    void (async () => {
+      const statusEl = document.getElementById("oauth-profile-status");
+      const contentEl = document.getElementById("oauth-profile-content");
+      const nameEl = document.getElementById("oauth-profile-name");
+      const discordEl = document.getElementById("oauth-profile-discord");
+      const idEl = document.getElementById("oauth-profile-id");
+      const rolesEl = document.getElementById("oauth-profile-roles");
+      const avatarEl = document.getElementById("oauth-profile-avatar");
+      const params = getHashQueryParams();
+      if (statusEl) {
+        statusEl.hidden = true;
+        statusEl.textContent = "";
+        statusEl.classList.remove("admin-form-status--error");
+      }
+      const j = await fetchOAuthMeSafe();
+      if (j.configured === false || !j.authenticated || !j.user) {
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = "Please sign in with Discord first.";
+          statusEl.classList.add("admin-form-status--error");
+        }
+        if (contentEl) contentEl.hidden = true;
+        window.location.hash = "#/login";
+        return;
+      }
+      if (contentEl) contentEl.hidden = false;
+      if (nameEl) nameEl.textContent = j.user.username || "Signed in";
+      if (discordEl) discordEl.textContent = `Discord username: ${j.user.discordUsername || j.user.username || "-"}`;
+      if (idEl) idEl.textContent = `Discord ID: ${j.user.id || "-"}`;
+      const roles = Array.isArray(j.user.roles) && j.user.roles.length ? j.user.roles.join(", ") : "member";
+      if (rolesEl) rolesEl.textContent = `Roles: ${roles}`;
+      if (avatarEl) {
+        if (j.user.avatarUrl) {
+          avatarEl.src = j.user.avatarUrl;
+          avatarEl.hidden = false;
+        } else {
+          avatarEl.removeAttribute("src");
+          avatarEl.hidden = true;
+        }
+      }
+      if (statusEl && params.get("oauth") === "success") {
+        statusEl.hidden = false;
+        statusEl.classList.remove("admin-form-status--error");
+        statusEl.textContent = "Signed in with Discord.";
+        try {
+          history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${window.location.search}#/profile`
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+  }
+
   function showHomeView() {
     closeMobileNav();
     hideOAuthLoginView();
+    hideOAuthProfileView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -4349,6 +4448,7 @@
 
   function applyRoute() {
     const path = currentHashPath();
+    if (path !== "/profile") hideOAuthProfileView();
 
     const segs = path.split("/").filter(Boolean);
     const routeRoot = segs[0]?.toLowerCase();
@@ -4369,6 +4469,11 @@
 
     if (path === "/login") {
       showLoginView();
+      return;
+    }
+
+    if (path === "/profile") {
+      showOAuthProfileView();
       return;
     }
 
@@ -6451,7 +6556,7 @@
           null,
           "",
           `${u.pathname}${u.search || ""}${
-            afterAdmin ? "#/admin/profile?oauth=success" : "#/login?oauth=success"
+            afterAdmin ? "#/admin/profile?oauth=success" : "#/profile?oauth=success"
           }`
         );
         return;

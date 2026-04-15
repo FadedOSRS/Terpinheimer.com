@@ -3830,6 +3830,17 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-size: 0.88rem;
 }
 
+.nav-oauth-profile-link {
+  color: var(--amber);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.nav-oauth-profile-link:hover {
+  text-decoration: underline;
+}
+
 .nav-oauth-avatar {
   border-radius: 50%;
   flex-shrink: 0;
@@ -3858,6 +3869,45 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-size: 0.88rem;
   line-height: 1.45;
   margin: 0;
+}
+
+.oauth-profile-panel {
+  max-width: 34rem;
+}
+
+.oauth-profile-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.oauth-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.oauth-profile-avatar {
+  border-radius: 50%;
+  border: 2px solid var(--panel-edge);
+  background: rgba(36, 48, 56, 0.55);
+}
+
+.oauth-profile-name {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  color: var(--cream);
+  font-size: 1.1rem;
+}
+
+.oauth-profile-sub {
+  margin: 0.1rem 0;
+  font-size: 0.88rem;
+}
+
+.oauth-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .members-toolbar {

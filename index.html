@@ -59,6 +59,7 @@
               hidden
             />
             <span id="nav-oauth-name" class="nav-oauth-name"></span>
+            <a href="#/profile" class="nav-oauth-profile-link" id="nav-oauth-profile-link">Profile</a>
             <button type="button" class="btn btn-ghost nav-oauth-out" id="nav-oauth-logout">Sign out</button>
           </span>
         </span>
@@ -627,8 +628,47 @@
               >Continue with Discord</a
             >
             <p class="muted oauth-login-note">
-              Redirects to Discord, then back here. Your roles are stored for future features (default: <code class="plugin-code">member</code>). If the server links your Discord to a site admin account, you will also get an administrator session (open <a href="#/admin/profile" class="wom-link">Admin dashboard</a>).
+              Redirects to Discord, then to your profile page. Your roles are stored for future features (default: <code class="plugin-code">member</code>). If the server links your Discord to a site admin account, you will also get an administrator session (open <a href="#/admin/profile" class="wom-link">Admin dashboard</a>).
             </p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="oauth-profile-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Profile</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">My profile</h1>
+          <hr class="rule" />
+          <p class="lead muted">Your site account from Discord sign-in.</p>
+        </header>
+        <section class="member-panel member-wide plugin-panel oauth-login-panel oauth-profile-panel">
+          <p id="oauth-profile-status" class="admin-form-status muted" role="status" hidden></p>
+          <div id="oauth-profile-content" class="oauth-profile-content" hidden>
+            <div class="oauth-profile-head">
+              <img
+                id="oauth-profile-avatar"
+                class="oauth-profile-avatar"
+                alt=""
+                width="72"
+                height="72"
+                decoding="async"
+                hidden
+              />
+              <div class="oauth-profile-meta">
+                <p class="oauth-profile-name" id="oauth-profile-name">Signed in</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-discord">Discord: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-id">ID: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-roles">Roles: member</p>
+              </div>
+            </div>
+            <div class="oauth-profile-actions">
+              <a href="#/admin" class="btn btn-ghost">Open admin sign-in</a>
+              <button type="button" class="btn btn-ghost" id="oauth-profile-signout">Sign out</button>
+            </div>
           </div>
         </section>
       </div>
