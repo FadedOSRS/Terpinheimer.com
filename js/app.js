@@ -1341,6 +1341,7 @@
 
   async function openMemberPage(slug) {
     closeMobileNav();
+    hideOAuthLoginView();
 
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
@@ -1403,8 +1404,176 @@
 
   let cachedMemberships = null;
 
+  function hideOAuthLoginView() {
+    const el = document.getElementById("oauth-login-view");
+    if (el) el.hidden = true;
+  }
+
+  /** Query string after `#` route, e.g. `#/login?oauth=success` → `oauth=success`. */
+  function getHashQueryParams() {
+    const raw = window.location.hash ? window.location.hash.slice(1) : "";
+    const qPart = raw.includes("?") ? raw.split("?").slice(1).join("?") : "";
+    return new URLSearchParams(qPart);
+  }
+
+  let oauthNavBound = false;
+
+  function bindOAuthNavOnce() {
+    if (oauthNavBound) return;
+    const btn = document.getElementById("nav-oauth-logout");
+    if (!btn) return;
+    oauthNavBound = true;
+    btn.addEventListener("click", async () => {
+      try {
+        await fetch("/api/oauth/logout", { method: "POST", credentials: "include" });
+      } catch {
+        /* ignore */
+      }
+      await refreshOAuthSessionUi();
+    });
+  }
+
+  async function refreshOAuthSessionUi() {
+    const loginA = document.getElementById("nav-oauth-login");
+    const userWrap = document.getElementById("nav-oauth-user-wrap");
+    const nameEl = document.getElementById("nav-oauth-name");
+    const avatarEl = document.getElementById("nav-oauth-avatar");
+    const slot = document.getElementById("nav-oauth-slot");
+    if (!loginA || !userWrap) return;
+    try {
+      const r = await fetch("/api/oauth/me", { credentials: "include" });
+      let j = {};
+      try {
+        j = await r.json();
+      } catch {
+        j = {};
+      }
+      if (j.configured === false) {
+        if (slot) slot.hidden = false;
+        loginA.hidden = false;
+        userWrap.hidden = true;
+        return;
+      }
+      if (slot) slot.hidden = false;
+      if (j.authenticated && j.user) {
+        loginA.hidden = true;
+        userWrap.hidden = false;
+        if (nameEl) nameEl.textContent = j.user.username || "Signed in";
+        if (avatarEl) {
+          if (j.user.avatarUrl) {
+            avatarEl.src = j.user.avatarUrl;
+            avatarEl.hidden = false;
+          } else {
+            avatarEl.removeAttribute("src");
+            avatarEl.hidden = true;
+          }
+        }
+      } else {
+        loginA.hidden = false;
+        userWrap.hidden = true;
+      }
+    } catch {
+      if (slot) slot.hidden = false;
+      loginA.hidden = false;
+      userWrap.hidden = true;
+    }
+  }
+
+  function showLoginView() {
+    closeMobileNav();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
+    const oauthv = document.getElementById("oauth-login-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
+    if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (oauthv) oauthv.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Sign in | Terpinheimer";
+    bindOAuthNavOnce();
+    void (async () => {
+      const unconf = document.getElementById("oauth-login-unconfigured");
+      const actions = document.getElementById("oauth-login-actions");
+      try {
+        const r = await fetch("/api/oauth/me", { credentials: "include" });
+        let j = {};
+        try {
+          j = await r.json();
+        } catch {
+          j = {};
+        }
+        if (j.configured === false && unconf && actions) {
+          unconf.hidden = false;
+          actions.hidden = true;
+        } else {
+          if (unconf) unconf.hidden = true;
+          if (actions) actions.hidden = false;
+        }
+      } catch {
+        if (unconf) unconf.hidden = true;
+        if (actions) actions.hidden = false;
+      }
+      const params = getHashQueryParams();
+      const oauth = params.get("oauth");
+      const st = document.getElementById("oauth-login-status");
+      if (st) {
+        if (oauth === "success") {
+          st.textContent = "Signed in with Discord.";
+          st.hidden = false;
+          st.classList.remove("admin-form-status--error");
+          st.classList.add("muted");
+          await refreshOAuthSessionUi();
+          try {
+            history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}${window.location.search}#/login`
+            );
+          } catch {
+            /* ignore */
+          }
+        } else if (oauth === "error") {
+          st.textContent = params.get("reason") || "Could not complete sign-in.";
+          st.hidden = false;
+          st.classList.add("admin-form-status--error");
+          st.classList.remove("muted");
+          try {
+            history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}${window.location.search}#/login`
+            );
+          } catch {
+            /* ignore */
+          }
+        } else if (!oauth) {
+          st.textContent = "";
+          st.hidden = true;
+          st.classList.remove("admin-form-status--error");
+          st.classList.add("muted");
+        }
+      }
+    })();
+  }
+
   function showHomeView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -1508,6 +1677,7 @@
 
   function showEventsCalendarView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -1660,6 +1830,7 @@
 
   function showMembersListView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -3718,6 +3889,7 @@
 
   function showBingoView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -4171,6 +4343,7 @@
 
   function showAdminShell() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -4213,6 +4386,11 @@
 
     if (path === "/events") {
       showEventsCalendarView();
+      return;
+    }
+
+    if (path === "/login") {
+      showLoginView();
       return;
     }
 
@@ -6098,6 +6276,7 @@
 
   function showPluginView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -6125,6 +6304,7 @@
 
   function showApplyView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -6152,6 +6332,7 @@
 
   function showMapView() {
     closeMobileNav();
+    hideOAuthLoginView();
     const hv = document.getElementById("home-view");
     const mv = document.getElementById("member-view");
     const listv = document.getElementById("members-list-view");
@@ -6248,6 +6429,29 @@
     }
   };
   window.TerpinheimerLiveMap.getPlane = () => liveMapPlane;
+
+  /** Discord OAuth callback uses `/?oauth_discord=1` (HTTP redirects cannot rely on `#fragment`). */
+  (function oauthDiscordConsumeQuery() {
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get("oauth_discord") === "1") {
+        u.search = "";
+        history.replaceState(null, "", `${u.pathname}${u.search || ""}#/login?oauth=success`);
+        return;
+      }
+      if (u.searchParams.get("oauth_discord_error") === "1") {
+        const reason = u.searchParams.get("reason") || "";
+        u.search = "";
+        history.replaceState(
+          null,
+          "",
+          `${u.pathname}${u.search || ""}#/login?oauth=error&reason=${encodeURIComponent(reason)}`
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  })();
 
   window.addEventListener("hashchange", applyRoute);
   attachTerpinheimerBingoApi();
@@ -6355,6 +6559,8 @@
   applyDiscordInviteLinks();
   bindFeedbackFabOnce();
   bindClanApplyFormOnce();
+  bindOAuthNavOnce();
+  void refreshOAuthSessionUi();
 
   load().catch(async (e) => {
     cachedMemberships = [];

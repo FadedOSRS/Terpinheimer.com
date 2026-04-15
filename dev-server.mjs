@@ -101,6 +101,23 @@ function resolveClanApplicationsPath() {
 
 const CLAN_APPLICATIONS_PATH = resolveClanApplicationsPath();
 
+/** Site user accounts linked via OAuth (Discord). Override with OAUTH_USERS_PATH / OAUTH_USERS_DIR. */
+function resolveOAuthUsersPath() {
+  const file = process.env.OAUTH_USERS_PATH?.trim();
+  if (file) {
+    return path.isAbsolute(file) ? file : path.join(__dirname, file);
+  }
+  const dir = process.env.OAUTH_USERS_DIR?.trim();
+  if (dir) {
+    return path.join(dir, "oauth-users.json");
+  }
+  return path.join(__dirname, "_data", "oauth-users.json");
+}
+
+const OAUTH_USERS_PATH = resolveOAuthUsersPath();
+const OAUTH_SESSION_COOKIE = "th_oauth";
+const OAUTH_SESSION_DAYS = 30;
+
 /** Wise Old Man group (Terpinheimer) — used to verify Bandosian rank for application inbox. */
 const WOM_API_GROUP_ID = 23745;
 const WOM_API_BASE = "https://api.wiseoldman.net/v2";
@@ -376,6 +393,374 @@ function readAdminSessionFromRequest(req) {
   const tok = getCookieHeader(req, ADMIN_SESSION_COOKIE);
   if (!tok) return null;
   return verifyAdminSessionToken(tok, secret);
+}
+
+function getOAuthSessionSecret() {
+  return process.env.OAUTH_SESSION_SECRET?.trim() || "";
+}
+
+function buildOAuthSessionToken(userId, secret) {
+  const exp = Date.now() + OAUTH_SESSION_DAYS * 86400000;
+  const payload = `${exp}.${userId}`;
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return `${payload}.${sig}`;
+}
+
+function verifyOAuthSessionToken(token, secret) {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length < 3) return null;
+  const exp = parts[0];
+  const sig = parts[parts.length - 1];
+  const userId = parts.slice(1, -1).join(".");
+  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{64}$/i.test(sig)) return null;
+  if (Date.now() > Number(exp)) return null;
+  const payload = `${exp}.${userId}`;
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))) return null;
+  } catch {
+    return null;
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    return null;
+  }
+  return userId;
+}
+
+function readOAuthSessionFromRequest(req) {
+  const secret = getOAuthSessionSecret();
+  if (!secret || secret.length < 16) return null;
+  const tok = getCookieHeader(req, OAUTH_SESSION_COOKIE);
+  if (!tok) return null;
+  return verifyOAuthSessionToken(tok, secret);
+}
+
+function buildDiscordOAuthState(secret) {
+  const exp = Date.now() + 600000;
+  const nonce = crypto.randomBytes(24).toString("hex");
+  const payload = `${exp}.${nonce}`;
+  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return Buffer.from(`${payload}.${sig}`, "utf8").toString("base64url");
+}
+
+function verifyDiscordOAuthState(state, secret) {
+  if (!state || typeof state !== "string") return false;
+  let raw;
+  try {
+    raw = Buffer.from(state, "base64url").toString("utf8");
+  } catch {
+    return false;
+  }
+  const parts = raw.split(".");
+  if (parts.length !== 3) return false;
+  const [exp, nonce, sig] = parts;
+  if (!/^\d+$/.test(exp) || !/^[a-f0-9]{48}$/i.test(nonce) || !/^[a-f0-9]{64}$/i.test(sig)) return false;
+  if (Date.now() > Number(exp)) return false;
+  const payload = `${exp}.${nonce}`;
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+function publicSiteOrigin() {
+  const u = process.env.PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  if (u) {
+    try {
+      return new URL(u).origin;
+    } catch {
+      /* fall through */
+    }
+  }
+  return "";
+}
+
+function discordOAuthRedirectUri() {
+  const explicit = process.env.DISCORD_OAUTH_REDIRECT_URI?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  const base = publicSiteOrigin();
+  if (base) return `${base}/api/oauth/discord/callback`;
+  return "";
+}
+
+async function readOAuthUsersRecord() {
+  try {
+    const raw = await fs.promises.readFile(OAUTH_USERS_PATH, "utf8");
+    const j = JSON.parse(raw);
+    const users = Array.isArray(j.users) ? j.users : [];
+    return { users };
+  } catch {
+    return { users: [] };
+  }
+}
+
+async function writeOAuthUsersRecord(store) {
+  await fs.promises.mkdir(path.dirname(OAUTH_USERS_PATH), { recursive: true });
+  const tmp = `${OAUTH_USERS_PATH}.${process.pid}.${Date.now()}.tmp`;
+  await fs.promises.writeFile(tmp, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  await fs.promises.rename(tmp, OAUTH_USERS_PATH);
+}
+
+function sanitizeOAuthDiscordProfile(j) {
+  if (!j || typeof j !== "object") return null;
+  const id = String(j.id || "").trim();
+  if (!/^\d{5,25}$/.test(id)) return null;
+  const username = String(j.username || "").trim().slice(0, 80);
+  const globalName = j.global_name != null ? String(j.global_name).trim().slice(0, 80) : "";
+  const displayName = globalName || username || "Discord user";
+  const avatar = j.avatar != null ? String(j.avatar).trim() : "";
+  const email = j.email != null ? String(j.email).trim().slice(0, 120) : "";
+  let avatarUrl = null;
+  if (avatar && /^[a-f0-9]{16,128}$/i.test(avatar)) {
+    const ext = avatar.startsWith("a_") ? "gif" : "png";
+    avatarUrl = `https://cdn.discordapp.com/avatars/${id}/${avatar}.${ext}?size=64`;
+  }
+  return { id, username, displayName, email: email || undefined, avatarUrl };
+}
+
+async function handleOAuthApi(req, res, url) {
+  const cors = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  };
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    res.end();
+    return;
+  }
+
+  const oauthSecret = getOAuthSessionSecret();
+  const clientId = process.env.DISCORD_OAUTH_CLIENT_ID?.trim();
+  const clientSecret = process.env.DISCORD_OAUTH_CLIENT_SECRET?.trim();
+
+  if (url.pathname === "/api/oauth/me") {
+    if (req.method !== "GET") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    if (!oauthSecret || oauthSecret.length < 16) {
+      res.writeHead(503, cors);
+      res.end(JSON.stringify({ error: "OAuth is not configured on the server.", configured: false }));
+      return;
+    }
+    const userId = readOAuthSessionFromRequest(req);
+    if (!userId) {
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ authenticated: false, configured: true }));
+      return;
+    }
+    try {
+      const data = await readOAuthUsersRecord();
+      const user = data.users.find((u) => u && u.id === userId);
+      if (!user) {
+        const secure = cookieSecureDirective(req);
+        res.writeHead(200, {
+          ...cors,
+          "Set-Cookie": `${OAUTH_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
+        });
+        res.end(JSON.stringify({ authenticated: false, configured: true }));
+        return;
+      }
+      const roles = Array.isArray(user.roles) ? user.roles.map((r) => String(r)) : ["member"];
+      res.writeHead(200, cors);
+      res.end(
+        JSON.stringify({
+          authenticated: true,
+          configured: true,
+          user: {
+            id: user.id,
+            provider: user.provider || "discord",
+            username: user.displayName || user.username || "User",
+            discordUsername: user.username || undefined,
+            avatarUrl: user.avatarUrl || null,
+            roles,
+          },
+        })
+      );
+    } catch {
+      res.writeHead(500, cors);
+      res.end(JSON.stringify({ error: "Could not read account data." }));
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/oauth/logout") {
+    if (req.method !== "POST") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    const secure = cookieSecureDirective(req);
+    res.writeHead(200, {
+      ...cors,
+      "Set-Cookie": `${OAUTH_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (url.pathname === "/api/oauth/discord/login") {
+    if (req.method !== "GET") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    if (!oauthSecret || oauthSecret.length < 16 || !clientId || !clientSecret) {
+      res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(
+        "<!DOCTYPE html><html><body><p>Discord OAuth is not configured. Set OAUTH_SESSION_SECRET (min 16 chars), DISCORD_OAUTH_CLIENT_ID, and DISCORD_OAUTH_CLIENT_SECRET.</p></body></html>"
+      );
+      return;
+    }
+    const redirectUri = discordOAuthRedirectUri();
+    if (!redirectUri) {
+      res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(
+        "<!DOCTYPE html><html><body><p>Set PUBLIC_SITE_URL (e.g. https://yoursite.com) or DISCORD_OAUTH_REDIRECT_URI for the Discord callback.</p></body></html>"
+      );
+      return;
+    }
+    const state = buildDiscordOAuthState(oauthSecret);
+    const scope = encodeURIComponent("identify email");
+    const rUri = encodeURIComponent(redirectUri);
+    const loc = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${rUri}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
+    res.writeHead(302, { Location: loc });
+    res.end();
+    return;
+  }
+
+  if (url.pathname === "/api/oauth/discord/callback") {
+    if (req.method !== "GET") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    const err = url.searchParams.get("error");
+    const errDesc = url.searchParams.get("error_description") || "";
+    const base = publicSiteOrigin() || "";
+    const loginErrQs = (reason) => {
+      const r = encodeURIComponent(reason || "error");
+      return base ? `${base}/?oauth_discord_error=1&reason=${r}` : `/?oauth_discord_error=1&reason=${r}`;
+    };
+    if (err) {
+      res.writeHead(302, { Location: loginErrQs(errDesc || err) });
+      res.end();
+      return;
+    }
+    if (!oauthSecret || oauthSecret.length < 16 || !clientId || !clientSecret) {
+      res.writeHead(302, { Location: loginErrQs("oauth_not_configured") });
+      res.end();
+      return;
+    }
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    if (!code || !verifyDiscordOAuthState(state, oauthSecret)) {
+      res.writeHead(302, { Location: loginErrQs("invalid_state") });
+      res.end();
+      return;
+    }
+    const redirectUri = discordOAuthRedirectUri();
+    if (!redirectUri) {
+      res.writeHead(302, { Location: loginErrQs("missing_redirect_uri") });
+      res.end();
+      return;
+    }
+    const tokenBody = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+    });
+    let accessToken;
+    try {
+      const tr = await fetch("https://discord.com/api/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenBody.toString(),
+      });
+      const tj = await tr.json().catch(() => ({}));
+      accessToken = typeof tj.access_token === "string" ? tj.access_token : "";
+      if (!tr.ok || !accessToken) {
+        res.writeHead(302, { Location: loginErrQs("token_exchange_failed") });
+        res.end();
+        return;
+      }
+    } catch {
+      res.writeHead(302, { Location: loginErrQs("token_exchange_failed") });
+      res.end();
+      return;
+    }
+    let profile;
+    try {
+      const ur = await fetch("https://discord.com/api/users/@me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const uj = await ur.json().catch(() => ({}));
+      profile = sanitizeOAuthDiscordProfile(uj);
+      if (!profile) {
+        res.writeHead(302, { Location: loginErrQs("invalid_profile") });
+        res.end();
+        return;
+      }
+    } catch {
+      res.writeHead(302, { Location: loginErrQs("profile_fetch_failed") });
+      res.end();
+      return;
+    }
+    const now = new Date().toISOString();
+    let store = await readOAuthUsersRecord();
+    let row = store.users.find((u) => u && u.provider === "discord" && u.providerUserId === profile.id);
+    if (!row) {
+      row = {
+        id: crypto.randomUUID(),
+        provider: "discord",
+        providerUserId: profile.id,
+        username: profile.username,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl || undefined,
+        email: profile.email,
+        roles: ["member"],
+        createdAt: now,
+        lastLoginAt: now,
+      };
+      store.users.push(row);
+    } else {
+      row.username = profile.username;
+      row.displayName = profile.displayName;
+      if (profile.avatarUrl) row.avatarUrl = profile.avatarUrl;
+      if (profile.email) row.email = profile.email;
+      row.lastLoginAt = now;
+    }
+    try {
+      await writeOAuthUsersRecord(store);
+    } catch {
+      res.writeHead(302, { Location: loginErrQs("save_failed") });
+      res.end();
+      return;
+    }
+    const sessionTok = buildOAuthSessionToken(row.id, oauthSecret);
+    const maxAge = OAUTH_SESSION_DAYS * 86400;
+    const secure = cookieSecureDirective(req);
+    const cookieLine = `${OAUTH_SESSION_COOKIE}=${encodeURIComponent(sessionTok)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+    const successLoc = base ? `${base}/?oauth_discord=1` : "/?oauth_discord=1";
+    res.writeHead(302, {
+      Location: successLoc,
+      "Set-Cookie": cookieLine,
+    });
+    res.end();
+    return;
+  }
+
+  res.writeHead(404, cors);
+  res.end(JSON.stringify({ error: "Not found" }));
 }
 
 async function handleAdminAuthApi(req, res, url) {
@@ -2321,6 +2706,16 @@ http
     }
 
     if (
+      url.pathname === "/api/oauth/me" ||
+      url.pathname === "/api/oauth/logout" ||
+      url.pathname === "/api/oauth/discord/login" ||
+      url.pathname === "/api/oauth/discord/callback"
+    ) {
+      await handleOAuthApi(req, res, url);
+      return;
+    }
+
+    if (
       url.pathname === "/api/admin/signup" ||
       url.pathname === "/api/admin/login" ||
       url.pathname === "/api/admin/logout" ||
@@ -2504,6 +2899,10 @@ http
     console.log(`Clan events data file: ${CUSTOM_EVENTS_PATH}`);
     console.log(`Site feedback data file: ${SITE_FEEDBACK_PATH}`);
     console.log(`Clan applications data file: ${CLAN_APPLICATIONS_PATH}`);
+    console.log(`OAuth users data file: ${OAUTH_USERS_PATH}`);
+    console.log(
+      "Discord OAuth: GET /api/oauth/discord/login → callback → GET /api/oauth/me | POST /api/oauth/logout"
+    );
     console.log("Wise Old Man API proxied at /api/wom/v2/* (same-origin; more reliable than browser → WOM)");
     console.log("RuneProfile API proxied at /rp-api/* (needed for member pages in the browser)");
     console.log("/rs-item/<id> — Jagex catalogue, then OSRSBox, then OSRS Wiki (collection log names)");

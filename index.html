@@ -46,6 +46,22 @@
         <a href="#/bingo">Bingo</a>
         <a href="#/plugin">Plugin</a>
         <a href="#/apply">Apply</a>
+        <span class="nav-oauth" id="nav-oauth-slot" aria-label="Account">
+          <a href="#/login" class="nav-oauth-link" id="nav-oauth-login">Sign in</a>
+          <span class="nav-oauth-user" id="nav-oauth-user-wrap" hidden>
+            <img
+              id="nav-oauth-avatar"
+              class="nav-oauth-avatar"
+              alt=""
+              width="24"
+              height="24"
+              decoding="async"
+              hidden
+            />
+            <span id="nav-oauth-name" class="nav-oauth-name"></span>
+            <button type="button" class="btn btn-ghost nav-oauth-out" id="nav-oauth-logout">Sign out</button>
+          </span>
+        </span>
         <a href="#/admin/profile">Admin</a>
         <a href="https://discord.gg/NTWqmhSx4U" class="nav-cta" data-discord-link target="_blank" rel="noopener">Join Discord</a>
       </nav>
@@ -589,6 +605,35 @@
       </div>
     </div>
 
+    <div id="oauth-login-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span>Sign in</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading">Sign in</h1>
+          <hr class="rule" />
+          <p class="lead muted">
+            Use your Discord account. This is separate from the site <strong>Admin</strong> login (username and password).
+          </p>
+        </header>
+        <section class="member-panel member-wide plugin-panel oauth-login-panel">
+          <p id="oauth-login-status" class="admin-form-status muted" role="status" hidden></p>
+          <p class="muted oauth-login-lead" id="oauth-login-unconfigured" hidden>
+            Discord sign-in is not configured on this server yet (set environment variables — see <code class="plugin-code">.env.example</code>).
+          </p>
+          <div id="oauth-login-actions">
+            <a class="btn btn-primary oauth-discord-btn" id="oauth-discord-login-btn" href="/api/oauth/discord/login" data-oauth-discord-link
+              >Continue with Discord</a
+            >
+            <p class="muted oauth-login-note">
+              Redirects to Discord, then back here. Your roles are stored for future features (default: <code class="plugin-code">member</code>).
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div id="apply-view" class="plugin-view" hidden>
       <div class="container member-wrap">
         <nav class="member-crumb" aria-label="Breadcrumb">
@@ -641,7 +686,7 @@
                   required
                   maxlength="4000"
                   rows="6"
-                  placeholder="Goals, experience, how you found us… (at least 5 words)"
+                  placeholder="Goals, experience, how you found us…"
                 ></textarea>
               </label>
               <label class="admin-label" for="clan-apply-timezone">
@@ -653,7 +698,7 @@
                   required
                   maxlength="4000"
                   rows="4"
-                  placeholder="e.g. US Eastern, most active weekday evenings… (at least 5 words)"
+                  placeholder="e.g. US Eastern, most active weekday evenings…"
                 ></textarea>
               </label>
               <label class="admin-label" for="clan-apply-calendar">
@@ -680,7 +725,7 @@
                   required
                   maxlength="4000"
                   rows="3"
-                  placeholder="Be specific (at least 5 words)"
+                  placeholder="Be specific"
                 ></textarea>
               </label>
               <label class="admin-label" for="clan-apply-missed">
@@ -692,7 +737,7 @@
                   required
                   maxlength="4000"
                   rows="4"
-                  placeholder="Your approach (at least 5 words)"
+                  placeholder="Your approach"
                 ></textarea>
               </label>
               <label class="admin-label" for="clan-apply-why">
@@ -704,7 +749,7 @@
                   required
                   maxlength="4000"
                   rows="4"
-                  placeholder="Your motivation (at least 5 words)"
+                  placeholder="Your motivation"
                 ></textarea>
               </label>
               <label class="admin-label" for="clan-apply-unfair">
@@ -716,12 +761,9 @@
                   required
                   maxlength="4000"
                   rows="4"
-                  placeholder="Your approach (at least 5 words)"
+                  placeholder="Your approach"
                 ></textarea>
               </label>
-              <p class="muted clan-apply-hint">
-                Written answers must be at least <strong>5 words</strong> each. OSRS RSN and Discord are required.
-              </p>
               <button type="submit" class="btn btn-primary">Submit application</button>
             </fieldset>
             <p id="clan-apply-status" class="admin-form-status muted" role="status" hidden></p>
@@ -750,6 +792,9 @@
           <h1 class="admin-portal-title">Administrator sign-in</h1>
           <p class="admin-portal-lead muted">
             Secure access for site administrators. New installs: create the first account on the right, then sign in here. Additional admins require an active session and signup key.
+            <span class="admin-portal-lead-sep"> </span>
+            <span class="admin-portal-discord-hint"
+              ><strong>Discord “Sign in”</strong> for members is separate: use <a href="#/login" class="wom-link">Sign in</a> in the site header (not this page).</span>
           </p>
         </header>
 
