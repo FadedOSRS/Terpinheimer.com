@@ -1497,6 +1497,8 @@
     const loginA = document.getElementById("nav-oauth-login");
     const userWrap = document.getElementById("nav-oauth-user-wrap");
     const nameEl = document.getElementById("nav-oauth-name");
+    const profileLinkEl = document.getElementById("nav-oauth-profile-link");
+    const mapLinkEl = document.getElementById("nav-map-link");
     const avatarEl = document.getElementById("nav-oauth-avatar");
     const slot = document.getElementById("nav-oauth-slot");
     if (!loginA || !userWrap) return;
@@ -1506,13 +1508,17 @@
         if (slot) slot.hidden = false;
         loginA.hidden = false;
         userWrap.hidden = true;
+        if (mapLinkEl) mapLinkEl.hidden = true;
         return;
       }
       if (slot) slot.hidden = false;
       if (j.authenticated && j.user) {
         loginA.hidden = true;
         userWrap.hidden = false;
-        if (nameEl) nameEl.textContent = j.user.username || "Signed in";
+        if (mapLinkEl) mapLinkEl.hidden = false;
+        const navLabel = j.user.username || "Signed in";
+        if (nameEl) nameEl.textContent = "";
+        if (profileLinkEl) profileLinkEl.textContent = navLabel;
         if (avatarEl) {
           if (j.user.avatarUrl) {
             avatarEl.src = j.user.avatarUrl;
@@ -1525,11 +1531,17 @@
       } else {
         loginA.hidden = false;
         userWrap.hidden = true;
+        if (mapLinkEl) mapLinkEl.hidden = true;
+        if (nameEl) nameEl.textContent = "";
+        if (profileLinkEl) profileLinkEl.textContent = "Profile";
       }
     } catch {
       if (slot) slot.hidden = false;
       loginA.hidden = false;
       userWrap.hidden = true;
+      if (mapLinkEl) mapLinkEl.hidden = true;
+      if (nameEl) nameEl.textContent = "";
+      if (profileLinkEl) profileLinkEl.textContent = "Profile";
     }
   }
 
@@ -4630,7 +4642,14 @@
     }
 
     if (path === "/map") {
-      showMapView();
+      void (async () => {
+        const j = await fetchOAuthMeSafe();
+        if (!(j && j.authenticated && j.user)) {
+          window.location.hash = "#/login";
+          return;
+        }
+        showMapView();
+      })();
       return;
     }
 
