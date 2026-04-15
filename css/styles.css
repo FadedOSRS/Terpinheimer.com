@@ -3381,13 +3381,11 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 
 .admin-auth-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1.35rem;
   align-items: stretch;
-}
-
-.admin-auth-card--discord {
-  grid-column: 1 / -1;
+  max-width: 28rem;
+  margin: 0 auto;
 }
 
 .admin-auth-card-actions {
@@ -3405,15 +3403,6 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   color: rgba(227, 213, 184, 0.9);
 }
 
-@media (max-width: 820px) {
-  .admin-auth-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-auth-card--discord {
-    grid-column: auto;
-  }
-}
 
 .admin-auth-card {
   display: flex;

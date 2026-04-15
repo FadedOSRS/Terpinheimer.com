@@ -614,7 +614,7 @@
           <h1 class="section-title members-list-heading">Sign in</h1>
           <hr class="rule" />
           <p class="lead muted">
-            Use your Discord account. This is separate from the site <strong>Admin</strong> login (username and password).
+            Use your Discord account. This is separate from <strong>Admin</strong> access: open <a href="#/admin" class="wom-link">Admin</a> and sign in with Discord there when your account is linked on the server.
           </p>
         </header>
         <section class="member-panel member-wide plugin-panel oauth-login-panel">
@@ -791,10 +791,12 @@
           <p class="admin-portal-eyebrow">Terpinheimer</p>
           <h1 class="admin-portal-title">Administrator sign-in</h1>
           <p class="admin-portal-lead muted">
-            Secure access for site administrators. If your admin account is linked to Discord on the server, sign in with Discord below. Otherwise use username and password. New installs: create the first account on the right, then sign in. Additional admins require an active session and signup key.
+            Administrator access is through Discord only. Your Discord user must be linked to an admin on the server (see hosting
+            <span class="admin-env-file-name">.env.example</span> and <span class="admin-env-file-name">admin-users.json</span>).
             <span class="admin-portal-lead-sep"> </span>
-            <span class="admin-portal-discord-hint"
-              >Member Discord sign-in (header <a href="#/login" class="wom-link">Sign in</a>) is for site accounts; admin access still requires a linked admin or password here.</span>
+            <span class="admin-portal-discord-hint">
+              Member Discord sign-in (header <a href="#/login" class="wom-link">Sign in</a>) is for site accounts only and does not open the admin dashboard.
+            </span>
           </p>
         </header>
 
@@ -810,11 +812,8 @@
           role="status"
         >
           You are signed in with <strong>Discord in the header</strong> (site member account). That does
-          <strong>not</strong> grant the administrator session. To reach the dashboard, use
-          <strong>Sign in with Discord</strong> below if your Discord user is linked to an admin on the server, or enter
-          your <strong>admin username or email</strong> and password from
-          <span class="admin-env-file-name">admin-users.json</span>—not your Discord name unless that is how the account
-          was created.
+          <strong>not</strong> grant administrator access. Use <strong>Sign in with Discord</strong> below so your
+          Discord user can be matched to a linked admin on the server.
         </p>
 
         <div class="admin-auth-cards">
@@ -822,9 +821,10 @@
             <header class="admin-auth-card-head">
               <span class="admin-auth-card-icon admin-auth-card-icon--discord" aria-hidden="true"></span>
               <div>
-                <h2 class="admin-auth-card-title">Continue with Discord</h2>
+                <h2 class="admin-auth-card-title">Sign in with Discord</h2>
                 <p class="admin-auth-card-desc muted">
-                  Recommended when your Discord user is linked to an admin on the server (see hosting <span class="admin-env-file-name">.env.example</span>).
+                  Opens the admin dashboard when your Discord user is linked to an admin (see hosting
+                  <span class="admin-env-file-name">.env.example</span>).
                 </p>
               </div>
             </header>
@@ -833,98 +833,6 @@
                 >Sign in with Discord</a
               >
             </p>
-          </article>
-
-          <article class="admin-auth-card admin-auth-card--login" id="admin-login-card">
-            <header class="admin-auth-card-head">
-              <span class="admin-auth-card-icon admin-auth-card-icon--lock" aria-hidden="true"></span>
-              <div>
-                <h2 class="admin-auth-card-title">Username and password</h2>
-                <p class="admin-auth-card-desc muted">Sign in with your admin credentials.</p>
-              </div>
-            </header>
-            <form id="admin-login-form" class="admin-form" autocomplete="on">
-              <fieldset class="admin-form-fieldset">
-                <label class="admin-label" for="admin-login-username">
-                  <span class="admin-label-text">Admin username or email</span>
-                  <input
-                    id="admin-login-username"
-                    name="username"
-                    type="text"
-                    required
-                    class="admin-input"
-                    autocomplete="username"
-                    spellcheck="false"
-                  />
-                </label>
-                <label class="admin-label" for="admin-login-password">
-                  <span class="admin-label-text">Password</span>
-                  <input
-                    id="admin-login-password"
-                    name="password"
-                    type="password"
-                    required
-                    class="admin-input"
-                    autocomplete="current-password"
-                  />
-                </label>
-                <button type="submit" class="btn btn-primary admin-submit">Sign in</button>
-              </fieldset>
-              <p id="admin-login-status" class="admin-form-status muted" role="status"></p>
-            </form>
-          </article>
-
-          <article class="admin-auth-card admin-auth-card--signup">
-            <header class="admin-auth-card-head">
-              <span class="admin-auth-card-icon admin-auth-card-icon--key" aria-hidden="true"></span>
-              <div>
-                <h2 class="admin-auth-card-title">Create admin</h2>
-                <p class="admin-auth-card-desc muted">First admin: no sign-in yet. Later: you must be signed in.</p>
-              </div>
-            </header>
-            <form id="admin-signup-form" class="admin-form" autocomplete="on">
-              <fieldset class="admin-form-fieldset">
-                <label class="admin-label" for="admin-signup-username">
-                  <span class="admin-label-text">Username</span>
-                  <input
-                    id="admin-signup-username"
-                    name="username"
-                    type="text"
-                    required
-                    minlength="3"
-                    maxlength="64"
-                    class="admin-input"
-                    autocomplete="username"
-                    spellcheck="false"
-                  />
-                </label>
-                <label class="admin-label" for="admin-signup-password">
-                  <span class="admin-label-text">Password</span>
-                  <input
-                    id="admin-signup-password"
-                    name="password"
-                    type="password"
-                    required
-                    minlength="8"
-                    class="admin-input"
-                    autocomplete="new-password"
-                  />
-                </label>
-                <label class="admin-label" for="admin-signup-key">
-                  <span class="admin-label-text">Signup key</span>
-                  <input
-                    id="admin-signup-key"
-                    name="signupKey"
-                    type="password"
-                    required
-                    class="admin-input"
-                    autocomplete="off"
-                  />
-                </label>
-                <button type="submit" class="btn btn-primary admin-submit">Create admin</button>
-              </fieldset>
-              <p id="admin-signup-status" class="admin-form-status muted" role="status"></p>
-            </form>
           </article>
         </div>
         </div>
@@ -1071,7 +979,7 @@
         <section class="admin-owner-tools" id="admin-reset-panel" hidden aria-label="Owner tools">
           <h2 class="admin-owner-tools-title">Owner tools</h2>
           <p class="muted admin-owner-tools-lead">
-            Creating admins, resetting passwords, and removing accounts require your session. Use the owner reset key for create, reset, and delete, or the signup key where noted on the public admin page. There is no self-serve “forgot password” for admins.
+            Creating admins, resetting passwords, and removing accounts require your session. Use the owner reset key for create, reset, and delete; use the signup key when calling <code class="plugin-code">POST /api/admin/signup</code> from the server or tooling if you bootstrap accounts outside the UI. There is no self-serve “forgot password” for admins.
           </p>
 
           <div class="admin-owner-grid">

@@ -4012,7 +4012,6 @@
     const hint = document.getElementById("admin-auth-signed-in-hint");
     const siteOauthNotice = document.getElementById("admin-auth-site-oauth-notice");
     const emailEl = document.getElementById("admin-profile-email");
-    const loginCard = document.getElementById("admin-login-card");
     const path = currentHashPath();
     const onProfile = path === "/admin/profile";
     try {
@@ -4076,7 +4075,6 @@
         const disp = hint.querySelector("[data-admin-username-display]");
         if (disp) disp.textContent = loginLabel;
       }
-      if (loginCard) loginCard.hidden = signedIn && !onProfile;
 
       const feats = await getSiteFeatures();
       const showOwnerTools = !!feats.showAdminOwnerTools;
@@ -4113,7 +4111,6 @@
         rsnSt0.hidden = true;
       }
       if (hint) hint.hidden = true;
-      if (loginCard) loginCard.hidden = false;
       if (resetPanel) resetPanel.hidden = true;
       const appInboxHide = document.getElementById("admin-application-inbox-section");
       if (appInboxHide) appInboxHide.hidden = true;
@@ -4124,75 +4121,6 @@
   function bindAdminPageOnce() {
     if (adminPageBound) return;
     adminPageBound = true;
-
-    const loginForm = document.getElementById("admin-login-form");
-    loginForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(loginForm);
-      const payload = {
-        username: String(fd.get("username") || "").trim(),
-        password: String(fd.get("password") || ""),
-      };
-      setAdminStatus("admin-login-status", "Logging in...", false);
-      try {
-        const r = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          setAdminStatus("admin-login-status", j.error || "Login failed.", true);
-          return;
-        }
-        setAdminStatus("admin-login-status", "Login successful.", false);
-        loginForm.reset();
-        try {
-          sessionStorage.setItem(ADMIN_LOGIN_PENDING_KEY, "1");
-        } catch {
-          /* ignore */
-        }
-        const target = "#/admin/profile";
-        if (currentHashPath() !== "/admin/profile") {
-          window.location.hash = target;
-        } else {
-          applyRoute();
-        }
-      } catch {
-        setAdminStatus("admin-login-status", "Could not reach the server.", true);
-      }
-    });
-
-    const signupForm = document.getElementById("admin-signup-form");
-    signupForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(signupForm);
-      const payload = {
-        username: String(fd.get("username") || "").trim(),
-        password: String(fd.get("password") || ""),
-        signupKey: String(fd.get("signupKey") || ""),
-      };
-      setAdminStatus("admin-signup-status", "Creating admin...", false);
-      try {
-        const r = await fetch("/api/admin/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          setAdminStatus("admin-signup-status", j.error || "Could not create admin.", true);
-          return;
-        }
-        setAdminStatus("admin-signup-status", "Admin created. You can sign in on the left.", false);
-        signupForm.reset();
-        await refreshAdminSessionStatus();
-      } catch {
-        setAdminStatus("admin-signup-status", "Could not reach the server.", true);
-      }
-    });
 
     const ownerCreateForm = document.getElementById("admin-owner-create-form");
     ownerCreateForm?.addEventListener("submit", async (e) => {
@@ -6462,6 +6390,13 @@
       const u = new URL(window.location.href);
       if (u.searchParams.get("oauth_discord") === "1") {
         const afterAdmin = u.searchParams.get("after") === "admin";
+        if (afterAdmin) {
+          try {
+            sessionStorage.setItem(ADMIN_LOGIN_PENDING_KEY, "1");
+          } catch {
+            /* ignore */
+          }
+        }
         u.search = "";
         history.replaceState(
           null,
