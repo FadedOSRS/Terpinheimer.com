@@ -554,9 +554,22 @@ async function writeOAuthUsersRecord(store) {
   await fs.promises.rename(tmp, OAUTH_USERS_PATH);
 }
 
+/**
+ * Discord `/users/@me` may encode `id` as a JSON number. `JSON.parse` loses precision for large
+ * snowflakes, breaking admin linking. Read exact digits from the raw body when present.
+ */
+function extractDiscordUserIdFromJsonBody(rawText) {
+  if (typeof rawText !== "string" || !rawText.trim()) return "";
+  const asString = rawText.match(/"id"\s*:\s*"(\d{5,25})"/);
+  if (asString) return asString[1];
+  const asNumber = rawText.match(/"id"\s*:\s*(\d{10,25})(?=\s*[,}])/);
+  if (asNumber) return asNumber[1];
+  return "";
+}
+
 function sanitizeOAuthDiscordProfile(j) {
   if (!j || typeof j !== "object") return null;
-  const id = String(j.id || "").trim();
+  const id = String(j.id ?? "").trim();
   if (!/^\d{5,25}$/.test(id)) return null;
   const username = String(j.username || "").trim().slice(0, 80);
   const globalName = j.global_name != null ? String(j.global_name).trim().slice(0, 80) : "";
@@ -755,7 +768,17 @@ async function handleOAuthApi(req, res, url) {
       const ur = await fetch("https://discord.com/api/users/@me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const uj = await ur.json().catch(() => ({}));
+      const rawUserJson = await ur.text();
+      let uj = {};
+      try {
+        uj = JSON.parse(rawUserJson);
+      } catch {
+        uj = {};
+      }
+      const idExact = extractDiscordUserIdFromJsonBody(rawUserJson);
+      if (idExact) {
+        uj = { ...uj, id: idExact };
+      }
       profile = sanitizeOAuthDiscordProfile(uj);
       if (!profile) {
         res.writeHead(302, { Location: loginErrQs("invalid_profile") });
