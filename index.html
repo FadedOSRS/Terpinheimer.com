@@ -661,10 +661,112 @@
               <div class="oauth-profile-meta">
                 <p class="oauth-profile-name" id="oauth-profile-name">Signed in</p>
                 <p class="muted oauth-profile-sub" id="oauth-profile-discord">Discord: -</p>
-                <p class="muted oauth-profile-sub" id="oauth-profile-id">ID: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-discord-id">Discord ID: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-id">Account ID: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-provider">Provider: Discord</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-email">Email: -</p>
                 <p class="muted oauth-profile-sub" id="oauth-profile-roles">Roles: member</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-created">Joined: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-profile-last-login">Last sign-in: -</p>
               </div>
             </div>
+
+            <section class="oauth-profile-edit" aria-label="Edit profile">
+              <h2 class="admin-dashboard-heading oauth-profile-section-title">Profile details</h2>
+              <form id="oauth-profile-form" class="admin-form" autocomplete="on">
+                <fieldset class="admin-form-fieldset">
+                  <label class="admin-label" for="oauth-profile-display-name">
+                    <span class="admin-label-text">Display name</span>
+                    <input
+                      id="oauth-profile-display-name"
+                      name="displayName"
+                      type="text"
+                      maxlength="80"
+                      class="admin-input"
+                      autocomplete="nickname"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="admin-label" for="oauth-profile-rsn">
+                    <span class="admin-label-text">OSRS RSN</span>
+                    <input
+                      id="oauth-profile-rsn"
+                      name="osrsRsn"
+                      type="text"
+                      maxlength="32"
+                      class="admin-input"
+                      autocomplete="username"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="admin-label" for="oauth-profile-location">
+                    <span class="admin-label-text">Location</span>
+                    <input
+                      id="oauth-profile-location"
+                      name="location"
+                      type="text"
+                      maxlength="80"
+                      class="admin-input"
+                      autocomplete="address-level2"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="admin-label" for="oauth-profile-timezone">
+                    <span class="admin-label-text">Timezone</span>
+                    <input
+                      id="oauth-profile-timezone"
+                      name="timezone"
+                      type="text"
+                      maxlength="80"
+                      class="admin-input"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="e.g. UTC-5 / EST"
+                    />
+                  </label>
+                  <label class="admin-label" for="oauth-profile-fav-activity">
+                    <span class="admin-label-text">Favorite activity</span>
+                    <input
+                      id="oauth-profile-fav-activity"
+                      name="favoriteActivity"
+                      type="text"
+                      maxlength="80"
+                      class="admin-input"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="e.g. ToA, clue scrolls, skilling"
+                    />
+                  </label>
+                  <label class="admin-label" for="oauth-profile-website">
+                    <span class="admin-label-text">Website / Link</span>
+                    <input
+                      id="oauth-profile-website"
+                      name="website"
+                      type="url"
+                      maxlength="180"
+                      class="admin-input"
+                      autocomplete="url"
+                      spellcheck="false"
+                      placeholder="https://..."
+                    />
+                  </label>
+                  <label class="admin-label oauth-profile-bio-label" for="oauth-profile-bio">
+                    <span class="admin-label-text">Bio</span>
+                    <textarea
+                      id="oauth-profile-bio"
+                      name="bio"
+                      class="admin-input clan-apply-essay"
+                      maxlength="500"
+                      rows="4"
+                      placeholder="Tell people a bit about yourself..."
+                    ></textarea>
+                  </label>
+                  <button type="submit" class="btn btn-primary admin-submit oauth-profile-save-btn">Save profile</button>
+                </fieldset>
+                <p id="oauth-profile-form-status" class="admin-form-status muted" role="status"></p>
+              </form>
+            </section>
+
             <div class="oauth-profile-actions">
               <p class="muted oauth-profile-admin-line" id="oauth-profile-admin-line" hidden>Admin session: not active</p>
               <a href="#/admin" class="btn btn-ghost" id="oauth-profile-admin-link" hidden>Open admin sign-in</a>

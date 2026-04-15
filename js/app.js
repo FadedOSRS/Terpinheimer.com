@@ -1533,6 +1533,69 @@
     }
   }
 
+  function fmtProfileDateTime(v) {
+    if (!v) return "-";
+    try {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleString();
+    } catch {
+      return String(v);
+    }
+  }
+
+  function setOauthProfileFormStatus(text, isError) {
+    const el = document.getElementById("oauth-profile-form-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.hidden = !text;
+    el.classList.toggle("admin-form-status--error", !!isError);
+    el.classList.toggle("muted", !isError);
+  }
+
+  let oauthProfileFormBound = false;
+  function bindOAuthProfileFormOnce() {
+    if (oauthProfileFormBound) return;
+    const form = document.getElementById("oauth-profile-form");
+    if (!form) return;
+    oauthProfileFormBound = true;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        profile: {
+          displayName: String(fd.get("displayName") || "").trim(),
+          osrsRsn: String(fd.get("osrsRsn") || "").trim(),
+          location: String(fd.get("location") || "").trim(),
+          timezone: String(fd.get("timezone") || "").trim(),
+          favoriteActivity: String(fd.get("favoriteActivity") || "").trim(),
+          website: String(fd.get("website") || "").trim(),
+          bio: String(fd.get("bio") || "").trim(),
+        },
+      };
+      setOauthProfileFormStatus("Saving profile...", false);
+      try {
+        const r = await fetch("/api/oauth/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setOauthProfileFormStatus(j.error || "Could not save profile.", true);
+          return;
+        }
+        await refreshOAuthSessionUi();
+        const nameEl = document.getElementById("oauth-profile-name");
+        if (nameEl && payload.profile.displayName) nameEl.textContent = payload.profile.displayName;
+        setOauthProfileFormStatus("Profile saved.", false);
+      } catch {
+        setOauthProfileFormStatus("Could not reach the server.", true);
+      }
+    });
+  }
+
   function showLoginView() {
     closeMobileNav();
     const hv = document.getElementById("home-view");
@@ -1648,22 +1711,36 @@
     window.scrollTo(0, 0);
     document.title = "My profile | Terpinheimer";
     bindOAuthNavOnce();
+    bindOAuthProfileFormOnce();
     void (async () => {
       const statusEl = document.getElementById("oauth-profile-status");
       const contentEl = document.getElementById("oauth-profile-content");
       const nameEl = document.getElementById("oauth-profile-name");
       const discordEl = document.getElementById("oauth-profile-discord");
+      const discordIdEl = document.getElementById("oauth-profile-discord-id");
       const idEl = document.getElementById("oauth-profile-id");
+      const providerEl = document.getElementById("oauth-profile-provider");
+      const emailEl = document.getElementById("oauth-profile-email");
       const rolesEl = document.getElementById("oauth-profile-roles");
+      const createdEl = document.getElementById("oauth-profile-created");
+      const lastLoginEl = document.getElementById("oauth-profile-last-login");
       const avatarEl = document.getElementById("oauth-profile-avatar");
       const adminLineEl = document.getElementById("oauth-profile-admin-line");
       const adminLinkEl = document.getElementById("oauth-profile-admin-link");
+      const displayNameInp = document.getElementById("oauth-profile-display-name");
+      const rsnInp = document.getElementById("oauth-profile-rsn");
+      const locationInp = document.getElementById("oauth-profile-location");
+      const timezoneInp = document.getElementById("oauth-profile-timezone");
+      const favoriteInp = document.getElementById("oauth-profile-fav-activity");
+      const websiteInp = document.getElementById("oauth-profile-website");
+      const bioInp = document.getElementById("oauth-profile-bio");
       const params = getHashQueryParams();
       if (statusEl) {
         statusEl.hidden = true;
         statusEl.textContent = "";
         statusEl.classList.remove("admin-form-status--error");
       }
+      setOauthProfileFormStatus("", false);
       const j = await fetchOAuthMeSafe();
       if (j.configured === false || !j.authenticated || !j.user) {
         if (statusEl) {
@@ -1675,15 +1752,28 @@
         window.location.hash = "#/login";
         return;
       }
+      const profile = j.user.profile && typeof j.user.profile === "object" ? j.user.profile : {};
       if (contentEl) contentEl.hidden = false;
-      if (nameEl) nameEl.textContent = j.user.username || "Signed in";
-      if (discordEl) discordEl.textContent = `Discord username: ${j.user.discordUsername || j.user.username || "-"}`;
-      if (idEl) idEl.textContent = `Discord ID: ${j.user.id || "-"}`;
+      if (nameEl) nameEl.textContent = profile.displayName || j.user.username || "Signed in";
+      if (discordEl) discordEl.textContent = `Discord username: ${j.user.discordUsername || "-"}`;
+      if (discordIdEl) discordIdEl.textContent = `Discord ID: ${j.user.discordUserId || "-"}`;
+      if (idEl) idEl.textContent = `Account ID: ${j.user.accountId || j.user.id || "-"}`;
+      if (providerEl) providerEl.textContent = `Provider: ${j.user.provider || "discord"}`;
+      if (emailEl) emailEl.textContent = `Email: ${j.user.email || "-"}`;
+      if (createdEl) createdEl.textContent = `Joined: ${fmtProfileDateTime(j.user.createdAt)}`;
+      if (lastLoginEl) lastLoginEl.textContent = `Last sign-in: ${fmtProfileDateTime(j.user.lastLoginAt)}`;
       const roleList = Array.isArray(j.user.roles) && j.user.roles.length ? j.user.roles : ["member"];
       const normalizedRoles = roleList.map((r) => String(r).trim().toLowerCase()).filter(Boolean);
       const roles = normalizedRoles.length ? normalizedRoles.join(", ") : "member";
       const isMemberOnly = normalizedRoles.length > 0 && normalizedRoles.every((r) => r === "member");
       if (rolesEl) rolesEl.textContent = `Roles: ${roles}`;
+      if (displayNameInp) displayNameInp.value = profile.displayName || "";
+      if (rsnInp) rsnInp.value = profile.osrsRsn || "";
+      if (locationInp) locationInp.value = profile.location || "";
+      if (timezoneInp) timezoneInp.value = profile.timezone || "";
+      if (favoriteInp) favoriteInp.value = profile.favoriteActivity || "";
+      if (websiteInp) websiteInp.value = profile.website || "";
+      if (bioInp) bioInp.value = profile.bio || "";
       if (avatarEl) {
         if (j.user.avatarUrl) {
           avatarEl.src = j.user.avatarUrl;
@@ -1743,7 +1833,7 @@
       if (statusEl && params.get("oauth") === "success") {
         statusEl.hidden = false;
         statusEl.classList.remove("admin-form-status--error");
-        statusEl.textContent = "Signed in with Discord.";
+        statusEl.textContent = "Signed in with Discord. Complete your member profile below.";
         try {
           history.replaceState(
             null,

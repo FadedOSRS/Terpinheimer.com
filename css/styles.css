@@ -3878,12 +3878,16 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
 }
 
 .oauth-profile-panel {
-  max-width: 34rem;
+  max-width: 56rem;
 }
 
 .oauth-profile-content {
   display: grid;
   gap: 1rem;
+}
+
+.oauth-profile-section-title {
+  margin: 0;
 }
 
 .oauth-profile-head {
@@ -3910,10 +3914,38 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-size: 0.88rem;
 }
 
+.oauth-profile-edit {
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 1rem;
+}
+
+.oauth-profile-edit .admin-form-fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+#oauth-profile-bio {
+  min-height: 6.5rem;
+}
+
+.oauth-profile-bio-label,
+.oauth-profile-save-btn {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 820px) {
+  .oauth-profile-edit .admin-form-fieldset {
+    grid-template-columns: 1fr;
+  }
+}
+
 .oauth-profile-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 0.9rem;
 }
 
 .oauth-profile-admin-line {

@@ -600,6 +600,29 @@ function sanitizeOAuthDiscordProfile(j) {
   return { id, username, displayName, email: email || undefined, avatarUrl };
 }
 
+function sanitizeProfileText(v, maxLen) {
+  const t = String(v ?? "")
+    .trim()
+    .slice(0, maxLen);
+  return t || undefined;
+}
+
+function sanitizeOAuthMemberProfile(input) {
+  const src = input && typeof input === "object" ? input : {};
+  const out = {
+    displayName: sanitizeProfileText(src.displayName, 80),
+    bio: sanitizeProfileText(src.bio, 500),
+    location: sanitizeProfileText(src.location, 80),
+    timezone: sanitizeProfileText(src.timezone, 80),
+    osrsRsn: sanitizeProfileText(src.osrsRsn, 32),
+    favoriteActivity: sanitizeProfileText(src.favoriteActivity, 80),
+  };
+  const websiteRaw = sanitizeProfileText(src.website, 180);
+  if (websiteRaw && isHttpsUrl(websiteRaw)) out.website = websiteRaw;
+  else out.website = undefined;
+  return out;
+}
+
 async function handleOAuthApi(req, res, url) {
   const cors = {
     "Content-Type": "application/json; charset=utf-8",
@@ -648,6 +671,8 @@ async function handleOAuthApi(req, res, url) {
         return;
       }
       const roles = Array.isArray(user.roles) ? user.roles.map((r) => String(r)) : ["member"];
+      const memberProfile = sanitizeOAuthMemberProfile(user.profile);
+      const displayName = memberProfile.displayName || user.displayName || user.username || "User";
       res.writeHead(200, cors);
       res.end(
         JSON.stringify({
@@ -655,17 +680,73 @@ async function handleOAuthApi(req, res, url) {
           configured: true,
           user: {
             id: user.id,
+            accountId: user.id,
+            discordUserId: user.providerUserId || null,
             provider: user.provider || "discord",
-            username: user.displayName || user.username || "User",
+            username: displayName,
             discordUsername: user.username || undefined,
+            email: user.email || null,
             avatarUrl: user.avatarUrl || null,
             roles,
+            profile: memberProfile,
+            createdAt: user.createdAt || null,
+            lastLoginAt: user.lastLoginAt || null,
           },
         })
       );
     } catch {
       res.writeHead(500, cors);
       res.end(JSON.stringify({ error: "Could not read account data." }));
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/oauth/profile") {
+    if (req.method !== "POST") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    if (!oauthSecret || oauthSecret.length < 16) {
+      res.writeHead(503, cors);
+      res.end(JSON.stringify({ error: "OAuth is not configured on the server.", configured: false }));
+      return;
+    }
+    const userId = readOAuthSessionFromRequest(req);
+    if (!userId) {
+      res.writeHead(401, cors);
+      res.end(JSON.stringify({ error: "Sign-in required." }));
+      return;
+    }
+    const read = await readRequestBody(req, MAX_BODY);
+    if (read.error) {
+      res.writeHead(413, cors);
+      res.end(JSON.stringify({ error: "Body too large." }));
+      return;
+    }
+    const body = parseJsonBody(read.buf);
+    if (!body || typeof body !== "object") {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Invalid JSON." }));
+      return;
+    }
+    const profileUpdate = sanitizeOAuthMemberProfile(body.profile);
+    try {
+      const data = await readOAuthUsersRecord();
+      const idx = data.users.findIndex((u) => u && u.id === userId);
+      if (idx < 0) {
+        res.writeHead(401, cors);
+        res.end(JSON.stringify({ error: "Sign-in required." }));
+        return;
+      }
+      data.users[idx].profile = profileUpdate;
+      data.users[idx].updatedAt = new Date().toISOString();
+      await writeOAuthUsersRecord(data);
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ ok: true, profile: profileUpdate }));
+    } catch {
+      res.writeHead(500, cors);
+      res.end(JSON.stringify({ error: "Could not save profile." }));
     }
     return;
   }
