@@ -1414,6 +1414,11 @@
     if (el) el.hidden = true;
   }
 
+  function hideOAuthPublicProfileView() {
+    const el = document.getElementById("oauth-public-profile-view");
+    if (el) el.hidden = true;
+  }
+
   /** Query string after `#` route, e.g. `#/login?oauth=success` → `oauth=success`. */
   function getHashQueryParams() {
     const raw = window.location.hash ? window.location.hash.slice(1) : "";
@@ -1707,6 +1712,7 @@
     const applyv = document.getElementById("apply-view");
     const oauthLoginV = document.getElementById("oauth-login-view");
     const oauthProfileV = document.getElementById("oauth-profile-view");
+    const oauthPublicV = document.getElementById("oauth-public-profile-view");
     if (hv) hv.hidden = true;
     if (mv) mv.hidden = true;
     if (listv) listv.hidden = true;
@@ -1717,6 +1723,7 @@
     if (adminv) adminv.hidden = true;
     if (applyv) applyv.hidden = true;
     if (oauthLoginV) oauthLoginV.hidden = true;
+    if (oauthPublicV) oauthPublicV.hidden = true;
     document.body.classList.remove("map-route-live");
     stopLiveMapPoll();
     if (oauthProfileV) oauthProfileV.hidden = false;
@@ -1739,6 +1746,7 @@
       const avatarEl = document.getElementById("oauth-profile-avatar");
       const adminLineEl = document.getElementById("oauth-profile-admin-line");
       const adminLinkEl = document.getElementById("oauth-profile-admin-link");
+      const siteLinkEl = document.getElementById("oauth-profile-site-link");
       const displayNameInp = document.getElementById("oauth-profile-display-name");
       const rsnInp = document.getElementById("oauth-profile-rsn");
       const locationInp = document.getElementById("oauth-profile-location");
@@ -1786,6 +1794,10 @@
       if (favoriteInp) favoriteInp.value = profile.favoriteActivity || "";
       if (websiteInp) websiteInp.value = profile.website || "";
       if (bioInp) bioInp.value = profile.bio || "";
+      if (siteLinkEl) {
+        const aid = String(j.user.accountId || j.user.id || "").trim();
+        if (aid) siteLinkEl.setAttribute("href", `#/site-profile/${encodeURIComponent(aid)}`);
+      }
       if (avatarEl) {
         if (j.user.avatarUrl) {
           avatarEl.src = j.user.avatarUrl;
@@ -1854,6 +1866,110 @@
           );
         } catch {
           /* ignore */
+        }
+      }
+    })();
+  }
+
+  function showOAuthPublicProfileView(accountId) {
+    closeMobileNav();
+    hideOAuthLoginView();
+    hideOAuthProfileView();
+    const hv = document.getElementById("home-view");
+    const mv = document.getElementById("member-view");
+    const listv = document.getElementById("members-list-view");
+    const evw = document.getElementById("events-view");
+    const plugv = document.getElementById("plugin-view");
+    const bingov = document.getElementById("bingo-view");
+    const mapv = document.getElementById("map-view");
+    const adminv = document.getElementById("admin-view");
+    const applyv = document.getElementById("apply-view");
+    const publicv = document.getElementById("oauth-public-profile-view");
+    if (hv) hv.hidden = true;
+    if (mv) mv.hidden = true;
+    if (listv) listv.hidden = true;
+    if (evw) evw.hidden = true;
+    if (plugv) plugv.hidden = true;
+    if (bingov) bingov.hidden = true;
+    if (mapv) mapv.hidden = true;
+    if (adminv) adminv.hidden = true;
+    if (applyv) applyv.hidden = true;
+    document.body.classList.remove("map-route-live");
+    stopLiveMapPoll();
+    if (publicv) publicv.hidden = false;
+    window.scrollTo(0, 0);
+    document.title = "Site profile | Terpinheimer";
+    void (async () => {
+      const statusEl = document.getElementById("oauth-public-status");
+      const contentEl = document.getElementById("oauth-public-content");
+      const crumbEl = document.getElementById("oauth-public-crumb");
+      const titleEl = document.getElementById("oauth-public-title");
+      const nameEl = document.getElementById("oauth-public-name");
+      const discordEl = document.getElementById("oauth-public-discord");
+      const rsnEl = document.getElementById("oauth-public-rsn");
+      const locationEl = document.getElementById("oauth-public-location");
+      const timezoneEl = document.getElementById("oauth-public-timezone");
+      const favoriteEl = document.getElementById("oauth-public-favorite");
+      const rolesEl = document.getElementById("oauth-public-roles");
+      const bioEl = document.getElementById("oauth-public-bio");
+      const websiteEl = document.getElementById("oauth-public-website");
+      const avatarEl = document.getElementById("oauth-public-avatar");
+      if (statusEl) {
+        statusEl.hidden = true;
+        statusEl.textContent = "";
+        statusEl.classList.remove("admin-form-status--error");
+      }
+      if (contentEl) contentEl.hidden = true;
+      try {
+        const r = await fetch(`/api/oauth/public/${encodeURIComponent(accountId)}`, { credentials: "include" });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j || !j.user) {
+          if (statusEl) {
+            statusEl.hidden = false;
+            statusEl.textContent = j.error || "Could not load this member profile.";
+            statusEl.classList.add("admin-form-status--error");
+          }
+          return;
+        }
+        const u = j.user;
+        const p = u.profile && typeof u.profile === "object" ? u.profile : {};
+        const display = u.username || u.discordUsername || "Member";
+        if (crumbEl) crumbEl.textContent = display;
+        if (titleEl) titleEl.textContent = `${display} | Site profile`;
+        if (nameEl) nameEl.textContent = display;
+        if (discordEl) discordEl.textContent = `Discord username: ${u.discordUsername || "-"}`;
+        if (rsnEl) rsnEl.textContent = `OSRS RSN: ${p.osrsRsn || "-"}`;
+        if (locationEl) locationEl.textContent = `Location: ${p.location || "-"}`;
+        if (timezoneEl) timezoneEl.textContent = `Timezone: ${p.timezone || "-"}`;
+        if (favoriteEl) favoriteEl.textContent = `Favorite activity: ${p.favoriteActivity || "-"}`;
+        const roleList = Array.isArray(u.roles) ? u.roles.map((x) => String(x).trim()).filter(Boolean) : [];
+        if (rolesEl) rolesEl.textContent = `Roles: ${roleList.length ? roleList.join(", ") : "member"}`;
+        if (bioEl) bioEl.textContent = p.bio || "No bio added yet.";
+        if (websiteEl) {
+          if (p.website) {
+            websiteEl.hidden = false;
+            websiteEl.href = p.website;
+            websiteEl.textContent = p.website;
+          } else {
+            websiteEl.hidden = true;
+            websiteEl.removeAttribute("href");
+          }
+        }
+        if (avatarEl) {
+          if (u.avatarUrl) {
+            avatarEl.hidden = false;
+            avatarEl.src = u.avatarUrl;
+          } else {
+            avatarEl.hidden = true;
+            avatarEl.removeAttribute("src");
+          }
+        }
+        if (contentEl) contentEl.hidden = false;
+      } catch {
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = "Could not reach the server.";
+          statusEl.classList.add("admin-form-status--error");
         }
       }
     })();
@@ -4603,6 +4719,7 @@
   function applyRoute() {
     const path = currentHashPath();
     if (path !== "/profile") hideOAuthProfileView();
+    if (!/^\/site-profile\/[^/]+$/i.test(path)) hideOAuthPublicProfileView();
 
     const segs = path.split("/").filter(Boolean);
     const routeRoot = segs[0]?.toLowerCase();
@@ -4628,6 +4745,21 @@
 
     if (path === "/profile") {
       showOAuthProfileView();
+      return;
+    }
+
+    if (path === "/site-profile") {
+      void (async () => {
+        const j = await fetchOAuthMeSafe();
+        const aid = j && j.authenticated && j.user ? String(j.user.accountId || j.user.id || "").trim() : "";
+        if (aid) window.location.hash = `#/site-profile/${encodeURIComponent(aid)}`;
+        else window.location.hash = "#/login";
+      })();
+      return;
+    }
+    const siteProfileMatch = path.match(/^\/site-profile\/([a-z0-9-]+)$/i);
+    if (siteProfileMatch) {
+      showOAuthPublicProfileView(siteProfileMatch[1]);
       return;
     }
 

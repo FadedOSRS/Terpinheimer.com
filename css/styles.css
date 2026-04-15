@@ -3958,6 +3958,22 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   font-size: 0.82rem;
 }
 
+.oauth-public-avatar {
+  width: 92px;
+  height: 92px;
+}
+
+.oauth-public-bio-wrap {
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 0.95rem;
+}
+
+.oauth-public-bio {
+  margin: 0 0 0.55rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .members-toolbar {
   margin-bottom: 1.25rem;
   max-width: 22rem;

@@ -768,9 +768,53 @@
             </section>
 
             <div class="oauth-profile-actions">
+              <a href="#/site-profile" class="btn btn-ghost" id="oauth-profile-site-link">Site profile</a>
               <p class="muted oauth-profile-admin-line" id="oauth-profile-admin-line" hidden>Admin session: not active</p>
               <a href="#/admin" class="btn btn-ghost" id="oauth-profile-admin-link" hidden>Open admin sign-in</a>
               <button type="button" class="btn btn-ghost" id="oauth-profile-signout">Sign out</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="oauth-public-profile-view" class="plugin-view" hidden>
+      <div class="container member-wrap">
+        <nav class="member-crumb" aria-label="Breadcrumb">
+          <a href="#/">Home</a> <span class="crumb-sep">/</span> <span id="oauth-public-crumb">Site profile</span>
+        </nav>
+        <header class="members-list-header">
+          <h1 class="section-title members-list-heading" id="oauth-public-title">Site profile</h1>
+          <hr class="rule" />
+          <p class="lead muted">Public member profile shared from the site account.</p>
+        </header>
+        <section class="member-panel member-wide plugin-panel oauth-login-panel oauth-profile-panel">
+          <p id="oauth-public-status" class="admin-form-status muted" role="status" hidden></p>
+          <div id="oauth-public-content" class="oauth-profile-content" hidden>
+            <div class="oauth-profile-head">
+              <img
+                id="oauth-public-avatar"
+                class="oauth-profile-avatar oauth-public-avatar"
+                alt=""
+                width="92"
+                height="92"
+                decoding="async"
+                hidden
+              />
+              <div class="oauth-profile-meta">
+                <p class="oauth-profile-name" id="oauth-public-name">Member</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-discord">Discord username: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-rsn">OSRS RSN: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-location">Location: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-timezone">Timezone: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-favorite">Favorite activity: -</p>
+                <p class="muted oauth-profile-sub" id="oauth-public-roles">Roles: member</p>
+              </div>
+            </div>
+            <div class="oauth-public-bio-wrap">
+              <h2 class="admin-dashboard-heading oauth-profile-section-title">About</h2>
+              <p class="muted oauth-public-bio" id="oauth-public-bio">No bio added yet.</p>
+              <a id="oauth-public-website" class="wom-link" href="#" target="_blank" rel="noopener" hidden>Open website</a>
             </div>
           </div>
         </section>

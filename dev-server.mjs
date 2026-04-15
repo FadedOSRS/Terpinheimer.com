@@ -623,6 +623,23 @@ function sanitizeOAuthMemberProfile(input) {
   return out;
 }
 
+function oauthPublicUserView(user) {
+  const roles = Array.isArray(user?.roles) ? user.roles.map((r) => String(r)) : ["member"];
+  const profile = sanitizeOAuthMemberProfile(user?.profile);
+  return {
+    accountId: user?.id || null,
+    provider: user?.provider || "discord",
+    username: profile.displayName || user?.displayName || user?.username || "User",
+    discordUsername: user?.username || undefined,
+    discordUserId: user?.providerUserId || null,
+    avatarUrl: user?.avatarUrl || null,
+    roles,
+    profile,
+    createdAt: user?.createdAt || null,
+    lastLoginAt: user?.lastLoginAt || null,
+  };
+}
+
 async function handleOAuthApi(req, res, url) {
   const cors = {
     "Content-Type": "application/json; charset=utf-8",
@@ -670,9 +687,7 @@ async function handleOAuthApi(req, res, url) {
         res.end(JSON.stringify({ authenticated: false, configured: true }));
         return;
       }
-      const roles = Array.isArray(user.roles) ? user.roles.map((r) => String(r)) : ["member"];
-      const memberProfile = sanitizeOAuthMemberProfile(user.profile);
-      const displayName = memberProfile.displayName || user.displayName || user.username || "User";
+      const roleView = oauthPublicUserView(user);
       res.writeHead(200, cors);
       res.end(
         JSON.stringify({
@@ -680,20 +695,40 @@ async function handleOAuthApi(req, res, url) {
           configured: true,
           user: {
             id: user.id,
-            accountId: user.id,
-            discordUserId: user.providerUserId || null,
-            provider: user.provider || "discord",
-            username: displayName,
-            discordUsername: user.username || undefined,
             email: user.email || null,
-            avatarUrl: user.avatarUrl || null,
-            roles,
-            profile: memberProfile,
-            createdAt: user.createdAt || null,
-            lastLoginAt: user.lastLoginAt || null,
+            ...roleView,
           },
         })
       );
+    } catch {
+      res.writeHead(500, cors);
+      res.end(JSON.stringify({ error: "Could not read account data." }));
+    }
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/oauth/public/")) {
+    if (req.method !== "GET") {
+      res.writeHead(405, cors);
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    const accountIdRaw = decodeURIComponent(url.pathname.slice("/api/oauth/public/".length)).trim();
+    if (!accountIdRaw || accountIdRaw.length > 128 || !/^[a-z0-9-]+$/i.test(accountIdRaw)) {
+      res.writeHead(400, cors);
+      res.end(JSON.stringify({ error: "Invalid account id." }));
+      return;
+    }
+    try {
+      const data = await readOAuthUsersRecord();
+      const user = data.users.find((u) => u && String(u.id || "") === accountIdRaw);
+      if (!user) {
+        res.writeHead(404, cors);
+        res.end(JSON.stringify({ error: "Profile not found." }));
+        return;
+      }
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ found: true, user: oauthPublicUserView(user) }));
     } catch {
       res.writeHead(500, cors);
       res.end(JSON.stringify({ error: "Could not read account data." }));
