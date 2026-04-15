@@ -3910,6 +3910,12 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   gap: 0.55rem;
 }
 
+.oauth-profile-admin-line {
+  width: 100%;
+  margin: 0 0 0.2rem;
+  font-size: 0.82rem;
+}
+
 .members-toolbar {
   margin-bottom: 1.25rem;
   max-width: 22rem;

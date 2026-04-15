@@ -1656,6 +1656,8 @@
       const idEl = document.getElementById("oauth-profile-id");
       const rolesEl = document.getElementById("oauth-profile-roles");
       const avatarEl = document.getElementById("oauth-profile-avatar");
+      const adminLineEl = document.getElementById("oauth-profile-admin-line");
+      const adminLinkEl = document.getElementById("oauth-profile-admin-link");
       const params = getHashQueryParams();
       if (statusEl) {
         statusEl.hidden = true;
@@ -1686,6 +1688,33 @@
         } else {
           avatarEl.removeAttribute("src");
           avatarEl.hidden = true;
+        }
+      }
+      try {
+        const ar = await fetch("/api/admin/me", { credentials: "include" });
+        const aj = await ar.json().catch(() => ({}));
+        const adminName =
+          aj && aj.authenticated && aj.admin && typeof aj.admin.username === "string"
+            ? aj.admin.username.trim()
+            : "";
+        if (adminName) {
+          if (adminLineEl) adminLineEl.textContent = `Admin session: active as ${adminName}`;
+          if (adminLinkEl) {
+            adminLinkEl.textContent = "Open admin dashboard";
+            adminLinkEl.setAttribute("href", "#/admin/profile");
+          }
+        } else {
+          if (adminLineEl) adminLineEl.textContent = "Admin session: not active for this account";
+          if (adminLinkEl) {
+            adminLinkEl.textContent = "Open admin sign-in";
+            adminLinkEl.setAttribute("href", "#/admin");
+          }
+        }
+      } catch {
+        if (adminLineEl) adminLineEl.textContent = "Admin session: unavailable";
+        if (adminLinkEl) {
+          adminLinkEl.textContent = "Open admin sign-in";
+          adminLinkEl.setAttribute("href", "#/admin");
         }
       }
       if (statusEl && params.get("oauth") === "success") {
