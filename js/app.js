@@ -5651,6 +5651,19 @@
     });
   }
 
+  async function prefillClanApplyFromOAuth() {
+    const rsnInput = document.getElementById("clan-apply-rsn");
+    const discordInput = document.getElementById("clan-apply-discord");
+    if (!rsnInput || !discordInput) return;
+    const j = await fetchOAuthMeSafe();
+    if (!(j && j.authenticated && j.user)) return;
+    const p = j.user.profile && typeof j.user.profile === "object" ? j.user.profile : {};
+    const rsn = String(p.osrsRsn || "").trim();
+    const discord = String(j.user.discordUsername || j.user.username || "").trim();
+    if (!rsnInput.value.trim() && rsn) rsnInput.value = rsn;
+    if (!discordInput.value.trim() && discord) discordInput.value = discord;
+  }
+
   function setText(id, text) {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
@@ -6597,6 +6610,7 @@
     window.scrollTo(0, 0);
     document.title = "Apply | Terpinheimer";
     applyDiscordInviteLinks();
+    void prefillClanApplyFromOAuth();
   }
 
   function showMapView() {
