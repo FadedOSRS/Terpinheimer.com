@@ -39,3 +39,11 @@ services:
         value: /var/data
       - key: ADMIN_USERS_DIR
         value: /var/data
+      # Persist OAuth-linked accounts (oauth-users.json). Same disk as admin-users.json.
+      - key: OAUTH_USERS_DIR
+        value: /var/data
+      # Map one Discord snowflake to one admin username (must match admin-users.json). Set values in the Render dashboard.
+      - key: ADMIN_OAUTH_DISCORD_ID
+        sync: false
+      - key: ADMIN_OAUTH_ADMIN_USERNAME
+        sync: false

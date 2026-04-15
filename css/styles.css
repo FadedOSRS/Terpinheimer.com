@@ -3155,6 +3155,24 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   line-height: 1.55;
 }
 
+.admin-auth-gate-notice {
+  max-width: 38rem;
+  margin: 0 auto 1.25rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 107, 107, 0.55);
+  background: rgba(180, 40, 40, 0.12);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  text-align: left;
+  color: rgba(227, 213, 184, 0.95);
+}
+
+.admin-auth-gate-notice strong {
+  color: var(--cream);
+  font-weight: 600;
+}
+
 .admin-auth-signed-in-hint {
   max-width: 38rem;
   margin: 0 auto 1.25rem;

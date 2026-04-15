@@ -1416,6 +1416,42 @@
     return new URLSearchParams(qPart);
   }
 
+  /** After OAuth, /admin/profile may redirect here with ?admin_gate=… — show once then strip from hash. */
+  function consumeAdminGateMessage() {
+    if (currentHashPath() !== "/admin") return;
+    const el = document.getElementById("admin-auth-gate-notice");
+    if (!el) return;
+    let gate = "";
+    try {
+      gate = getHashQueryParams().get("admin_gate") || "";
+    } catch {
+      gate = "";
+    }
+    const trustedHtml = {
+      discord_not_linked:
+        "<strong>Not linked as an admin.</strong> Discord sign-in worked, but this Discord user is not linked to an administrator on the server. Add <span class=\"admin-env-file-name\">discordUserId</span> to that admin row in <span class=\"admin-env-file-name\">admin-users.json</span> (see <span class=\"admin-env-file-name\">.env.example</span>), or set <span class=\"admin-env-file-name\">ADMIN_OAUTH_DISCORD_ID</span> + <span class=\"admin-env-file-name\">ADMIN_OAUTH_ADMIN_USERNAME</span>. The host must also have <span class=\"admin-env-file-name\">ADMIN_AUTH_SECRET</span> set. Then use <strong>Sign in with Discord</strong> again.",
+      verify_failed:
+        "<strong>Could not verify administrator session.</strong> Try <strong>Sign in with Discord</strong> again. If this continues, check the server logs and that OAuth credentials are configured.",
+    };
+    const html = gate ? trustedHtml[gate] : "";
+    if (!html) {
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+    el.innerHTML = html;
+    el.hidden = false;
+    try {
+      history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}#/admin`
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
   let oauthNavBound = false;
 
   function bindOAuthNavOnce() {
@@ -4362,6 +4398,12 @@
       setAdminSubview("pending");
       document.title = "Admin dashboard | Terpinheimer";
       void (async () => {
+        let oauthProfileReturn = false;
+        try {
+          oauthProfileReturn = getHashQueryParams().get("oauth") === "success";
+        } catch {
+          oauthProfileReturn = false;
+        }
         try {
           let postLogin = false;
           try {
@@ -4374,7 +4416,9 @@
           if (gen !== adminProfileRouteGeneration) return;
           const signedIn = adminMeIsSignedIn(j);
           if (!signedIn) {
-            window.location.hash = "#/admin";
+            window.location.hash = oauthProfileReturn
+              ? "#/admin?admin_gate=discord_not_linked"
+              : "#/admin";
             return;
           }
           setAdminSubview("profile");
@@ -4398,7 +4442,9 @@
             /* ignore */
           }
           if (gen !== adminProfileRouteGeneration) return;
-          window.location.hash = "#/admin";
+          window.location.hash = oauthProfileReturn
+            ? "#/admin?admin_gate=verify_failed"
+            : "#/admin";
         }
       })();
       return;
@@ -4408,7 +4454,10 @@
       showAdminShell();
       setAdminSubview("auth");
       document.title = "Administrator | Terpinheimer";
-      void refreshAdminSessionStatus();
+      void (async () => {
+        await refreshAdminSessionStatus();
+        consumeAdminGateMessage();
+      })();
       return;
     }
 
