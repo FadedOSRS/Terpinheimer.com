@@ -3821,6 +3821,12 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   display: none !important;
 }
 
+/* Profile page admin controls use `.btn` (display:inline-block), so enforce hidden state explicitly. */
+#oauth-profile-admin-link[hidden],
+#oauth-profile-admin-line[hidden] {
+  display: none !important;
+}
+
 .nav-oauth-name {
   overflow: hidden;
   text-overflow: ellipsis;
