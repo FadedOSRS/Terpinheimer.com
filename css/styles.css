@@ -3756,6 +3756,12 @@ html.use-scroll-reveal #home-view .section--scroll-reveal.section--scroll-reveal
   max-width: 14rem;
 }
 
+/* [hidden] must win — without this, display:inline-flex overrides the hidden attribute (both "Sign in" + user row show). */
+.nav-oauth-link[hidden],
+.nav-oauth-user[hidden] {
+  display: none !important;
+}
+
 .nav-oauth-name {
   overflow: hidden;
   text-overflow: ellipsis;
